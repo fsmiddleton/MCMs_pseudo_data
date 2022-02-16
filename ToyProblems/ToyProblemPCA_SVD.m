@@ -16,22 +16,30 @@ if import ==1
     sparsity = 0.20;
 else 
     %create array 
+    n=80;
+    m=50;
+    rank = 5;
+    mu = 10;
+    sigma = 5;
+    [X, rankU, rankV]=create_matrix(n,m,rank, mu, sigma);
 end 
 
 % remove data or fill a matrix 
 remove = 1;
+sparsity = 0.20;
 if remove ==1
-    [Xs,remove_ind] = remove_data(X,sparsity);
+    [Xs,missing_ind] = remove_matrix(X,sparsity);
 else 
     [Xs,missing_ind]=fill_matrix(X,sparsity);
 end 
 Xs = X;
 mu = mean(X);
 sigma = std(X);
-remove_ind = 1:597*1024;
 n = size(X,2);
 m = size(X,1);
-fns = [1,20,50,100,200];
+remove_ind = 1:(n*m);
+
+fns = [1,2,5,10,20];
 num_fns = size(fns,2);
 mse = zeros(num_fns,1);
 smse = zeros(num_fns,1);
@@ -39,9 +47,9 @@ i=0;
 for fn=fns
     [U,D,V,X_pred]=missing_svd(Xs,fn,1,1e-3,1000);
     i=i+1;
-    SRSS = sqrt((sum((X_pred(remove_ind)-X(remove_ind)).^2)));
-    mse(i) = (sum((X_pred(remove_ind)-X(remove_ind)).^2))/length(remove_ind);
-    wmse;
+    SRSS = sqrt((sum((X_pred(missing_ind)-X(missing_ind)).^2)));
+    mse(i) = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
+    wmse(i)= find_wmse(X(missing_ind), X_pred(missing_ind), length(missing_ind));
     smse(i) = sqrt(mse(i));
 end 
 minmse = min(mse);
@@ -52,29 +60,64 @@ mse_final = minmse;
 
 %% Plots of the singular values 
 subplot(2,1,1)
-semilogy(1:m, diag(D))
+semilogy(1:n, diag(D))
 subplot(2,1,2)
-plot(1:m,cumsum(diag(D))/sum(diag(D)))
+plot(1:n,cumsum(diag(D))/sum(diag(D)))
 %% Functions 
+function [X, rankU, rankV]=create_matrix(n,m,r, mu, sigma)
+    % create a matrix of size nxm with rank =r using SVD 
+    
+    sing_vals = normrnd(mu, sigma, r,1); % generate r singular values that are normally distributed 
+    sing_vals = sort(sing_vals, 'descend'); % sorted from highest to lowest
+    D = zeros(n,m);%initialise D 
+    for i = 1:r
+        disp(i)
+        D(i,i) = sing_vals(i); %populate array with values 
+    end 
+    % fill the matrices U,V with random entries
+    U = rand(n,n);
+    V = rand(m,m);
+    % find orthonormal bases of U and V 
+    rankU = rank(U);
+    rankV = rank(V);
+    U = orth(U);
+    V = orth(V);
+    %fill the final matrix 
+    X = U*D*V'; %create the matrix of rank r
+end 
+
 function [X_sparse,remove_ind]=fill_matrix(X, perc_remove)
-% fill data into a matrix until you have reached 1-perc_remove, save all
-% indices not filled 
-[n,m]=size(X);
-num_removed = floor(m*n*perc_remove);
-%create NaN matrix 
-X_sparse = NaN(n,m);
-for k= 1:(m*n-num_removed) % remove this many values from array X 
+    % fill data into a matrix until you have reached 1-perc_remove, save all
+    % indices not filled 
+    [n,m]=size(X);
+    num_removed = floor(m*n*perc_remove);
+    %create NaN matrix 
+    X_sparse = NaN(n,m);
+    X_filled_indices = zeros(n,m);
+    % fill in one entry in every row and column, randomly 
+    filled_cols = [];
+    cols=randperm(m); % sort the columns in a random order 
+    for i = 1:n
+        for j =1:cols 
+            X_sparse(i, j)=X(i,j);
+            X_filled_indices(i,j)=1;
+        end 
+    end 
+    
+    for k= 1:(m*n-num_removed) % remove this many values from array X 
         i = randi(m,1); %matrix inidices start at 1 in MATLAB
         j = randi(n,1);
-        while isnan(X_sparse(i,j))
-            i = randi(n,1); %repeat the removal if necessary  
-            j = randi(m,1);
+        while X_filled_indices(i,j)==1
+            %repeat the filling if this index is already filled 
+            i = randi(n,1); %row
+            j = randi(m,1);%col
         end 
-        X_sparse(i,j)= X(i,j); %reassign value as NaN value 
+        X_sparse(i,j)= X(i,j); %reassign value as original X value 
     end 
     remove_ind = find(isnan(X_sparse));
 end 
-function [X_sparse,remove_ind]=remove_data(X,perc_remove)
+
+function [X_sparse,remove_ind]=remove_matrix(X,perc_remove)
 % Remove data from the X matrix until the percentage is removed, must
 % remove entire rows or columns for the matrix to make sense
     [m,n]=size(X);
@@ -163,23 +206,14 @@ function [S,V,D,X_pred]=missing_svd(X,fn,center,conv,max_iter)
     end %end if  else 
 end % end function 
 
-function [X, rankU, rankV]=create_matrix(n,m,rank, mu, sigma)
-    % create a matrix of size nxm with rank =r using SVD 
-    
-    sing_vals = normrnd(mu, sigma, r,1); % generate r singular values that are normally distributed 
-    sing_vals = sort(sing_vals, 'descend'); % sorted from highest to lowest
-    D = zeros(n,m);%initialise D 
-    for i = 1:r
-        D(i,i) = sing_vals(i); %populate array with values 
-    end 
-    % fill the matrices U,V with random entries
-    U = rand(n,n);
-    V = rand(m,m);
-    % find orthonormal bases of U and V 
-    rankU = rank(U);
-    rankV=rank(V);
-    U = orth(U);
-    V = orth(V);
-    %fill the final matrix 
-    X = U*D*V'; %create the matrix of rank r
+function [wmse]=find_wmse(X,X_pred,no_missing)
+% find the winsorized mse for the matrices 
+    % turn 
+    % find outliers
+    perc5 = prctile(X_pred,5, 'all');
+    perc95 = prctile(X_pred, 95, 'all');
+    %reassign
+    X_pred(X_pred<perc5)=perc5;
+    X_pred(X_pred> perc95)=perc95;
+    wmse = (sum((X_pred-X).^2))/no_missing;
 end 
