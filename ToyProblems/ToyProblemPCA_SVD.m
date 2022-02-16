@@ -1,9 +1,11 @@
 % correlated matrix of spectral data, manuscript available (highly correlated data):
 % https://www.kaggle.com/sergioalejandrod/raman-spectroscopy
 
+
+%% Import or create data matrix for testing 
 clc
 clear
-%% Import or create data matrix for testing 
+
 import = 0;
 if import ==1
     T1 = readtable('raman_mix1_spectrum.xlsx', 'Sheet', 'mix_1');
@@ -13,15 +15,18 @@ if import ==1
 
     T = cat(1, T1, T2, T3, T4); % concatenate arrays vertically 
     X = table2array(T1);
-    sparsity = 0.20;
+    sparsity = 0.70;
 else 
-    %create array 
+    %create array
+    %speficy size and rank of array, choosing random mu and sigma to create
+    %singular values from 
     n=80;
     m=50;
     rank = 5;
     mu = 10;
     sigma = 5;
     [X, rankU, rankV]=create_matrix(n,m,rank, mu, sigma);
+    
 end 
 
 % remove data or fill a matrix 
@@ -39,7 +44,7 @@ n = size(X,2);
 m = size(X,1);
 remove_ind = 1:(n*m);
 
-fns = [1,2,5,10,20];
+fns = [1,2,3,4,5];
 num_fns = size(fns,2);
 mse = zeros(num_fns,1);
 smse = zeros(num_fns,1);
@@ -53,10 +58,13 @@ for fn=fns
     smse(i) = sqrt(mse(i));
 end 
 minmse = min(mse);
+minwmse=min(wmse);
+minw_index = find(wmse==minwmse);
 min_index = find(mse==minmse);
-min_fn = fns(min_index);
+min_fn = fns(minw_index);
 [U,D,V,X_pred]=missing_svd(Xs,min_fn,1,1e-3,1000);
-mse_final = minmse;
+mse_final = mse(minw_index);
+wmse_final = minwmse;
 
 %% Plots of the singular values 
 subplot(2,1,1)
