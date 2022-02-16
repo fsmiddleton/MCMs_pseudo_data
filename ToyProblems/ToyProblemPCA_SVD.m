@@ -15,14 +15,15 @@ if import ==1
 
     T = cat(1, T1, T2, T3, T4); % concatenate arrays vertically 
     X = table2array(T1);
-    sparsity = 0.70;
+    n = size(X,2);
+    m = size(X,1);
 else 
     %create array
     %speficy size and rank of array, choosing random mu and sigma to create
     %singular values from 
-    n=80;
-    m=50;
-    rank = 5;
+    n=200;
+    m=150;
+    rank = 7;
     mu = 10;
     sigma = 5;
     [X, rankU, rankV]=create_matrix(n,m,rank, mu, sigma);
@@ -31,40 +32,56 @@ end
 
 % remove data or fill a matrix 
 remove = 1;
-sparsity = 0.20;
-if remove ==1
-    [Xs,missing_ind] = remove_matrix(X,sparsity);
-else 
-    [Xs,missing_ind]=fill_matrix(X,sparsity);
-end 
-Xs = X;
-mu = mean(X);
-sigma = std(X);
-n = size(X,2);
-m = size(X,1);
 remove_ind = 1:(n*m);
 
-fns = [1,2,3,4,5];
-num_fns = size(fns,2);
-mse = zeros(num_fns,1);
-smse = zeros(num_fns,1);
-i=0;
-for fn=fns
-    [U,D,V,X_pred]=missing_svd(Xs,fn,1,1e-3,1000);
-    i=i+1;
-    SRSS = sqrt((sum((X_pred(missing_ind)-X(missing_ind)).^2)));
-    mse(i) = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
-    wmse(i)= find_wmse(X(missing_ind), X_pred(missing_ind), length(missing_ind));
-    smse(i) = sqrt(mse(i));
+%choose how sparse test matrices will be and the number of PCs tested 
+sparsities = [0.1,0.2,0.3,0.4,0.5,0.6];
+fns = [1,2,3,4,5,6,7,8,9,10];
+
+%choose which error measure to use for choosing the best PC
+winsorized_mse =1; %1=use wmse 
+
+% initialise error vars 
+mse = zeros(size(fns,2),1);
+smse = zeros(size(fns,2),1);
+wmse = zeros(size(fns,2),1);
+minmse = zeros(size(sparsities,2),1);
+minwmse = zeros(size(sparsities,2),1);
+min_fn = zeros(size(sparsities,2),1);
+X_pred_best = zeros(n,m,size(sparsities,2)); % and the X predictions
+
+j=0;
+for sparsity=sparsities
+    j=j+1;
+    if remove ==1
+        [Xs,missing_ind] = remove_matrix(X,sparsity);
+    else 
+        [Xs,missing_ind]=fill_matrix(X,sparsity);
+    end 
+    
+    i=0;
+    for fn=fns
+        [U,D,V,X_pred]=missing_svd(Xs,fn,1,1e-3,1000);
+        i=i+1;
+        SRSS = sqrt((sum((X_pred(missing_ind)-X(missing_ind)).^2)));
+        mse(i) = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
+        wmse(i)= find_wmse(X(missing_ind), X_pred(missing_ind), length(missing_ind));
+        smse(i) = sqrt(mse(i));
+    end
+    
+    minmse(j) = min(mse);
+    minwmse(j)=min(wmse);
+    if winsorized_mse ==1
+        min_index = find(wmse==minwmse(j));
+    else
+        min_index = find(mse==minmse(j));
+    end 
+    min_fn(j) = fns(min_index);
+    [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn,1,1e-3,1000);
 end 
-minmse = min(mse);
-minwmse=min(wmse);
-minw_index = find(wmse==minwmse);
-min_index = find(mse==minmse);
-min_fn = fns(minw_index);
-[U,D,V,X_pred]=missing_svd(Xs,min_fn,1,1e-3,1000);
-mse_final = mse(minw_index);
-wmse_final = minwmse;
+
+ 
+
 
 %% Plots of the singular values 
 subplot(2,1,1)
