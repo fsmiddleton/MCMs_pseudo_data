@@ -17,9 +17,13 @@ if import ==1
     X = table2array(T1);
     n = size(X,2);
     m = size(X,1);
+elseif import ==2
+    load ovariancancer
+    data = obs;
+        
 else 
     %create array
-    %speficy size and rank of array, choosing random mu and sigma to create
+    %specify size and rank of array, choosing random mu and sigma to create
     %singular values from 
     n=200;
     m=150;
