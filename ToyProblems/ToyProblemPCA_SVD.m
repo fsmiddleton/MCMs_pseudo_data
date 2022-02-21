@@ -24,7 +24,7 @@ else
     %singular values from 
     n=200;
     m=150;
-    rank = 12;
+    rank = 10;
     mu = 0;
     sigma = 1;
     noise=1;
@@ -41,7 +41,7 @@ remove = 0;
 remove_ind = 1:(n*m);
  
 %Time to choose how to find the best rank
-Gavish =1;
+Gavish =0;
  % Choose sparsities used for finding the rank 
 sparsities = [0.1,0.2,0.3,0.4,0.5,0.6];
 
@@ -69,10 +69,13 @@ for sparsity = sparsities
         elseif n/m < 1
             omega = optimal_SVHT_coef_sigma_unknown(n/m);
         else
-            omega = optimal_SVHT_coef_sigma_unknown(m/n); 
+            beta = m/n;
+            %omega = optimal_SVHT_coef_sigma_unknown(m/n); 
+            omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
         end 
         [U,D,V,X_pred]=missing_svd(Xs,m,1,1e-4,200); % PCA done once, the matrix needs to be filled to do this
-        y_med = median(diag(D));
+        
+        y_med = median(diag(D)); %ymed = median singular value of the noisy matrix  
         cutoff = omega*y_med; %cutoff= tau= omega(beta)*ymed; matrix
          % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
         d = diag(D);
@@ -124,9 +127,18 @@ end
 
 %% Plots of the singular values 
 subplot(2,1,1)
-semilogy(1:n, diag(D))
+y = diag(D);
+semilogy(1:m, diag(D))
+hold on 
+semilogy(rank, y(rank), 'ro')
+hold off
 subplot(2,1,2)
-plot(1:n,cumsum(diag(D))/sum(diag(D)))
+plot(1:m,cumsum(diag(D))/sum(diag(D)))
+hold on
+y2 = y(1:rank);
+realranky = cumsum(y(1:rank));
+plot(rank, realranky(rank)/sum(diag(D)), 'ro')
+hold off
 %% Functions 
 function [X,Xnoise, rankU, rankV]=create_matrix(n,m,r, mu, sigma)
     % create a matrix of size nxm with rank =r using SVD 
