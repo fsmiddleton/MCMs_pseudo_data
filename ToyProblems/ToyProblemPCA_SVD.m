@@ -24,19 +24,20 @@ else
     %singular values from 
     n=200;
     m=150;
-    rank = 7;
+    rank = 12;
     mu = 0;
     sigma = 1;
     noise=1;
-    [X,Xnoise rankU, rankV]=create_matrix(n,m,rank, mu, sigma);
+    [X,Xnoise, rankU, rankV]=create_matrix(n,m,rank, mu, sigma);
     Xdiff=X-Xnoise;
+    disp(rank)
     if noise ==0
         X=Xnoise;
     end 
 end 
 %%
 % remove data or fill a matrix 
-remove = 1;
+remove = 0;
 remove_ind = 1:(n*m);
  
 %Time to choose how to find the best rank
@@ -51,10 +52,10 @@ min_fn = zeros(size(sparsities,2),1);
 X_pred_best = zeros(n,m,size(sparsities,2)); % and the X predictions
 
 j=0;
-for sparsity= sparsities
+for sparsity = sparsities
     j=j+1;
     % Create the sparse matrix 
-    if remove ==1
+    if remove == 1
         [Xs,missing_ind] = remove_matrix(X,sparsity);
     else 
         [Xs,missing_ind]=fill_matrix(X,sparsity);
@@ -62,6 +63,7 @@ for sparsity= sparsities
     
     % Find the optimal rank for this matrix
     if Gavish==1
+        %Hard thresholding 
         if n/m ==1
             omega = 2.858; % omega(beta)=2.858 for n*n
         elseif n/m < 1
@@ -69,18 +71,23 @@ for sparsity= sparsities
         else
             omega = optimal_SVHT_coef_sigma_unknown(m/n); 
         end 
-        [U,D,V,X_pred]=missing_svd(Xs,m,1,1e-3,1000);
+        [U,D,V,X_pred]=missing_svd(Xs,m,1,1e-4,200); % PCA done once, the matrix needs to be filled to do this
         y_med = median(diag(D));
         cutoff = omega*y_med; %cutoff= tau= omega(beta)*ymed; matrix
-        fn = max(find(diag(D)>cutoff)); % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
-        [U,D,V,X_pred]=missing_svd(Xs,fn,1,1e-3,1000);
-        i=i+1;
+         % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
+        d = diag(D);
+        disp(cutoff)
+        d(d<(cutoff))=0;
+        fn = length(find(diag(D)>cutoff));
+        disp(fn)
+        X_pred = U*diag(d)*V';
         SRSS = sqrt((sum((X_pred(missing_ind)-X(missing_ind)).^2)));
         minmse(j) = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
         minwmse(j)= find_wmse(X(missing_ind), X_pred(missing_ind), length(missing_ind));
         min_fn(j) = fn;
-        
+        X_pred_best(:,:,j) = X_pred;
     else
+        % Iterative PCA
         fns = [1,2,3,4,5,6,7,8,9,10];
 
         %choose which error measure to use for choosing the best PC
@@ -94,7 +101,7 @@ for sparsity= sparsities
         %Find rank by minimising the mse or wmse 
         i=0;
         for fn=fns
-            [U,D,V,X_pred]=missing_svd(Xs,fn,1,1e-3,1000);
+            [U,D,V,X_pred]=missing_svd(Xs,fn,1,1e-3,1000);%iterative PCA
             i=i+1;
             SRSS = sqrt((sum((X_pred(missing_ind)-X(missing_ind)).^2)));
             mse(i) = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
@@ -109,8 +116,9 @@ for sparsity= sparsities
             min_index = find(mse==minmse(j));
         end 
         min_fn(j) = fns(min_index);
+        [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1e-3,1000);
     end 
-    [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn,1,1e-3,1000);
+    
 end 
 
 
@@ -151,7 +159,7 @@ function [X_sparse,remove_ind]=fill_matrix(X, perc_remove)
     X_sparse = NaN(n,m);
     X_filled_indices = zeros(n,m);
     % fill in one entry in every row and column, randomly 
-    filled_rows = [];
+    filled_rows = zeros(n,1);
     cols=randperm(m); % sort the columns in a random order 
     for j =cols
         i = randi([1,n],1);
@@ -228,12 +236,13 @@ function [S,V,D,X_pred]=missing_svd(X,fn,center,conv,max_iter)
             if center ==1
                 mx = mean(Xf);
                 %Xc = normalize(Xf); %normalizing 
-                Xc = Xf-ones(m,1)*mx; %centering
+                Xc = Xf-ones(m,1)*mx; %centering of the data done -> for PCA 
             else 
                 Xc=Xf;
             end 
             [S,V,D]=svd(Xc);
             S=S*V;
+            V=V(:,1:fn);
             S=S(:,1:fn);
             D=D(:,1:fn);
             if center ==1
