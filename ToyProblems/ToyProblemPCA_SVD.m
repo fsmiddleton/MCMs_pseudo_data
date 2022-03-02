@@ -9,12 +9,7 @@ import = 0;% import =1 to import a full test matrix, import = 0 to create a low 
 if import ==0
     % correlated matrix of spectral data, manuscript available (highly correlated data):
     % https://www.kaggle.com/sergioalejandrod/raman-spectroscopy
-    T1 = readtable('raman_mix1_spectrum.xlsx', 'Sheet', 'mix_1');
-    T2 = readtable('raman_mix2_spectrum.xlsx', 'Sheet', 'mix_2');
-    T3 = readtable('raman_mix3_spectrum.xlsx', 'Sheet', 'mix_3');
-    T4 = readtable('raman_mix4_spectrum.xlsx', 'Sheet', 'mix_4');
-
-    T = cat(1, T1, T2, T3, T4); % concatenate arrays vertically 
+    T1 = readtable('raman_mix1_spectrum.xlsx', 'Sheet', 'mix_1'); 
     X = table2array(T1);%only use T1, small enough to manage
     n = size(X,2);
     m = size(X,1);
