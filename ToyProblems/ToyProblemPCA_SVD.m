@@ -22,8 +22,8 @@ else
     %create array
     %specify size and rank of array, choosing random mu and sigma to create
     %singular values from 
-    n=200;
-    m=150;
+    n=50;
+    m=50;
     rank = 10;
     mu = 0;
     sigma = 1;
@@ -35,6 +35,14 @@ else
         X=Xnoise;
     end 
 end 
+%% Plot the matrix
+clf
+[Xs,missing_ind,filled_linear_ind]=fill_matrix(X,0.5);
+hm = HeatMap(Xs);
+addXLabel(hm,'Component 1','FontSize',12);
+addYLabel(hm,'Component 2','FontSize',12);
+view(hm)
+
 %%
 % remove data or fill a matrix 
 remove = 0;
@@ -56,9 +64,9 @@ for sparsity = sparsities
     j=j+1;
     % Create the sparse matrix 
     if remove == 1
-        [Xs,missing_ind] = remove_matrix(X,sparsity);
+        [Xs,missing_ind, filled_linear_ind] = remove_matrix(X,sparsity);
     else 
-        [Xs,missing_ind]=fill_matrix(X,sparsity);
+        [Xs,missing_ind,filled_linear_ind]=fill_matrix(X,sparsity);
     end 
     
     % Find the optimal rank for this matrix
@@ -90,7 +98,7 @@ for sparsity = sparsities
         min_fn(j) = fn;
         X_pred_best(:,:,j) = X_pred;
     else
-        % Iterative PCA
+        % Iterative PCA with wMSE or MSE used to find rank 
         fns = [1,2,3,4,5,6,7,8,9,10];
 
         %choose which error measure to use for choosing the best PC
@@ -104,12 +112,14 @@ for sparsity = sparsities
         %Find rank by minimising the mse or wmse 
         i=0;
         for fn=fns
-            [U,D,V,X_pred]=missing_svd(Xs,fn,1,1e-3,1000);%iterative PCA
+            [U,D,V,X_pred]=missing_svd(Xs,fn,1,1e-3,1000);
             i=i+1;
             SRSS = sqrt((sum((X_pred(missing_ind)-X(missing_ind)).^2)));
             mse(i) = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
             wmse(i)= find_wmse(X(missing_ind), X_pred(missing_ind), length(missing_ind));
             smse(i) = sqrt(mse(i));
+            %error bars
+            
         end
         minmse(j) = min(mse);
         minwmse(j)=min(wmse);
@@ -120,6 +130,38 @@ for sparsity = sparsities
         end 
         min_fn(j) = fns(min_index);
         [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1e-3,1000);
+    end
+    
+    %error bars
+    X_pred_boot = zeros(n,m,size(filled_linear_ind,1));
+    boot_removed_col = zeros(size(filled_linear_ind,1),1);
+    boot_removed_row = zeros(size(filled_linear_ind,1),1);
+    j=0;
+    for filled_ind = filled_linear_ind' %filled_linear_ind must be a row vector for a for loop
+        %Find error bars of the predictions 
+        % remove a point from Xs 
+        X_b = Xs;
+        col = mod(filled_ind,m);
+        if col ==0
+            col=m;% mod(any integer*m,m)=0, but the column should be column m
+        end 
+        row = ceil(filled_ind/m);
+        X_b(filled_ind) = nan;
+        if find(X_b(:,col)) & find(X_b(row,:)) %ensure at least one value in each column and row
+            j=j+1;
+            boot_removed_col(j) = col;
+            boot_removed_row(j) = row;
+            %if there are other entries in the rows and columns,
+            %perform iterative PCA on the slightly more empty matrix 
+            [U,D,V,X_pred_boot(:,:,j)]=missing_svd(X_b,min(fn),1,1e-3,1000);%iterative PCA using the known rank 
+        end 
+    end 
+    % remove the predictions that were not made from the averaging and
+    % finding variance 
+    
+    for l=1:j
+        X_pred_best_boot(boot_removed_row(l), boot_removed_col(l)) = mean(X_pred_boot(boot_removed_row(l), boot_removed_col(l), :));
+        X_var_best_boot(boot_removed_row(l), boot_removed_col(l)) = var(X_pred_boot(boot_removed_row(l), boot_removed_col(l), :));
     end 
     
 end 
@@ -139,6 +181,10 @@ y2 = y(1:rank);
 realranky = cumsum(y(1:rank));
 plot(rank, realranky(rank)/sum(diag(D)), 'ro')
 hold off
+
+%% Reorder data to test the change of the order of the data (in rows and columns) and how this affects the final predictions 
+
+
 %% Functions 
 function [X,Xnoise, rankU, rankV]=create_matrix(n,m,r, mu, sigma)
     % create a matrix of size nxm with rank =r using SVD 
@@ -162,7 +208,7 @@ function [X,Xnoise, rankU, rankV]=create_matrix(n,m,r, mu, sigma)
     Xnoise = X+randn(size(X))/sqrt(n*m);
 end 
 
-function [X_sparse,remove_ind]=fill_matrix(X, perc_remove)
+function [X_sparse,remove_ind, fill_ind]=fill_matrix(X, perc_remove)
     % fill data into a matrix until you have reached 1-perc_remove, save all
     % indices not filled 
     [n,m]=size(X);
@@ -196,9 +242,10 @@ function [X_sparse,remove_ind]=fill_matrix(X, perc_remove)
         X_sparse(i,j)= X(i,j); %reassign value as original X value 
     end 
     remove_ind = find(isnan(X_sparse));
+    fill_ind = find(~isnan(X_sparse));
 end 
 
-function [X_sparse,remove_ind]=remove_matrix(X,perc_remove)
+function [X_sparse,remove_ind,fill_ind]=remove_matrix(X,perc_remove)
 % Remove data from the X matrix until the percentage is removed, must
 % remove entire rows or columns for the matrix to make sense
     [m,n]=size(X);
@@ -215,6 +262,7 @@ function [X_sparse,remove_ind]=remove_matrix(X,perc_remove)
         X_sparse(i,j)= nan; %reassign value as NaN value 
     end 
     remove_ind = find(isnan(X_sparse));
+    fill_ind = find(~isnan(X_sparse));
 end 
 
 function [X_filled]=fill_data(X)
