@@ -1,20 +1,21 @@
-% correlated matrix of spectral data, manuscript available (highly correlated data):
-% https://www.kaggle.com/sergioalejandrod/raman-spectroscopy
-
+%% Toy problem to create code for SVD used for matrix completion 
+% Francesca Middleton, 2022-03-02
 
 %% Import or create data matrix for testing 
 clc
 clear
 
-import = 0;
-if import ==1
+import = 0;% import =1 to import a full test matrix, import = 0 to create a low rank matrix
+if import ==0
+    % correlated matrix of spectral data, manuscript available (highly correlated data):
+    % https://www.kaggle.com/sergioalejandrod/raman-spectroscopy
     T1 = readtable('raman_mix1_spectrum.xlsx', 'Sheet', 'mix_1');
     T2 = readtable('raman_mix2_spectrum.xlsx', 'Sheet', 'mix_2');
     T3 = readtable('raman_mix3_spectrum.xlsx', 'Sheet', 'mix_3');
     T4 = readtable('raman_mix4_spectrum.xlsx', 'Sheet', 'mix_4');
 
     T = cat(1, T1, T2, T3, T4); % concatenate arrays vertically 
-    X = table2array(T1);
+    X = table2array(T1);%only use T1, small enough to manage
     n = size(X,2);
     m = size(X,1);
         
@@ -27,22 +28,24 @@ else
     rank = 10;
     mu = 0;
     sigma = 1;
-    noise=1;
+    noise=1; %noise =1 to add noise
     [X,Xnoise, rankU, rankV]=create_matrix(n,m,rank, mu, sigma);
     Xdiff=X-Xnoise;
     disp(rank)
-    if noise ==0
+    if noise ==1
         X=Xnoise;
     end 
 end 
-%% Plot the matrix
+%% Plot the matrix generated
 clf
-[Xs,missing_ind,filled_linear_ind]=fill_matrix(X,0.5);
-hm = HeatMap(Xs);
+%[Xs,missing_ind,filled_linear_ind]=fill_matrix(X,0.5);%missing data 
+hm = HeatMap(X);
 addXLabel(hm,'Component 1','FontSize',12);
 addYLabel(hm,'Component 2','FontSize',12);
 view(hm)
-
+histogram(X)
+xlabel('Value in the matrix X')
+ylabel('Frequency')
 %%
 % remove data or fill a matrix 
 remove = 0;
