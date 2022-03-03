@@ -18,6 +18,7 @@ HE  = table2array(data(:,12));
 
 %collect first data point 
 %find all data points that match this
+
 interp_index = zeros(length(data.FunctionalGroup1),1);%variable to save the indexes that have been interpolated
 index = 1;%current index, 
 %collect first data point
@@ -28,62 +29,80 @@ index = 1;%current index,
 
 % Specify the mixtures wanted in the matrix. The algorithm will find all
 % combinations of functional group 1 and 2. Only organic molecules were considered here  
-func_groups.one = ['Alkane', 'Primaryalcohol'];% 'Secondaryalcohol', 'Ketone', 'Alkene','Cycloalkane'];
-func_groups.two = ['Alkane', 'Primaryalcohol'];
+func_groups.one = {'Alkane', 'Primaryalcohol'};% 'Secondaryalcohol', 'Ketone', 'Alkene','Cycloalkane'];
+func_groups.two = {'Alkane', 'Primaryalcohol'};
 max_chain_length = 10; 
 T = 298.15; % temperature in kelvin used for the matrix
 % P = 101.33; % pressure in kPa used for the matrix
 
-conc_interval = 0:0.1:1;
+conc_interval = 0.1:0.1:0.9;
+c = length(conc_interval);
 %First restrict data to relevant temperatures. Can add a for loop here
 %later 
 T_loc = find(data.Temperature==T);
 temp_data = data(T_loc, :);
 
+HE_data = zeros(length(conc_interval), (length(func_groups.one)*length(func_groups.two)*max_chain_length^2));
+f1=0;
+
 for func1= func_groups.one
+    f1=f1+1;
+    f2=0;
     % restrict to mixtures containing the wanted functional group in
     % position 1
-    func1_loc = find(temp_data.FunctionalGroup1==func1); % you can't directly compare strings 
-    temp1 = temp_data(func1_loc);
+    func1_loc= find(strcmp(temp_data.FunctionalGroup1, func1));
+    temp1 = temp_data(func1_loc,:);
     for func2= func_groups.two
+        f2=f2+1;
         % restrict to mixtures containing the wanted functional group in
         % position 2
-        func2_loc = find(temp1.FunctionalGroup2==func2);
-        temp2 = temp1(func2_loc);
+        func2_loc = find(strcmp(temp1.FunctionalGroup2, func2));
+        temp2 = temp1(func2_loc,:);
         % now loop through chain lengths 
         for i =1:max_chain_length
-            chain1_loc = find(temp2.ChainLength1==i);
-            temp3 = temp2(chain1_loc)
-            for j =1:max_chain_length
-                chain2_loc = find(temp3.ChainLength2==j);
-                temp4 = temp3(chain2_loc); % this is the data we interpolate 
-                [HE(i), uncertainty(i)]=interp_data(temp4, conc_interval);
+            chain1_loc = find(temp2.Chainlength1==i);
+            temp3 = temp2(chain1_loc,:);
+            if size(temp3,1)>0
+                for j =1:max_chain_length
+                    chain2_loc = find(temp3.Chainlength2==j);
+                    temp4 = temp3(chain2_loc,:); % this is the data we interpolate
+                    if size(temp4,1)>1
+                        disp(size(temp4,1))
+                        [HE_data(:,f2*f1*i*j), uncertainty(:,f2*f1*i*j)]=interp_data(temp4, conc_interval);
+                    end 
+                end 
             end 
         end 
         
     end 
 end 
+%% Populate matrix 
 
-
+%%
 function [HE, uncertainty]=interp_data(data, conc_interval)
     % Interpolate data for use in the matrices
     % Inputs specify the mixture to be captured and the concentration
-    % interval for which to create interpolate points 
-    % data = the whole table of 
-    % func_group = functional groups 1 and 2 in func_group.1 and ...2
-    % chain_length = chain lengths of groups 1 and 2 in chain_length.1 and .2 
-    % T = temperature in Kelvin 
+    % interval for which to create interpolate points
+    
+    % data = the whole table of data to be interpolated
     % conc_interval = list of concentrations for interpolation 
     
     % Ouputs is the data produced by the interpolation, ready for
     % matrix populating 
     % HE = excess enthalpy data at each concentration value for the mixture
-    % uncertainty = uncertainty associated with each data point 
+    % uncertainty = uncertainty associated with each data point, to be
+    % added
+    HE_original = data.Excessenthalpy;
+    comp = data.Compositioncomponent1;
+    % remove the 0 and 1 data points 
+    ind_keep = find(HE_original ~=0);
     
-    HE = zeros(length(conc),1);
-    for i=1:length(conc)
-        %populate the data 
-        HE(i) = interp_data(conc(i));
-    end 
+    HE_new= HE_original(ind_keep);
+    comp_new = comp(ind_keep);
+    %interpolate the data 
+    disp(HE_new)
+    [p,S, mu] = polyfit(comp_new, HE_new,4);
+    [HE,uncertainty] = polyval(p,conc_interval, S);
+    %populate the data 
 
 end 
