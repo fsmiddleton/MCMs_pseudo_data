@@ -42,9 +42,13 @@ c = length(conc_interval);
 T_loc = find(data.Temperature==T);
 temp_data = data(T_loc, :);
 
+% create matrices to populate with each mixture's data 
 HE_data = zeros(length(conc_interval), (length(func_groups.one)*length(func_groups.two)*max_chain_length^2));
-f1=0;
+dim1= 40;
+conc_original = zeros(dim1, (length(func_groups.one)*length(func_groups.two)*max_chain_length^2));
+HE_original = zeros(dim1, (length(func_groups.one)*length(func_groups.two)*max_chain_length^2));
 
+f1=0;
 for func1= func_groups.one
     f1=f1+1;
     f2=0;
@@ -67,16 +71,26 @@ for func1= func_groups.one
                     chain2_loc = find(temp3.Chainlength2==j);
                     temp4 = temp3(chain2_loc,:); % this is the data we interpolate
                     if size(temp4,1)>1
-                        disp(size(temp4,1))
+                        % interpolate data and populate matrix of all data
                         [HE_data(:,f2*f1*i*j), uncertainty(:,f2*f1*i*j)]=interp_data(temp4, conc_interval);
+                        % save original data in the same order
+                        conc_original(1:size(temp4,1),f2*f1*i*j) = temp4.Compositioncomponent1;
+                        HE_original(1:size(temp4,1),f2*f1*i*j) = temp4.Excessenthalpy;
                     end 
                 end 
             end 
         end 
         
     end 
-end 
-%% Populate matrix 
+end
+%% Check the interpolation worked nicely 
+clf
+mix = 12;
+plot(conc_interval, HE_data(:,mix), 'LineWidth', 5)
+hold on 
+plot(conc_original(:,mix), HE_original(:,mix))
+legend('Interpolated', 'Experimental')
+%% Populate matrix
 
 %%
 function [HE, uncertainty]=interp_data(data, conc_interval)
@@ -100,8 +114,8 @@ function [HE, uncertainty]=interp_data(data, conc_interval)
     HE_new= HE_original(ind_keep);
     comp_new = comp(ind_keep);
     %interpolate the data 
-    disp(HE_new)
-    [p,S, mu] = polyfit(comp_new, HE_new,4);
+    
+    [p,S] = polyfit(comp_new, HE_new,7);
     [HE,uncertainty] = polyval(p,conc_interval, S);
     %populate the data 
 
