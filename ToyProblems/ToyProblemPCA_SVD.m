@@ -5,8 +5,16 @@
 clc
 clear
 
-import = 0;% import =1 to import a full test matrix, import = 0 to create a low rank matrix
-if import ==0
+import = 2;
+% import =1 to import a full test matrix of spectroscopy data, 
+% import =2 to import excess enthalpy data, 
+% import = 0 to create a low rank matrix, 
+% import =3 to fetch an already created low rank matrix
+
+export = 1; % either export data(1) or don't, only used for creating a low rank matrix
+noise=1; %noise =1 to add noise to the creation of the matrix
+
+if import ==1
     % correlated matrix of spectral data, manuscript available (highly correlated data):
     % https://www.kaggle.com/sergioalejandrod/raman-spectroscopy
     T1 = readtable('raman_mix1_spectrum.xlsx', 'Sheet', 'mix_1'); 
@@ -14,22 +22,60 @@ if import ==0
     n = size(X,2);
     m = size(X,1);
         
-else 
-    %create array
-    %specify size and rank of array, choosing random mu and sigma to create
-    %singular values from 
+elseif import ==0
+    % create array
+    % specify size and rank of array, choosing random mu and sigma to create
+    % singular values from, and the noise  
     n=50;
     m=50;
-    rank = 10;
+    rank_mat = 10;
     mu = 0;
     sigma = 1;
-    noise=1; %noise =1 to add noise
-    [X,Xnoise, rankU, rankV]=create_matrix(n,m,rank, mu, sigma);
-    Xdiff=X-Xnoise;
-    disp(rank)
+    [Xs,Xnoise, rankU, rankV]=create_matrix(n,m,rank_mat, mu, sigma);
+    Xdiff=Xs-Xnoise;
+    disp(rank_mat)
     if noise ==1
         X=Xnoise;
+    else 
+        X = Xs;
     end 
+     
+    if export ==1
+        %create table with all this information
+        Ts = array2table(Xs);
+        Tnoise = array2table(Xnoise);
+        Tfinal = array2table(X);
+        info = table(["rank_mat"; "mu"; "sigma"; "noise"],[rank_mat; mu; sigma; noise], ["Sheet1";"Sheet2";"Sheet3";"Sheet4"], ["Info"; "Random matrix";"Noise matrix";"Noisy matrix"] );
+        %export it 
+        filename = 'RandomMatrix.xlsx';
+        sheetname = append('Rank', num2str(rank_mat));
+        writetable(info,filename,'Sheet',1)
+        writetable(Ts,filename,'Sheet',2)
+        writetable(Tnoise,filename,'Sheet',3)
+        writetable(Tfinal,filename,'Sheet',4)
+    end 
+    
+elseif import ==2
+    %import the data from the previously created random matrix 
+    if noise == 1
+        T2 = readtable('RandomMatrix.xlsx', 'Sheet', 4);
+    else
+        T2 = readtable('RandomMatrix.xlsx', 'Sheet', 2);
+    end 
+    X = table2array(T2);
+    n = size(X,2);
+    m = size(X,1);
+    T3 = readtable('RandomMatrix.xlsx', 'Sheet', 1);
+    rank_mat = T3(2,2);
+    
+elseif import ==3
+    % Import excess enthalpy data 
+    T1 = readtable('HEmatrix.xlsx', 'Sheet', 1); 
+    X = table2array(T1);%only use T1, small enough to manage
+    n = size(X,2);
+    m = size(X,1);
+else
+    disp('Please choose 0, 1, 2 to use data')
 end 
 %% Plot the matrix generated
 clf
@@ -56,7 +102,7 @@ minmse = zeros(size(sparsities,2),1);
 minwmse = zeros(size(sparsities,2),1);
 min_fn = zeros(size(sparsities,2),1);
 X_pred_best = zeros(n,m,size(sparsities,2)); % and the X predictions
-
+R2 = zeros(size(sparsities,2),1);
 j=0;
 for sparsity = sparsities
     j=j+1;
@@ -106,7 +152,7 @@ for sparsity = sparsities
         mse = zeros(size(fns,2),1);
         smse = zeros(size(fns,2),1);
         wmse = zeros(size(fns,2),1);
-        
+        R = zeros(size(fns,2),1);
         %Find rank by minimising the mse or wmse 
         i=0;
         for fn=fns
@@ -116,17 +162,21 @@ for sparsity = sparsities
             mse(i) = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
             wmse(i)= find_wmse(X(missing_ind), X_pred(missing_ind), length(missing_ind));
             smse(i) = sqrt(mse(i));
-            %error bars
+            Cyt = corrcoef(X_pred(missing_ind),X(missing_ind));
+            R(i)=sqrt(Cyt(2,1));
+            
             
         end
         minmse(j) = min(mse);
         minwmse(j)=min(wmse);
+        
         if winsorized_mse ==1
             min_index = find(wmse==minwmse(j));
         else
             min_index = find(mse==minmse(j));
         end 
         min_fn(j) = fns(min_index);
+        R2(j) = R(min_index)^2;
         [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1e-3,1000);
     end
     
@@ -170,14 +220,14 @@ subplot(2,1,1)
 y = diag(D);
 semilogy(1:m, diag(D))
 hold on 
-semilogy(rank, y(rank), 'ro')
+semilogy(rank_mat, y(rank_mat), 'ro')
 hold off
 subplot(2,1,2)
 plot(1:m,cumsum(diag(D))/sum(diag(D)))
 hold on
-y2 = y(1:rank);
-realranky = cumsum(y(1:rank));
-plot(rank, realranky(rank)/sum(diag(D)), 'ro')
+y2 = y(1:rank_mat);
+realranky = cumsum(y(1:rank_mat));
+plot(rank_mat, realranky(rank_mat)/sum(diag(D)), 'ro')
 hold off
 
 %% Reorder data to test the change of the order of the data (in rows and columns) and how this affects the final predictions 
