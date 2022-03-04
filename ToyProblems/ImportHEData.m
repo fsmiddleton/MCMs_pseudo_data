@@ -43,12 +43,13 @@ T_loc = find(data.Temperature==T);
 temp_data = data(T_loc, :);
 
 % create matrices to populate with each mixture's data 
-HE_data = zeros(length(conc_interval), (length(func_groups.one)*length(func_groups.two)*max_chain_length^2));
+HE_data = nan(length(conc_interval), (length(func_groups.one)*length(func_groups.two)*max_chain_length^2));
 dim1= 40;
 conc_original = zeros(dim1, (length(func_groups.one)*length(func_groups.two)*max_chain_length^2));
 HE_original = zeros(dim1, (length(func_groups.one)*length(func_groups.two)*max_chain_length^2));
 mixture = zeros(4, (length(func_groups.one)*length(func_groups.two)*max_chain_length^2));
 f1=0;
+ind=0;
 for func1= func_groups.one
     f1=f1+1;
     f2=0;
@@ -66,25 +67,30 @@ for func1= func_groups.one
         for i =1:max_chain_length
             chain1_loc = find(temp2.Chainlength1==i);
             temp3 = temp2(chain1_loc,:);
-            if size(temp3,1)>0
-                for j =1:max_chain_length
+            
+            for j =1:max_chain_length
+                ind =ind+1;% this index is wrong
+                mixture(1,ind)= f1;
+                mixture(2,ind)= f2;
+                mixture(3,ind)= i;
+                mixture(4,ind)= j;
+                if i==j && f1==f2
+                    %excess enthalpy of a mixture of the same two pure
+                    %components = 0
+                    HE_data(:,ind) = zeros(length(conc_interval),1);
+                else 
                     chain2_loc = find(temp3.Chainlength2==j);
-                    temp4 = temp3(chain2_loc,:); % this is the data we interpolate
-                    ind =max_chain_length^2*(2*f1+f2-3)+i*j; 
-                    disp(max_chain_length^2*(2*f1+f2-3)+i*j);
+                    temp4 = temp3(chain2_loc,:); % this is the data we interpolate 
                     if size(temp4,1)>1
-                         % interpolate data and populate matrix of all data
+                        % interpolate data and populate matrix of all data
                         [HE_data(:,ind), uncertainty(:,f2*f1*i*j)]=interp_data(temp4, conc_interval);
                         % save original data in the same order
-                        mixture(1,ind)= f1;
-                        mixture(2,ind)= f2;
-                        mixture(3,ind)= temp4.Chainlength1(1);
-                        mixture(4,ind)= temp4.Chainlength2(1);
                         conc_original(1:size(temp4,1),ind) = temp4.Compositioncomponent1;
                         HE_original(1:size(temp4,1),ind) = temp4.Excessenthalpy;
                     end 
                 end 
             end 
+            
         end 
         
     end 
@@ -101,7 +107,16 @@ legend('Experimental', 'Interpolated', 'Location', 'northwest')
 xlabel('Composition component 1 (mol/mol)')
 ylabel('Excess enthalpy (kJ/mol)')
 disp(mixture(:,mix))
-%% Populate matrix
+%% Populate matrices
+dim1 = max_chain_length*length(func_groups.one);
+dim2 = max_chain_length*length(func_groups.two);
+dim3 = length(conc_interval);
+HE_matrix= zeros(dim1,dim2,dim3);
+row = 0;
+for c = 1:length(conc_interval) % for each concentration in the interval 
+    % not sure if HE_data reshaped nicely 
+    HE_matrix(:,:,c) = reshape(HE_data(c,:),[dim1,dim2]);
+end 
 
 %%
 function [HE, uncertainty]=interp_data(data, conc_interval)
