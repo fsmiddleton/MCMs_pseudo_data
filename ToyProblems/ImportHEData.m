@@ -97,7 +97,7 @@ for func1= func_groups.one
 end
 %% Check the interpolation worked nicely 
 clf
-mix =102;
+mix =13;
 plot(conc_original(:,mix), HE_original(:,mix), 'bo')
 hold on 
 plot(conc_interval, HE_data(:,mix), 'LineWidth', 1) 
@@ -115,8 +115,19 @@ HE_matrix= zeros(dim1,dim2,dim3);
 row = 0;
 for c = 1:length(conc_interval) % for each concentration in the interval 
     % not sure if HE_data reshaped nicely 
-    HE_matrix(:,:,c) = reshape(HE_data(c,:),[dim1,dim2]);
+    HE_matrix(1:dim1/length(func_groups.one),:,c) = reshape(HE_data(c,1:max_chain_length*dim2),[dim1/length(func_groups.one),dim2]);
+    HE_matrix(1+dim1/length(func_groups.one):end,:,c) = reshape(HE_data(c,1+max_chain_length*dim2:end),[dim1/length(func_groups.one),dim2]);
 end 
+%% Export to excel spreadsheet 
+filename = 'HEMatrix.xlsx';
+%create table with all this information
+for i = 1:length(conc_interval)
+    T = array2table(HE_matrix(:,:,i));
+    writetable(T,filename,'Sheet',num2str(conc_interval(i)))
+    disp(conc_interval(i))
+end 
+%info = table(["rank_mat"; "mu"; "sigma"; "noise"],[rank_mat; mu; sigma; noise], ["Sheet1";"Sheet2";"Sheet3";"Sheet4"], ["Info"; "Random matrix";"Noise matrix";"Noisy matrix"] );
+    %export it 
 
 %%
 function [HE, uncertainty]=interp_data(data, conc_interval)
