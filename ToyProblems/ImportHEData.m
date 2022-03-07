@@ -30,16 +30,21 @@ index = 1;%current index,
 % Specify the mixtures wanted in the matrix. The algorithm will find all
 % combinations of functional group 1 and 2. Only organic molecules were considered here  
 func_groups.one = {'Alkane', 'Primaryalcohol'};% 'Secondaryalcohol', 'Ketone', 'Alkene','Cycloalkane'];
-func_groups.two = {'Alkane', 'Primaryalcohol'};
+func_groups.two = { 'Primaryalcohol'};
 max_chain_length = 10; 
 T = 298.15; % temperature in kelvin used for the matrix
+% a moderate allowance for different experimental values 
+Tupper = T+1;
+Tlower = T-1;
 % P = 101.33; % pressure in kPa used for the matrix
+% pressure is ignored due to very small variation with pressure of HE
 
 conc_interval = 0.1:0.1:0.9;
 c = length(conc_interval);
 %First restrict data to relevant temperatures. Can add a for loop here
 %later 
-T_loc = find(data.Temperature==T);
+
+T_loc = find(data.Temperature<Tupper & data.Temperature>Tlower);
 temp_data = data(T_loc, :);
 
 % create matrices to populate with each mixture's data 
@@ -67,7 +72,6 @@ for func1= func_groups.one
         for i =1:max_chain_length
             chain1_loc = find(temp2.Chainlength1==i);
             temp3 = temp2(chain1_loc,:);
-            
             for j =1:max_chain_length
                 ind =ind+1;% this index is wrong
                 mixture(1,ind)= f1;
@@ -115,19 +119,27 @@ HE_matrix= zeros(dim1,dim2,dim3);
 row = 0;
 for c = 1:length(conc_interval) % for each concentration in the interval 
     % not sure if HE_data reshaped nicely 
-    HE_matrix(1:dim1/length(func_groups.one),:,c) = reshape(HE_data(c,1:max_chain_length*dim2),[dim1/length(func_groups.one),dim2]);
-    HE_matrix(1+dim1/length(func_groups.one):end,:,c) = reshape(HE_data(c,1+max_chain_length*dim2:end),[dim1/length(func_groups.one),dim2]);
+    for j = 0:(length(func_groups.one)-1)
+        HE_matrix(1+dim1/length(func_groups.one)*j:dim1/length(func_groups.one)*(j+1),:,c) = reshape(HE_data(c,1+max_chain_length*dim2*j:max_chain_length*dim2*(j+1)),[dim1/length(func_groups.one),dim2]);
+    end 
 end 
+
+%find missing rows and columns 
+missing.ind = find(isnan(HE_matrix));
+% check for nan rows and column 
+[missing.i, missing.j] = find(isnan(HE_matrix));
+% remove all data that is nan
+% remove from mixtures, HE_matrix, HE_original, comp_original 
+
+% rows 
+B=HE_matrix(sum(isnan(HE_matrix),2)==0);
 %% Export to excel spreadsheet 
-filename = 'HEMatrix.xlsx';
+filename = 'HEMatrix298.15.2.xlsx';
 %create table with all this information
 for i = 1:length(conc_interval)
     T = array2table(HE_matrix(:,:,i));
     writetable(T,filename,'Sheet',num2str(conc_interval(i)))
-    disp(conc_interval(i))
 end 
-%info = table(["rank_mat"; "mu"; "sigma"; "noise"],[rank_mat; mu; sigma; noise], ["Sheet1";"Sheet2";"Sheet3";"Sheet4"], ["Info"; "Random matrix";"Noise matrix";"Noisy matrix"] );
-    %export it 
 
 %%
 function [HE, uncertainty]=interp_data(data, conc_interval)
