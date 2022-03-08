@@ -5,25 +5,17 @@
 clc
 clear
 
-import = 2;
-% import =1 to import a full test matrix of spectroscopy data, 
-% import =2 to import excess enthalpy data, 
+import = 0; 
 % import = 0 to create a low rank matrix, 
-% import =3 to fetch an already created low rank matrix
+% import =1 to fetch an already created low rank matrix
+% import =2 to import a full test matrix of spectroscopy data, 
+% import =3 to import excess enthalpy data,
 
 export = 1; % either export data(1) or don't, only used for creating a low rank matrix
 noise=1; %noise =1 to add noise to the creation of the matrix
-
-if import ==1
-    % correlated matrix of spectral data, manuscript available (highly correlated data):
-    % https://www.kaggle.com/sergioalejandrod/raman-spectroscopy
-    T1 = readtable('raman_mix1_spectrum.xlsx', 'Sheet', 'mix_1'); 
-    X = table2array(T1);%only use T1, small enough to manage
-    n = size(X,2);
-    m = size(X,1);
-        
-elseif import ==0
-    % create array
+rank_mat = 0;
+if import ==0
+        % create array
     % specify size and rank of array, choosing random mu and sigma to create
     % singular values from, and the noise  
     n=50;
@@ -33,7 +25,6 @@ elseif import ==0
     sigma = 1;
     [Xs,Xnoise, rankU, rankV]=create_matrix(n,m,rank_mat, mu, sigma);
     Xdiff=Xs-Xnoise;
-    disp(rank_mat)
     if noise ==1
         X=Xnoise;
     else 
@@ -53,9 +44,15 @@ elseif import ==0
         writetable(Ts,filename,'Sheet',2)
         writetable(Tnoise,filename,'Sheet',3)
         writetable(Tfinal,filename,'Sheet',4)
-    end 
+        for i = 0.3:0.1:0.9
+            [Xsparse,missing_ind,filled_linear_ind]=fill_matrix(X,i);
+            Tsparse = array2table(Xsparse);
+            writetable(Tsparse, filename, 'Sheet', num2str(i))
+        end 
+    end
     
-elseif import ==2
+        
+elseif import ==1
     %import the data from the previously created random matrix 
     if noise == 1
         T2 = readtable('RandomMatrix.xlsx', 'Sheet', 4);
@@ -63,20 +60,36 @@ elseif import ==2
         T2 = readtable('RandomMatrix.xlsx', 'Sheet', 2);
     end 
     X = table2array(T2);
-    n = size(X,2);
-    m = size(X,1);
     T3 = readtable('RandomMatrix.xlsx', 'Sheet', 1);
-    rank_mat = T3(2,2);
+    rank_mat = T3(1,2);
+    
+elseif import ==2
+    % correlated matrix of spectral data, manuscript available (highly correlated data):
+    % https://www.kaggle.com/sergioalejandrod/raman-spectroscopy
+    T1 = readtable('raman_mix1_spectrum.xlsx', 'Sheet', 'mix_1'); 
+    X = table2array(T1);%only use T1, small enough to manage
+
     
 elseif import ==3
     % Import excess enthalpy data 
-    T1 = readtable('HEmatrix.xlsx', 'Sheet', 1); 
+    T1 = readtable('HEmatrix298.15.2.xlsx', 'Sheet', 3); 
     X = table2array(T1);%only use T1, small enough to manage
-    n = size(X,2);
-    m = size(X,1);
+    
 else
     disp('Please choose 0, 1, 2 to use data')
 end 
+%%
+%remove NaN row or column 
+row_nan = find(all(isnan(X),2));
+col_nan = find(all(isnan(X),1));
+if row_nan
+    X(row_nan,:)=[];
+end 
+if col_nan 
+    X(:,col_nan)=[];
+end 
+n = size(X,1);
+m = size(X,2);
 %% Plot the matrix generated
 clf
 %[Xs,missing_ind,filled_linear_ind]=fill_matrix(X,0.5);%missing data 
@@ -89,14 +102,16 @@ xlabel('Value in the matrix X')
 ylabel('Frequency')
 %%
 % remove data or fill a matrix 
-remove = 0;
+remove = 2; % 1=remove to create sparse matrix, 2 = fill a sparse matrix, 0 = no change to matrix
 remove_ind = 1:(n*m);
  
 %Time to choose how to find the best rank
 Gavish =0;
  % Choose sparsities used for finding the rank 
-sparsities = [0.1,0.2,0.3,0.4,0.5,0.6];
-
+sparsities = 0.4:0.1:0.7;
+%ranks to try 
+fns = 1:1:15;
+        
 %intialise the metrics to analyse each sparsity and its final rank found 
 minmse = zeros(size(sparsities,2),1);
 minwmse = zeros(size(sparsities,2),1);
@@ -105,12 +120,16 @@ X_pred_best = zeros(n,m,size(sparsities,2)); % and the X predictions
 R2 = zeros(size(sparsities,2),1);
 j=0;
 for sparsity = sparsities
-    j=j+1;
+    j=j+1; % for sparsity
     % Create the sparse matrix 
     if remove == 1
         [Xs,missing_ind, filled_linear_ind] = remove_matrix(X,sparsity);
-    else 
+    elseif remove == 2
         [Xs,missing_ind,filled_linear_ind]=fill_matrix(X,sparsity);
+    else 
+        Xs = fill_data(X);
+        missing_ind = find(isnan(X));
+        filled_linear_ind = find(~isnan(X));
     end 
     
     % Find the optimal rank for this matrix
@@ -130,8 +149,6 @@ for sparsity = sparsities
         y_med = median(diag(D)); %ymed = median singular value of the noisy matrix  
         cutoff = omega*y_med; %cutoff= tau= omega(beta)*ymed; matrix
          % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
-        d = diag(D);
-        disp(cutoff)
         d(d<(cutoff))=0;
         fn = length(find(diag(D)>cutoff));
         disp(fn)
@@ -141,10 +158,11 @@ for sparsity = sparsities
         minwmse(j)= find_wmse(X(missing_ind), X_pred(missing_ind), length(missing_ind));
         min_fn(j) = fn;
         X_pred_best(:,:,j) = X_pred;
+        %End Gavish method 
+        
     else
         % Iterative PCA with wMSE or MSE used to find rank 
-        fns = [1,2,3,4,5,6,7,8,9,10];
-
+        
         %choose which error measure to use for choosing the best PC
         winsorized_mse =1; %1=use wmse 
 
@@ -164,8 +182,7 @@ for sparsity = sparsities
             smse(i) = sqrt(mse(i));
             Cyt = corrcoef(X_pred(missing_ind),X(missing_ind));
             R(i)=sqrt(Cyt(2,1));
-            
-            
+
         end
         minmse(j) = min(mse);
         minwmse(j)=min(wmse);
@@ -180,7 +197,7 @@ for sparsity = sparsities
         [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1e-3,1000);
     end
     
-    %error bars
+    %Error bars
     X_pred_boot = zeros(n,m,size(filled_linear_ind,1));
     boot_removed_col = zeros(size(filled_linear_ind,1),1);
     boot_removed_row = zeros(size(filled_linear_ind,1),1);
@@ -201,6 +218,7 @@ for sparsity = sparsities
             boot_removed_row(j) = row;
             %if there are other entries in the rows and columns,
             %perform iterative PCA on the slightly more empty matrix 
+            X_b=fill_data(X_b);
             [U,D,V,X_pred_boot(:,:,j)]=missing_svd(X_b,min(fn),1,1e-3,1000);%iterative PCA using the known rank 
         end 
     end 
@@ -216,20 +234,46 @@ end
 
 
 %% Plots of the singular values 
+clf
+[U,D,V,X_pred_plot]=missing_svd(Xs,m,1,1e-3,1000); %uncomment to
+mse = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
+wmse= find_wmse(X(missing_ind), X_pred_plot(missing_ind), length(missing_ind));
+smse = sqrt(mse);
+Cyt = corrcoef(X_pred(missing_ind),Xs(missing_ind));
+R=sqrt(Cyt(2,1));
+%choose rank
 subplot(2,1,1)
 y = diag(D);
 semilogy(1:m, diag(D))
-hold on 
-semilogy(rank_mat, y(rank_mat), 'ro')
-hold off
+xlabel('Rank')
+ylabel('Singular values')
+%rank_mat=table2array(rank_mat);
+if (rank_mat)>0
+    hold on 
+    semilogy(rank_mat, y(rank_mat), 'ro')
+    hold off
+end 
 subplot(2,1,2)
 plot(1:m,cumsum(diag(D))/sum(diag(D)))
+xlabel('Rank')
+ylabel('Cumulative contribution to error')
+if rank_mat>0
+    hold on
+    y2 = y(1:rank_mat);
+    realranky = cumsum(y(1:rank_mat));
+    plot(rank_mat, realranky(rank_mat)/sum(diag(D)), 'ro')
+    hold off
+end 
+%% Plots of errors 
+clf 
+plot(fns, wmse)
 hold on
-y2 = y(1:rank_mat);
-realranky = cumsum(y(1:rank_mat));
-plot(rank_mat, realranky(rank_mat)/sum(diag(D)), 'ro')
+plot(fns,mse)
+plot(rank_mat,wmse(rank_mat-fns(1)+1), 'ko')
 hold off
-
+legend('Winsorized MSE', 'MSE', 'True rank')
+xlabel('Rank')
+ylabel('Error')
 %% Reorder data to test the change of the order of the data (in rows and columns) and how this affects the final predictions 
 
 
@@ -316,16 +360,17 @@ end
 function [X_filled]=fill_data(X)
     [m,n]=size(X);
     missing_ind = (isnan(X));
-    
+    [i, j]=find(isnan(X));% returns rows and columns with nonzero elements
     X_filled=X;
-    X_filled(missing_ind)=0; %fill NaN values with 0 
-    
-    [i, j]=find(isnan(X));% returns rows and columns with nonzero elements 
-    
+    X_filled(missing_ind)=0; %fill NaN values with 0
+    %disp(X_filled)
+    %disp(length(i))
     mean_col = sum(X_filled,1)./(ones(1,n)*m-sum(missing_ind,1)); %columns are dimension 1
     mean_row= sum(X_filled,2)./(ones(1,m)*n-sum(missing_ind,2)); % rows are dimension 2 
+    
     for k =1:length(i) % for all NaN elements that exist, loop through them to replace with means 
         X_filled(i(k),j(k))=(mean_row(i(k))+mean_col(j(k)))/2;
+         
     end 
 end 
 
