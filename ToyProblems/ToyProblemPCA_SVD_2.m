@@ -10,7 +10,7 @@ import = 1;
 % import =1 to fetch an already created low rank matrix
 % import =2 to import a full test matrix of spectroscopy data, 
 % import =3 to import excess enthalpy data,
-filename = 'RandomMatrixNoise.xlsx';
+filename = 'RandomMatrixNoNoise.xlsx';
 export = 0; % either export data(1) or don't, only used for creating a low rank matrix
 noise=1; %noise =1 to add noise to the creation of the matrix
 rank_mat = 0; % to be assigned later 
@@ -196,7 +196,6 @@ for sparsity = sparsities
             SRSS = sqrt((sum((X_pred(missing_ind)-X(missing_ind)).^2)));
             mse(i,j) = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
             wmse(i,j)= find_wmse(X(missing_ind), X_pred(missing_ind), length(missing_ind));
-            disp(wmse)
             smse(i,j) = sqrt(mse(i));
             Cyt = corrcoef(X_pred(missing_ind),X(missing_ind));
             R(i,j)=sqrt(Cyt(2,1));
@@ -255,6 +254,16 @@ disp(Results)
 %% Plots of the singular values 
 clf
 m=40;
+sparsity = 0.7;
+if import ==1
+    % import the relevant sparse matrix from the spreadsheet
+    Ts = readtable(filename, 'Sheet', num2str(sparsity));
+    Xs = table2array(Ts);
+    missing_ind = find(isnan(Xs));
+    filled_linear_ind = find(~isnan(Xs));
+    disp(1)
+end 
+ind = find(sparsities == sparsity);
 
 [U,D,V,X_pred_plot]=missing_svd(Xs,m,1,1e-3,1000); %uncomment to
 mseplot = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
@@ -271,7 +280,8 @@ ylabel('Singular values')
 
 if (rank_mat)>0
     hold on 
-    semilogy(rank_mat, y(rank_mat), 'ro')
+    semilogy(rank_mat, y(rank_mat), 'ko','MarkerSize',5, 'LineWidth',5)
+    legend('SVs', 'True rank')
     hold off
 end 
 subplot(2,1,2)
@@ -281,24 +291,34 @@ ylabel('Cumulative contribution to error')
 if rank_mat>0
     hold on
     y2 = y(1:rank_mat);
-    realranky = cumsum(y(1:rank_mat));
-    plot(rank_mat, realranky(rank_mat)/sum(diag(D)), 'ro')
+    realranky = cumsum(y(1:m));
+    plot(min_fn(ind), realranky(min_fn(ind)-fns(1)+1)/sum(diag(D)), 'r*', 'MarkerSize',15, 'LineWidth',1.5)
+    legend('Cumulative error', 'Predicted rank')
     hold off
 end 
+sgtitle(strcat('Sparsity = ',num2str(sparsity)))
 %% Plots of errors 
-sparsity =0.5;
-ind = find(sparsities == sparsity);
-clf 
-plot(fns, wmse(:,ind))
-hold on
-plot(fns,mse(:,ind), 'm')
-plot(rank_mat,mse(rank_mat-fns(1)+1,ind), 'ko', 'MarkerSize',5, 'LineWidth',5)
-plot(min_fn(ind),wmse(min_fn(ind)-fns(1)+1,ind), 'r*', 'MarkerSize',15, 'LineWidth',1.5)
-hold off
-legend('Winsorized MSE', 'MSE', 'True rank', 'Predicted Rank')
-
-xlabel('Rank')
-ylabel('Error')
+sparsities =0.3:0.1:0.7;
+clf
+plotno = length(sparsities);
+i=0;
+for sparsity = sparsities
+    i=i+1;
+    ind = find(sparsities == sparsity);
+    subplot(3,2,i)
+    titlestr = strcat('Sparsity = ',num2str(sparsity));
+    
+    plot(fns, wmse(:,ind))
+    hold on
+    plot(fns,mse(:,ind), 'm')
+    plot(rank_mat,mse(rank_mat-fns(1)+1,ind), 'ko', 'MarkerSize',5, 'LineWidth',5)
+    plot(min_fn(ind),wmse(min_fn(ind)-fns(1)+1,ind), 'r*', 'MarkerSize',15, 'LineWidth',1.5)
+    hold off
+    legend('Winsorized MSE', 'MSE', 'True rank', 'Predicted Rank')
+    title(titlestr)
+    xlabel('Rank')
+    ylabel('Error')
+end 
 %% Plot for Gavish 
 if Gavish ==1 
     clf
