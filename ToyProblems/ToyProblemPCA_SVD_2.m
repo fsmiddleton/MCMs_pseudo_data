@@ -114,6 +114,8 @@ Gavish =0;
 sparsities = 0.5:0.01:0.6;
 %ranks to try 
 fns = 1:1:20;
+%choose whether to reorder matrix or not 
+reorder = 1;
         
 %intialise the metrics to analyse each sparsity and its final rank found 
 minmse = zeros(size(sparsities,2),1);
@@ -140,6 +142,12 @@ for sparsity = sparsities
         % import the relevant sparse matrix from the spreadsheet
         Ts = readtable(filename, 'Sheet', num2str(sparsity));
         Xs = table2array(Ts);
+        if reorder ==1
+            % redorder matrix randomly, choose how to here 
+            p = reorder_He(Xs, "cols");
+            Xs(:) = Xs(p);
+            X(:)=X(p);% reorder original matrix to allow the mse, wmse and R2 to work 
+        end 
         missing_ind = find(isnan(Xs));
         filled_linear_ind = find(~isnan(Xs));
     elseif import == 3 || import ==2 
@@ -250,13 +258,13 @@ for sparsity = sparsities
     end 
     
 end 
-%% Create table with results 
+% Create table with results 
 Results = table(["Sparsity"; (sparsities')],[ "SVs";min_fn],[ "MSE";minmse],[ "wMSE";minwmse], ["R2";R2]);
 disp(Results)
 %% Plots of the singular values 
 clf
 m=40;
-sparsity = 0.5500;
+sparsity = 0.600;
 if import ==1
     % import the relevant sparse matrix from the spreadsheet
     Ts = readtable(filename, 'Sheet', num2str(sparsity));
@@ -300,16 +308,16 @@ if rank_mat>0
 end 
 sgtitle(strcat('Sparsity = ',num2str(sparsity)))
 %% Plots of errors 
-
 clf
 plotno = length(sparsities);
+a = ceil(sqrt(plotno));
+b = ceil(plotno/a);
 i=0;
 for sparsity = sparsities
     i=i+1;
     ind = find(sparsities == sparsity);
-    subplot(4,3,i)
+    subplot(a,b,i)
     titlestr = strcat('Sparsity = ',num2str(sparsity));
-    
     plot(fns, wmse(:,ind))
     hold on
     plot(fns,mse(:,ind), 'm')
@@ -340,11 +348,44 @@ if Gavish ==1
     ylabel('Cumulative contribution to error')
 end 
 
-
-%% Reorder data to test the change of the order of the data (in rows and columns) and how this affects the final predictions 
-
-
-%% Functions 
+%% Functions
+function [indices]=reorder_He(X, rand)
+% X = matrix to be ordered 
+% indices = new indices to be used 
+% rand = manner of reordering 
+    %rand = 'any' = reorder in any way, default 
+    %rand = 'rows' = reorder values within rows 
+    % rand = 'cols' = reorder values within columns 
+    % rand = 'zeroslineone' = reorder values so that the diagonal ends up
+    % on the 1st row, not done yet 
+    
+    if rand =="any"
+        indices = randperm(numel(X));
+    elseif rand == "rows" 
+        indices = 1:1:numel(X);
+        n = size(X,1); %no rows
+        m = size(X,2); %no cols
+        for i =1:n
+            p = (i-1)*m+1:(i)*m;
+            temp = indices(p);
+            temp = temp(randperm(length(temp)));
+            indices(p) = temp;
+        end 
+    elseif rand == "cols"
+        indices = 1:1:numel(X);
+        n = size(X,1); %no rows
+        m = size(X,2); %no cols
+        for i =1:m
+            p = (i-1)*n+1:n:(n*m)-(n-1);
+            temp = indices(p);
+            temp = temp(randperm(length(temp)));
+            indices(p) = temp;
+        end
+        
+    else 
+        indices = randperm(numel(X));
+    end 
+end 
 function [X,Xnoise, rankU, rankV, noise]=create_matrix(n,m,r, mu, sigma)
     % create a matrix of size nxm with rank =r using SVD 
     
