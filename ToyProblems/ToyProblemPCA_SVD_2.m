@@ -121,7 +121,12 @@ minwmse = zeros(size(sparsities,2),1);
 min_fn = zeros(size(sparsities,2),1);
 X_pred_best = zeros(n,m,size(sparsities,2)); % and the X predictions
 R2 = zeros(size(sparsities,2),1);
-
+% initialise error vars 
+mse = zeros(size(fns,2),size(sparsities,2));
+smse = zeros(size(fns,2),size(sparsities,2));
+wmse = zeros(size(fns,2),size(sparsities,2));
+R = zeros(size(fns,2),size(sparsities,2));
+        
 j=0;
 for sparsity = sparsities
     j=j+1; % for sparsity
@@ -176,41 +181,37 @@ for sparsity = sparsities
         min_fn(j) = fn;
         X_pred_best(:,:,j) = X_pred;
         %End Gavish method 
-        
     else
         % Iterative PCA with wMSE or MSE used to find rank 
         
         %choose which error measure to use for choosing the best PC
         winsorized_mse =1; %1=use wmse 
 
-        % initialise error vars 
-        mse = zeros(size(fns,2),1);
-        smse = zeros(size(fns,2),1);
-        wmse = zeros(size(fns,2),1);
-        R = zeros(size(fns,2),1);
+        
         %Find rank by minimising the mse or wmse 
         i=0;
         for fn=fns
             [U,D,V,X_pred]=missing_svd(Xs,fn,1,1e-3,1000);
             i=i+1;
             SRSS = sqrt((sum((X_pred(missing_ind)-X(missing_ind)).^2)));
-            mse(i) = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
-            wmse(i)= find_wmse(X(missing_ind), X_pred(missing_ind), length(missing_ind));
-            smse(i) = sqrt(mse(i));
+            mse(i,j) = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
+            wmse(i,j)= find_wmse(X(missing_ind), X_pred(missing_ind), length(missing_ind));
+            disp(wmse)
+            smse(i,j) = sqrt(mse(i));
             Cyt = corrcoef(X_pred(missing_ind),X(missing_ind));
-            R(i)=sqrt(Cyt(2,1));
+            R(i,j)=sqrt(Cyt(2,1));
 
         end
-        minmse(j) = min(mse);
-        minwmse(j)=min(wmse);
+        minmse(j) = min(mse(:,j));
+        minwmse(j)=min(wmse(:,j));
         
         if winsorized_mse ==1
-            min_index = find(wmse==minwmse(j));
+            min_index = find(wmse(:,j)==minwmse(j));
         else
-            min_index = find(mse==minmse(j));
+            min_index = find(mse(:,j)==minmse(j));
         end 
         min_fn(j) = fns(min_index);
-        R2(j) = R(min_index)^2;
+        R2(j) = R(min_index,j)^2;
         [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1e-3,1000);
     end
     
@@ -248,33 +249,17 @@ for sparsity = sparsities
     end 
     
 end 
-%% Plot for Gavish 
-if Gavish ==1 
-    clf
-    subplot(2,1,1)
-    plot(1:m,d_original)
-    xlabel('Rank')
-    ylabel('Singular value')
-    xlabel('Component number')
-    hold on 
-    plot(rank_mat, d_original(rank_mat), 'ko')
-    plot(fn, d_original(fn), 'ro')
-    legend('Singular values', 'True rank', 'Predicted rank')
-    
-    subplot(2,1,2)
-    plot(1:m,cumsum(d_original)/sum(d_original))
-    xlabel('Component number')
-    ylabel('Cumulative contribution to error')
-end 
-
+%% Create table with results 
+Results = table(["Sparsity"; (sparsities')],[ "SVs";min_fn],[ "MSE";minmse],[ "wMSE";minwmse], ["R2";R2]);
+disp(Results)
 %% Plots of the singular values 
 clf
 m=40;
 
 [U,D,V,X_pred_plot]=missing_svd(Xs,m,1,1e-3,1000); %uncomment to
-mse = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
-wmse= find_wmse(X(missing_ind), X_pred_plot(missing_ind), length(missing_ind));
-smse = sqrt(mse);
+mseplot = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
+wmseplot= find_wmse(X(missing_ind), X_pred_plot(missing_ind), length(missing_ind));
+smseplot = sqrt(mse);
 Cyt = corrcoef(X_pred(missing_ind),Xs(missing_ind));
 R=sqrt(Cyt(2,1));
 %choose rank
@@ -301,15 +286,39 @@ if rank_mat>0
     hold off
 end 
 %% Plots of errors 
+sparsity =0.5;
+ind = find(sparsities == sparsity);
 clf 
-plot(fns, wmse)
+plot(fns, wmse(:,ind))
 hold on
-plot(fns,mse)
-plot(rank_mat,wmse(rank_mat-fns(1)+1), 'ko')
+plot(fns,mse(:,ind), 'm')
+plot(rank_mat,mse(rank_mat-fns(1)+1,ind), 'ko', 'MarkerSize',5, 'LineWidth',5)
+plot(min_fn(ind),wmse(min_fn(ind)-fns(1)+1,ind), 'r*', 'MarkerSize',15, 'LineWidth',1.5)
 hold off
-legend('Winsorized MSE', 'MSE', 'True rank')
+legend('Winsorized MSE', 'MSE', 'True rank', 'Predicted Rank')
+
 xlabel('Rank')
 ylabel('Error')
+%% Plot for Gavish 
+if Gavish ==1 
+    clf
+    subplot(2,1,1)
+    plot(1:m,d_original)
+    xlabel('Rank')
+    ylabel('Singular value')
+    xlabel('Component number')
+    hold on 
+    plot(rank_mat, d_original(rank_mat), 'ko')
+    plot(fn, d_original(fn), 'ro')
+    legend('Singular values', 'True rank', 'Predicted rank')
+    
+    subplot(2,1,2)
+    plot(1:m,cumsum(d_original)/sum(d_original))
+    xlabel('Component number')
+    ylabel('Cumulative contribution to error')
+end 
+
+
 %% Reorder data to test the change of the order of the data (in rows and columns) and how this affects the final predictions 
 
 
