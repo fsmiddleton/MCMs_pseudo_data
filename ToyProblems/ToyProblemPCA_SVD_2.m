@@ -10,7 +10,7 @@ import = 1;
 % import =1 to fetch an already created low rank matrix
 % import =2 to import a full test matrix of spectroscopy data, 
 % import =3 to import excess enthalpy data,
-filename = 'RandomMatrixNoNoise.xlsx';
+filename = 'RandomMatrixNoise2.xlsx';
 export = 0; % either export data(1) or don't, only used for creating a low rank matrix
 noise=1; %noise =1 to add noise to the creation of the matrix
 rank_mat = 0; % to be assigned later 
@@ -44,7 +44,7 @@ if import ==0
         writetable(Ts,filename,'Sheet',2)
         writetable(Tnoise,filename,'Sheet',3)
         writetable(Tfinal,filename,'Sheet',4)
-        for i = 0.3:0.1:0.9
+        for i = 0.5:0.01:0.6
             [Xsparse,missing_ind,filled_linear_ind]=fill_matrix(X,i);
             Tsparse = array2table(Xsparse);
             writetable(Tsparse, filename, 'Sheet', num2str(i))
@@ -111,9 +111,9 @@ remove_ind = 1:(n*m);
 %Time to choose how to find the best rank
 Gavish =0;
  % Choose sparsities used for finding the rank 
-sparsities = 0.3:0.1:0.7;
+sparsities = 0.5:0.01:0.6;
 %ranks to try 
-fns = 1:1:15;
+fns = 1:1:20;
         
 %intialise the metrics to analyse each sparsity and its final rank found 
 minmse = zeros(size(sparsities,2),1);
@@ -169,7 +169,7 @@ for sparsity = sparsities
          % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
         d_original = diag(D);
         d=diag(D);
-        fn = length(find(diag(D)>cutoff))*2;
+        fn = length(find(diag(D)>cutoff));
         %disp(fn)
         d(1+fn:end)=0;
         %fn = length(find(diag(D)>cutoff));
@@ -180,6 +180,8 @@ for sparsity = sparsities
         minwmse(j)= find_wmse(X(missing_ind), X_pred(missing_ind), length(missing_ind));
         min_fn(j) = fn;
         X_pred_best(:,:,j) = X_pred;
+        Cyt = corrcoef(X_pred(missing_ind),X(missing_ind));
+        R2(j)=(Cyt(2,1));
         %End Gavish method 
     else
         % Iterative PCA with wMSE or MSE used to find rank 
@@ -254,7 +256,7 @@ disp(Results)
 %% Plots of the singular values 
 clf
 m=40;
-sparsity = 0.7;
+sparsity = 0.5500;
 if import ==1
     % import the relevant sparse matrix from the spreadsheet
     Ts = readtable(filename, 'Sheet', num2str(sparsity));
@@ -298,14 +300,14 @@ if rank_mat>0
 end 
 sgtitle(strcat('Sparsity = ',num2str(sparsity)))
 %% Plots of errors 
-sparsities =0.3:0.1:0.7;
+
 clf
 plotno = length(sparsities);
 i=0;
 for sparsity = sparsities
     i=i+1;
     ind = find(sparsities == sparsity);
-    subplot(3,2,i)
+    subplot(4,3,i)
     titlestr = strcat('Sparsity = ',num2str(sparsity));
     
     plot(fns, wmse(:,ind))
