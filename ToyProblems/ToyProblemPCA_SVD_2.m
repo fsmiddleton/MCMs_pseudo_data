@@ -164,10 +164,9 @@ for sparsity = sparsities
         if n/m ==1
             omega = 2.858; % omega(beta)=2.858 for n*n square matrix
         elseif n/m < 1
-            omega = optimal_SVHT_coef_sigma_unknown(n/m);
+            omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
         else
-            beta = m/n;
-            %omega = optimal_SVHT_coef_sigma_unknown(m/n); 
+            beta = m/n; 
             omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
         end 
         [U,D,V,X_pred]=missing_svd(Xs,m,1,1e-4,200); % PCA done once, the matrix needs to be filled to do this
@@ -264,7 +263,7 @@ disp(Results)
 %% Plots of the singular values 
 clf
 m=40;
-sparsity = 0.600;
+sparsity = 0.5200;
 if import ==1
     % import the relevant sparse matrix from the spreadsheet
     Ts = readtable(filename, 'Sheet', num2str(sparsity));
@@ -550,82 +549,6 @@ function [wmse]=find_wmse(X,X_pred,no_missing)
     wmse = (sum((X_pred-X).^2))/no_missing;
 end 
 
-function omega = optimal_SVHT_coef_sigma_unknown(beta)
-%Gavish and Donaho; finding coeff for optimal cutoff for a non-square
-%matrix
-% Beta = n/m = aspect ratio 
-    warning('off','MATLAB:quadl:MinStepSize')
-    assert(all(beta>0));
-    assert(all(beta<=1));
-    assert(prod(size(beta)) == length(beta)); % beta must be a vector
-    
-    coef = optimal_SVHT_coef_sigma_known(beta);
 
-    MPmedian = zeros(size(beta));
-    for i=1:length(beta)
-        MPmedian(i) = MedianMarcenkoPastur(beta(i));
-    end
-
-    omega = coef ./ sqrt(MPmedian);
-end
-
-function lambda_star = optimal_SVHT_coef_sigma_known(beta)
-    assert(all(beta>0));
-    assert(all(beta<=1));
-    assert(prod(size(beta)) == length(beta)); % beta must be a vector
-    
-    w = (8 * beta) ./ (beta + 1 + sqrt(beta.^2 + 14 * beta +1)); 
-    lambda_star = sqrt(2 * (beta + 1) + w);
-end
-function med = MedianMarcenkoPastur(beta)
-    MarPas = @(x) 1-incMarPas(x,beta,0);
-    lobnd = (1 - sqrt(beta))^2;
-    hibnd = (1 + sqrt(beta))^2;
-    change = 1;
-    while change & (hibnd - lobnd > .001),
-      change = 0;
-      x = linspace(lobnd,hibnd,5);
-      for i=1:length(x),
-          y(i) = MarPas(x(i));
-      end
-      if any(y < 0.5),
-         lobnd = max(x(y < 0.5));
-         change = 1;
-      end
-      if any(y > 0.5),
-         hibnd = min(x(y > 0.5));
-         change = 1;
-      end
-    end
-    med = (hibnd+lobnd)./2;
-end
-
-function I = incMarPas(x0,beta,gamma)
-    if beta > 1,
-        error('betaBeyond');
-    end
-    topSpec = (1 + sqrt(beta))^2;
-    botSpec = (1 - sqrt(beta))^2;
-    MarPas = @(x) IfElse((topSpec-x).*(x-botSpec) >0, ...
-                         sqrt((topSpec-x).*(x-botSpec))./(beta.* x)./(2 .* pi), ...
-                         0);
-    if gamma ~= 0,
-       fun = @(x) (x.^gamma .* MarPas(x));
-    else
-       fun = @(x) MarPas(x);
-    end
-    I = quadl(fun,x0,topSpec);
-    
-    function y=IfElse(Q,point,counterPoint)
-        y = point;
-        if any(~Q),
-            if length(counterPoint) == 1,
-                counterPoint = ones(size(Q)).*counterPoint;
-            end
-            y(~Q) = counterPoint(~Q);
-        end
-        
-    end
-end
 
 
