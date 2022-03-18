@@ -10,7 +10,7 @@ import = 1;
 % import =1 to fetch an already created low rank matrix
 % import =2 to import a full test matrix of spectroscopy data, 
 % import =3 to import excess enthalpy data,
-filename = 'RandomMatrixNoise2.xlsx';
+filename = 'RandomMatrixNoNoise.xlsx';
 export = 0; % either export data(1) or don't, only used for creating a low rank matrix
 noise=1; %noise =1 to add noise to the creation of the matrix
 rank_mat = 0; % to be assigned later 
@@ -79,8 +79,7 @@ else
     disp('Please choose 0, 1, 2 to use data')
 end 
 
-%%
-%remove NaN row or column 
+%% remove NaN rows or columns
 row_nan = find(all(isnan(X),2));
 col_nan = find(all(isnan(X),1));
 if row_nan
