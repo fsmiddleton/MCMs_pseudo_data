@@ -15,7 +15,7 @@ m3=40;
 [Xtrue, Seed, Factors] = CreaMiss(4, [m1,m2,m3], 0.01, 0, 0, 'RMV',42);
 
 %consider missing data 
-missing =30;
+missing =80;
 
 if missing ==0
     filename = 'ToyProblemData3DFull.xlsx';
@@ -50,7 +50,7 @@ else
     end   
 end 
 %% INDAFAC
-N=6; %  number of factors 
+N=4; %  number of factors 
 mse = zeros(N,1);
 smse = zeros(N,1);
 c = zeros(N,1);
@@ -68,7 +68,8 @@ for n = 1:N
     smse(n) = sqrt(mse(n));
     c(n)= corcond(X,F);
 end
-%%
+
+clf
 subplot(3,1,1)
 plot(1:N, c,  'k.','MarkerSize',15)
 ylabel('Consistency')
@@ -81,4 +82,16 @@ subplot(3,1,3)
 plot(1:N, smse,  'k.','MarkerSize',15)
 xlabel('Components')
 ylabel('Error')
+%% Plt the missing data structure 
+% these must have the same sizes as x
 
+v=X;
+
+xslice = [15,25];    % location of y-z planes
+yslice = [2,3,4,5];              % location of x-z plane
+zslice = [1,25];         % location of x-y planes
+clf
+slice(v,xslice,yslice,zslice)
+xlabel('x')
+ylabel('y')
+zlabel('z')
