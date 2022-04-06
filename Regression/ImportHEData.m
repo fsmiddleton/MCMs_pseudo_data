@@ -1,9 +1,10 @@
 %% Importing excess enthalpy data into a tensor for use
 
 %Francesca Middleton, 2022-03-02
+
+%% Import the data of composition, component, temperature, real enthalpy and excess enthalpy
 clc
 clear
-%% Import the data of composition, component, temperature, real enthalpy and excess enthalpy
 data = readtable('HEData.xlsx','ReadVariableNames',true); % change sheet to include certain functional groups as the main site of data collection 
 
 comp = table2array(data(:,6));
@@ -21,31 +22,26 @@ HE  = table2array(data(:,12));
 
 interp_index = zeros(length(data.FunctionalGroup1),1);%variable to save the indexes that have been interpolated
 index = 1;%current index, 
-%collect first data point
-% temp.functional_group.one = data.FunctionalGroup1(index);
-% temp.functional_group.two = data.FunctionalGroup2(index);
-% temp.chain_length.one = data.ChainLength1(index);
-% temp.chain_length.two = data.ChainLength2(index);
 
 % Specify the mixtures wanted in the matrix. The algorithm will find all
-% combinations of functional group 1 and 2. Only organic molecules were considered here  
-func_groups.one = {'Alkane', 'Primaryalcohol'};% 'Secondaryalcohol', 'Ketone', 'Alkene','Cycloalkane'];
-func_groups.two = { 'Primaryalcohol'};
+% combinations of functional group 1 and 2.  
+func_groups.one = {'Alkane', 'Primaryalcohol'}; %, 'Secondaryalcohol', 'Ketone', 'Alkene','Cycloalkane'};
+func_groups.two = {'Alkane', 'Primaryalcohol'}; %, 'Secondaryalcohol', 'Ketone', 'Alkene','Cycloalkane'};
 max_chain_length = 10; 
 T = 298.15; % temperature in kelvin used for the matrix
 % a moderate allowance for different experimental values 
 Tupper = T+1;
 Tlower = T-1;
-% P = 101.33; % pressure in kPa used for the matrix
+P = 4001; % pressure in kPa used for the matrix
 % pressure is ignored due to very small variation with pressure of HE
 
 conc_interval = 0.1:0.1:0.9;
-c = length(conc_interval);
 %First restrict data to relevant temperatures. Can add a for loop here
 %later 
-
-T_loc = find(data.Temperature<Tupper & data.Temperature>Tlower);
-temp_data = data(T_loc, :);
+P_loc = find(data.Pressure_kPa_<P);
+temp_data=data(P_loc,:);
+T_loc = find(temp_data.Temperature<Tupper & temp_data.Temperature>Tlower);
+temp_data = temp_data(T_loc, :);
 
 % create matrices to populate with each mixture's data 
 HE_data = nan(length(conc_interval), (length(func_groups.one)*length(func_groups.two)*max_chain_length^2));
@@ -53,6 +49,7 @@ dim1= 40;
 conc_original = zeros(dim1, (length(func_groups.one)*length(func_groups.two)*max_chain_length^2));
 HE_original = zeros(dim1, (length(func_groups.one)*length(func_groups.two)*max_chain_length^2));
 mixture = zeros(4, (length(func_groups.one)*length(func_groups.two)*max_chain_length^2));
+orderPolyfit = zeros( (length(func_groups.one)*length(func_groups.two)*max_chain_length^2),1);
 f1=0;
 ind=0;
 for func1= func_groups.one
@@ -87,7 +84,7 @@ for func1= func_groups.one
                     temp4 = temp3(chain2_loc,:); % this is the data we interpolate 
                     if size(temp4,1)>1
                         % interpolate data and populate matrix of all data
-                        [HE_data(:,ind), uncertainty(:,f2*f1*i*j)]=interp_data(temp4, conc_interval);
+                        [HE_data(:,ind), uncertainty(:,ind), orderPolyfit(ind)]=interp_data(temp4, conc_interval);
                         % save original data in the same order
                         conc_original(1:size(temp4,1),ind) = temp4.Compositioncomponent1;
                         HE_original(1:size(temp4,1),ind) = temp4.Excessenthalpy;
@@ -99,9 +96,9 @@ for func1= func_groups.one
         
     end 
 end
-%% Check the interpolation worked nicely 
+%% Check the interpolation worked nicely for select mixtures
 clf
-mix =13;
+mix =58;
 plot(conc_original(:,mix), HE_original(:,mix), 'bo')
 hold on 
 plot(conc_interval, HE_data(:,mix), 'LineWidth', 1) 
@@ -110,8 +107,8 @@ legend('Experimental', 'Interpolated', 'Location', 'northwest')
 
 xlabel('Composition component 1 (mol/mol)')
 ylabel('Excess enthalpy (kJ/mol)')
-disp(mixture(:,mix))
-%% Populate matrices
+title(['Order of the fit ', num2str(orderPolyfit(mix))])
+%% Populate matrices of interpolated data 
 dim1 = max_chain_length*length(func_groups.one);
 dim2 = max_chain_length*length(func_groups.two);
 dim3 = length(conc_interval);
@@ -129,20 +126,17 @@ missing.ind = find(isnan(HE_matrix));
 % check for nan rows and column 
 [missing.i, missing.j] = find(isnan(HE_matrix));
 % remove all data that is nan
-% remove from mixtures, HE_matrix, HE_original, comp_original 
 
-% rows 
-B=HE_matrix(sum(isnan(HE_matrix),2)==0);
 %% Export to excel spreadsheet 
-filename = 'HEMatrix298.15.2.xlsx';
+filename = strcat('HEMatrix',num2str(T),'.xlsx');
 %create table with all this information
 for i = 1:length(conc_interval)
-    T = array2table(HE_matrix(:,:,i));
-    writetable(T,filename,'Sheet',num2str(conc_interval(i)))
+    Table = array2table(HE_matrix(:,:,i));
+    writetable(Table,filename,'Sheet',num2str(conc_interval(i)))
 end 
 
 %%
-function [HE, uncertainty]=interp_data(data, conc_interval)
+function [HE, uncertainty, orderPolyfit]=interp_data(data, conc_interval)
     % Interpolate data for use in the matrices
     % Inputs specify the mixture to be captured and the concentration
     % interval for which to create interpolate points
@@ -163,9 +157,18 @@ function [HE, uncertainty]=interp_data(data, conc_interval)
     HE_new= HE_original(ind_keep);
     comp_new = comp(ind_keep);
     %interpolate the data 
-    
-    [p,S] = polyfit(comp_new, HE_new,7);
-    [HE,uncertainty] = polyval(p,conc_interval, S);
+    maxOrder = 7;
+    error = zeros(maxOrder-1,1);
+    ind = 1;
+    for i =2:maxOrder
+        [p,S,mu] = polyfit(comp_new, HE_new,i);
+        [~,uncertainty] = polyval(p,conc_interval, S,mu);
+        error(ind) = sum(uncertainty)/length(uncertainty);
+        ind = ind+1;
+    end 
     %populate the data 
+    orderPolyfit = find(error == min(error))+1;
+    [p,S] = polyfit(comp_new, HE_new,orderPolyfit);
+    [HE,uncertainty] = polyval(p,conc_interval, S);
 
 end 
