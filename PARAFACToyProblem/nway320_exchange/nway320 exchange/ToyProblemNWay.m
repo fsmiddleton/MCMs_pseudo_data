@@ -50,41 +50,62 @@ else
     end   
 end 
 %% INDAFAC
-N=4; %  number of factors 
+N=10; %  number of factors 
 mse = zeros(N,1);
 smse = zeros(N,1);
 c = zeros(N,1);
+fit = zeros(N,1);
+it = zeros(N,1);
+% can also get Rho, Lambda, EV% and Max Gr
+% EV must be close to 100%
 for n = 1:N
     Fi = ini(X, n, 1); % initialise the three loadings 
-    [F, D]= INDAFAC(X, n, Fi); % perform INDAFAC on the matrix
+    [F, D]= INDAFAC(X, n, Fi, diagnostics = 'off'); % perform INDAFAC on the matrix
     % D provides diagnostics, F is the factors 
     alphabet = 'ABCD'; %will use maximum 4way data
     for i=1:3 %each loading for each dimension of the data
         eval([alphabet(i) ,'= F{i};']);
     end 
     Xf = nmodel(F);
+    %built in metrics
+    fit(n) = D.fit;
+    it(n) = D.it(2); % new computation of the Jacobian ie update accepted 
+    %own metrics 
     error = Xtrue-Xf;
     mse(n) = sum(error.^2,'all')/(m1*m2*m3);
     smse(n) = sqrt(mse(n));
     c(n)= corcond(X,F);
 end
+%Find the optimal rank prediction
+minmse = min(mse);
+% assumes that minimum rank tested was 1 
+numberOfFactors = find(mse==minmse);
+minsmse = smse(numberOfFactors);
+cmin = c(numberOfFactors);
+dof = m1*m2*m3-numberOfFactors*(m1+m2+m3-2);
+%create model
+Fi = ini(X, numberOfFactors, 1);
+[F, D]= INDAFAC(X, numberOfFactors, Fi);
 
-clf
+
+%% confirm rank with plots 
+% cor consistency must be close to 100%
+xplot = 1:N;
 subplot(3,1,1)
-plot(1:N, c,  'k.','MarkerSize',15)
+plot(xplot, c(xplot),  'k.','MarkerSize',15)
 ylabel('Consistency')
-
+% These will show sharp decline and stabilisation upon discovery of the
+% true rank
 subplot(3,1,2)
-plot(1:N, mse, 'k.','MarkerSize',15)
+plot(xplot, mse(xplot), 'k.','MarkerSize',15)
 ylabel('Mean squared Error')
 
 subplot(3,1,3)
-plot(1:N, smse,  'k.','MarkerSize',15)
+plot(xplot, fit(xplot),  'k.','MarkerSize',15)
 xlabel('Components')
-ylabel('Error')
+ylabel('Fit: Loss function ')
 %% Plt the missing data structure 
 % these must have the same sizes as x
-
 v=X;
 
 xslice = [15,25];    % location of y-z planes
