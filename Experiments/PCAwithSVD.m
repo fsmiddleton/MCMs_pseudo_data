@@ -37,6 +37,7 @@ R2 = zeros(size(intervals,2),1);
 % initialise error vars 
 % column for each matrix (fn vs sparsity)
 mse = zeros(size(fns,2),size(intervals,2));
+
 smse = zeros(size(fns,2),size(intervals,2));
 wmse = zeros(size(fns,2),size(intervals,2));
 R = zeros(size(fns,2),size(intervals,2));
@@ -55,17 +56,38 @@ if size(dim,2)>2
             %choose which error measure to use for choosing the best PC
             winsorized_mse =1; %1=use wmse 
 
-            %Find rank by minimising the mse or wmse 
+            
+            %Find rank by minimising the mse or wmse  
             i=0;
             for fn=fns
-                [U,D,V,X_pred]=missing_svd(Xs,fn,1,1e-3,1000);
+                % 
+                
                 i=i+1;
-                SRSS = sqrt((sum((X_pred(missing_ind)-X(missing_ind)).^2)));
-                mse(i,j) = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
-                wmse(i,j)= find_wmse(X(missing_ind), X_pred(missing_ind), length(missing_ind));
-                smse(i,j) = sqrt(mse(i));
-                Cyt = corrcoef(X_pred(missing_ind),X(missing_ind));
-                R(i,j)=sqrt(Cyt(2,1));
+                error = zeros(size(filled_linear_ind,1),1);
+                
+                %LOOCV
+                k=0;% 
+                for filled_ind = filled_linear_ind' %filled_linear_ind must be a row vector for a for loop
+                    %Find error bars of the predictions 
+                    % remove a point from Xs 
+                    X_b = Xs;
+                    col = mod(filled_ind,dim2);
+                    if col ==0
+                        col=dim2;% mod(any integer*m,m)=0, but the column should be column m
+                    end 
+                    row = ceil(filled_ind/dim2);
+                    X_b(filled_ind) = nan;
+                    if find(X_b(:,col)) &&  find(X_b(row,:)) %ensure at least one value in each column and row
+                        k=k+1;
+                        boot_removed_col(k) = col;
+                        boot_removed_row(k) = row;
+                        %if there are other entries in the rows and columns,
+                        %perform iterative PCA on the matrix with one entry missing
+                        [U,D,V,X_pred_boot(:,:)]=missing_svd(X_b,min_fn,1,1,1e-3,1000);%iterative PCA using the known rank 
+                        error(k) = X_pred_boot(filled_ind)- Xs(filled_ind);
+                    end 
+                end
+                mse(i,j) = sum(error.^2);
 
             end
             minmse(j) = min(mse(:,j));
@@ -78,13 +100,15 @@ if size(dim,2)>2
             end 
             min_fn(j) = fns(min_index);
             R2(j) = R(min_index,j)^2;
-            [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1e-3,1000);
+            [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1,1e-3,1000);
         end 
         
-        %Error bars
+        %Error bars, LOOCV, this must be used to find the correct rank 
         X_pred_boot = zeros(dim1,dim2,size(filled_linear_ind,1));
         boot_removed_col = zeros(size(filled_linear_ind,1),1);
         boot_removed_row = zeros(size(filled_linear_ind,1),1);
+        error = zeros(size(filled_linear_ind,1),1);
+        
         k=0;% for the bootstrapping to find error bars 
         for filled_ind = filled_linear_ind' %filled_linear_ind must be a row vector for a for loop
             %Find error bars of the predictions 
@@ -101,9 +125,9 @@ if size(dim,2)>2
                 boot_removed_col(k) = col;
                 boot_removed_row(k) = row;
                 %if there are other entries in the rows and columns,
-                %perform iterative PCA on the slightly more empty matrix 
-                X_b=fill_data(X_b);
-                [U,D,V,X_pred_boot(:,:,k)]=missing_svd(X_b,min_fn,1,1e-3,1000);%iterative PCA using the known rank 
+                %perform iterative PCA on the matrix with one entry missing
+                [U,D,V,X_pred_boot(:,:)]=missing_svd(X_b,min_fn,1,1,1e-3,1000);%iterative PCA using the known rank 
+                error(k) = X_pred_boot(filled_ind)- Xs(filled_ind);
             end 
         end 
         % remove the predictions that were not made from the averaging and
@@ -113,13 +137,6 @@ if size(dim,2)>2
             X_pred_best_boot(boot_removed_row(l), boot_removed_col(l)) = mean(X_pred_boot(boot_removed_row(l), boot_removed_col(l), :));
             X_var_best_boot(boot_removed_row(l), boot_removed_col(l)) = var(X_pred_boot(boot_removed_row(l), boot_removed_col(l), :));
         end 
-         
-    %Unfold to 2-way arrays
-    % redo everything after this 
-    % functionise everything 
-    %else % must be 4way data 
-        % decide how to slice 
-        % T slices or x slices 
     end 
 end 
 
@@ -140,17 +157,16 @@ He(x);
 clf
 dim2=40;
 composition = 0.5200;
-if import ==1
+
     % import the relevant sparse matrix from the spreadsheet
     Ts = readtable(filename, 'Sheet', num2str(composition));
     Xs = table2array(Ts);
     missing_ind = find(isnan(Xs));
     filled_linear_ind = find(~isnan(Xs));
-    disp(1)
-end 
+ 
 ind = find(intervals == composition);
 
-[U,D,V,X_pred_plot]=missing_svd(Xs,dim2,1,1e-3,1000); %uncomment to
+[U,D,V,X_pred_plot]=missing_svd(Xs,dim2,1,1e-3,1000); 
 mseplot = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
 wmseplot= find_wmse(X(missing_ind), X_pred_plot(missing_ind), length(missing_ind));
 smseplot = sqrt(mse);
