@@ -5,20 +5,18 @@
 clc
 clear
 
-
-% Import multiple sheets, 3 way array 
 filename = 'ToyProblemData3DFull.xlsx'; % created using parafac code 
-% find sheet names 
+% find sheet names in the file 
 sheets = sheetnames(filename);
 % iterate for the number of sheets
-dim3 =0;
+
 for s=1:length(sheets)
     [sNum,tf]=str2num(s);
     % if the name of the sheet was a number, it can be converted and
     % contains data for the problem 
     if tf == 1
         T = readtable(filename, 'Sheet', sNum);
-        % fill X matrix 
+        % fill X matrix, changes upon each iteration 
         X(:, :, sNum)=table2array(T); 
     end 
 end 
@@ -42,14 +40,15 @@ smse = zeros(size(fns,2),size(intervals,2));
 wmse = zeros(size(fns,2),size(intervals,2));
 R = zeros(size(fns,2),size(intervals,2));
 
-j=0; % counter 
+
 if size(dim,2)>2
     if size(dim,2)==3
         dim3 = dim(3);
-        for dim = dim3 
+        j=0; % counter for matrices
+        for dim = 1:dim3 
             j = j+1;
             Xs = X(:,:,j);
-            Xs = reshape(Xs,[dim1,dim2]);
+            Xs = reshape(Xs,[dim(1),dim(2)]); %matrix
             % complete matrix
             % Iterative PCA with wMSE or MSE used to find rank 
         
@@ -58,38 +57,46 @@ if size(dim,2)>2
 
             
             %Find rank by minimising the mse or wmse  
-            i=0;
+            i=0; %counter for ranks 
             for fn=fns
-                % 
+                % rank = fn 
                 
                 i=i+1;
+                % var filled for each rank 
                 error = zeros(size(filled_linear_ind,1),1);
                 
                 %LOOCV
-                k=0;% 
-                for filled_ind = filled_linear_ind' %filled_linear_ind must be a row vector for a for loop
-                    %Find error bars of the predictions 
-                    % remove a point from Xs 
+                k=0;% counter for LOOCV 
+                for filled_ind = filled_linear_ind' %filled_linear_ind must be a row vector  
+                    % temporary X
                     X_b = Xs;
                     col = mod(filled_ind,dim2);
                     if col ==0
-                        col=dim2;% mod(any integer*m,m)=0, but the column should be column m
+                        col=dim2;% mod(integer*m,m)=0, therefore the column should be column m
                     end 
                     row = ceil(filled_ind/dim2);
-                    X_b(filled_ind) = nan;
+                    X_b(filled_ind) = nan;% remove a point from Xs
                     if find(X_b(:,col)) &&  find(X_b(row,:)) %ensure at least one value in each column and row
-                        k=k+1;
+                        k=k+1;% allowed, therefore the counter is increased 
                         boot_removed_col(k) = col;
                         boot_removed_row(k) = row;
-                        %if there are other entries in the rows and columns,
                         %perform iterative PCA on the matrix with one entry missing
-                        [U,D,V,X_pred_boot(:,:)]=missing_svd(X_b,min_fn,1,1,1e-3,1000);%iterative PCA using the known rank 
+                        [U,D,V,X_pred_boot(:,:)]=missing_svd(X_b,min_fn,1,1,1e-3,1000);
+                        %save error for this value left out 
                         error(k) = X_pred_boot(filled_ind)- Xs(filled_ind);
                     end 
-                end
-                mse(i,j) = sum(error.^2);
-
-            end
+                end %end LOOCV 
+                % find error for matrix (i) and rank (j)
+                mse(i,j) = sum(error.^2)/k;
+                % find the winsorized mse for the matrices 
+                % find outliers
+                perc5 = prctile(error,5, 'all');
+                perc95 = prctile(error, 95, 'all');
+                %reassign
+                error(error<perc5)=perc5;
+                error(error> perc95)=perc95;
+                wmse(i,j) = (sum(error.^2))/k;
+            end %end ranks loop
             minmse(j) = min(mse(:,j));
             minwmse(j)=min(wmse(:,j));
 
@@ -99,44 +106,9 @@ if size(dim,2)>2
                 min_index = find(mse(:,j)==minmse(j));
             end 
             min_fn(j) = fns(min_index);
-            R2(j) = R(min_index,j)^2;
             [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1,1e-3,1000);
-        end 
+        end %end matrices loop 
         
-        %Error bars, LOOCV, this must be used to find the correct rank 
-        X_pred_boot = zeros(dim1,dim2,size(filled_linear_ind,1));
-        boot_removed_col = zeros(size(filled_linear_ind,1),1);
-        boot_removed_row = zeros(size(filled_linear_ind,1),1);
-        error = zeros(size(filled_linear_ind,1),1);
-        
-        k=0;% for the bootstrapping to find error bars 
-        for filled_ind = filled_linear_ind' %filled_linear_ind must be a row vector for a for loop
-            %Find error bars of the predictions 
-            % remove a point from Xs 
-            X_b = Xs;
-            col = mod(filled_ind,dim2);
-            if col ==0
-                col=dim2;% mod(any integer*m,m)=0, but the column should be column m
-            end 
-            row = ceil(filled_ind/dim2);
-            X_b(filled_ind) = nan;
-            if find(X_b(:,col)) & find(X_b(row,:)) %ensure at least one value in each column and row
-                k=k+1;
-                boot_removed_col(k) = col;
-                boot_removed_row(k) = row;
-                %if there are other entries in the rows and columns,
-                %perform iterative PCA on the matrix with one entry missing
-                [U,D,V,X_pred_boot(:,:)]=missing_svd(X_b,min_fn,1,1,1e-3,1000);%iterative PCA using the known rank 
-                error(k) = X_pred_boot(filled_ind)- Xs(filled_ind);
-            end 
-        end 
-        % remove the predictions that were not made from the averaging and
-        % finding variance 
-
-        for l=1:k
-            X_pred_best_boot(boot_removed_row(l), boot_removed_col(l)) = mean(X_pred_boot(boot_removed_row(l), boot_removed_col(l), :));
-            X_var_best_boot(boot_removed_row(l), boot_removed_col(l)) = var(X_pred_boot(boot_removed_row(l), boot_removed_col(l), :));
-        end 
     end 
 end 
 
@@ -221,6 +193,7 @@ for composition = intervals
     ylabel('Error')
 end 
 
+%% Functions 
 
 function [X_sparse,remove_ind, fill_ind]=fill_matrix(X, perc_remove)
     % fill data into a matrix until you have reached 1-perc_remove, save all
