@@ -123,6 +123,19 @@ if size(dim,2)>2
     end 
 end 
 
+%% Relate matrices to each other by RK 
+
+% initialise regression constants - will find matrix of each 
+A=ones(dim1,dim2);
+B=ones(dim1,dim2);
+C=ones(dim1,dim2);
+% function created 
+He = @(x1) x1*(1-x1)*(A+B*(2*x1-1)+C*(2*x1-1)^2);
+% call the function 
+He(x);
+% regress each system 
+
+
 %% Plots of the singular values 
 clf
 dim2=40;
