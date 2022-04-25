@@ -48,6 +48,7 @@ if size(dim,2)>2
         for dim = dim3 
             j = j+1;
             Xs = X(:,:,j);
+            Xs = reshape(Xs,[dim1,dim2]);
             % complete matrix
             % Iterative PCA with wMSE or MSE used to find rank 
         
@@ -266,7 +267,7 @@ function [X_filled]=fill_data(X)
     end 
 end 
 
-function [S,V,D,X_pred]=missing_svd(X,fn,center,conv,max_iter)
+function [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
     [m,n]=size(X);
     miss_ind = find(isnan(X));
     if any(isnan(X)) % there is missing data 
@@ -278,7 +279,10 @@ function [S,V,D,X_pred]=missing_svd(X,fn,center,conv,max_iter)
         iter = 1;
         while iter<max_iter && f>conv
             SSold = SS;
+            % preprocess = scale and then center 
             if scale ==1 
+                sj = sqrt(sum(sum((Xf).^2)));
+                Xf = Xf/sj;
             end 
             if center ==1
                 mx = mean(Xf);
@@ -291,18 +295,29 @@ function [S,V,D,X_pred]=missing_svd(X,fn,center,conv,max_iter)
             V=V(:,1:fn);
             S=S(:,1:fn);
             D=D(:,1:fn);
+            % post process = uncenter, unscale  
             if center ==1
                 X_pred = S*D'+ones(m,1)*mx;
             else 
                 X_pred = S*D';
             end 
+            if scale ==1
+                X_pred = X_pred*sj;
+            end
+            
+            % fill misssing values 
             Xf(miss_ind)=X_pred(miss_ind);
             SS = sum(sum(Xf(miss_ind).^2));
             f = abs(SS-SSold)/(SSold);
             iter = iter+1;
         end 
     else 
+        % no missing data 
         Xf=X;
+        if scale ==1 
+            sj = sqrt(sum(sum((Xf).^2)));
+            Xf = Xf/sj;
+        end
         if center ==1
             mx = mean(Xf);
             %Xc = normalize(Xf); %normalizing 
@@ -314,11 +329,15 @@ function [S,V,D,X_pred]=missing_svd(X,fn,center,conv,max_iter)
         S=S*V;
         S=S(:,1:fn);
         D=D(:,1:fn);
+         
         if center ==1
             X_pred = S*D'+ones(m,1)*mx;
         else 
             X_pred = S*D';
         end 
+        if scale ==1
+                X_pred = X_pred*sj;
+        end
     end %end if  else 
 end % end function 
 
