@@ -43,36 +43,38 @@ else
     filename = ['ToyProblemData3D_',num2str(missing),'%missing.xlsx'];
     [X, Xtrue, Factors] = importX(filename, dim);  
 end 
-%% remove NaN  (3D)
-[X,dim, znan, ynan, xnan]=remove_nan(X);
-dim1 = dim(1);
-dim2 = dim(2);
-dim3 = dim(3);
+
 %% Tensor completion loops 
-%Find the correct number of factors 
-missing = [40,50,60];
-% necessary vectors 
+% import data to initialise vars 
+dim = [5,30,40];
+missing = 90;
+filename = ['ToyProblemData3D_',num2str(missing),'%missing.xlsx'];
+[X, Xtrue, Factors] = importX(filename, dim);
 missing_ind = find(isnan(X));
 filled_linear_ind = find(~isnan(X));
-[i,j,k]=findfill3(X);
-%  number of factors maximum to try 
-N=10;
-%metrics defined
-smse = zeros(N,1);
-fit = zeros(N,1);
-it = zeros(N,1);
-error = zeros(N, length(filled_linear_ind));
-mse = zeros(N,1);
-c = zeros(N,length(missing));
-coreconsistency = zeros(N,1);
 % can also get Rho, Lambda, EV% and Max Gr
 % EV must be close to 100%
+
+%Find the correct number of factors 
+missing = [10,20,30,40,50,60,70,80,90];
+%  number of factors maximum to try 
+N=10;
+
 
 % for each % missing 
 minmse = zeros(1,length(missing));
 numberOfFactors = zeros(1,length(missing));
 dof = zeros(1,length(missing));
 
+%metrics defined
+smse = zeros(N,1);
+fit = zeros(N,1);
+it = zeros(N,1);
+error = zeros(N, length(filled_linear_ind));
+mse = zeros(N,1);
+indexsortmse=zeros(N,length(missing));
+c = zeros(N,length(missing));
+coreconsistency = zeros(N,1);
 % define other needed vars 
 X_pred = zeros(dim(1),dim(2),dim(3),N);
 center = 1;
@@ -90,6 +92,8 @@ for miss = missing
     %import wanted data 
     filename = ['ToyProblemData3D_',num2str(miss),'%missing.xlsx'];
     [X, Xtrue, Factors] = importX(filename, dim);
+    filled_linear_ind = find(~isnan(X));
+    no_filled = miss/100*dim(1)*dim(2)*dim(3);
     %remove nan slabs from the 3-way array 
     [X,dim, znan, ynan, xnan]=remove_nan(X);
     % Find the correct number of factors for this percent missing 
@@ -104,15 +108,14 @@ for miss = missing
         fit(n,count) = D.fit;
         %own metrics 
         % fix this 
-        error(n,:) = (Xtrue(filled_linear_ind )-X_pred(filled_linear_ind))';
+        error(n,1:length(filled_linear_ind)) = (Xtrue(filled_linear_ind)-Xm(filled_linear_ind))';
         %[Consistency,G,stdG,Target]=corcond(X,Factors,Weights,Plot)
         c(n,count)= corcond(Xm,F,[],1); 
         % averages of metrics for LOOCV 
-        mse(n,count) = sum(error(n,:).^2)./length(error(n,:));
+        mse(n,count) = sum(error(n,1:length(filled_linear_ind)).^2)./length(error(n,1:length(filled_linear_ind)));
     end
     % Find true number of factors for this % missing 
     %Find the optimal rank prediction
-    indexsortmse=zeros(N,length(missing));
     [sortmse, indexsortmse(:,count)]=sort(mse(:,count)); % sorts in ascending order 
     m = 0; % counter for finding consisent number of factors with lowest mse 
     check =1;
@@ -134,11 +137,12 @@ end
 
 %% LOOCV for the correct number of factors for a % missing 
 % must be run after the correct nnumber of factors is found 
-missingLOOCV = 50;
+missingLOOCV = 60;
 numberOfFactorsLOOCV = numberOfFactors(missing==missingLOOCV);
 filename = ['ToyProblemData3D_',num2str(missingLOOCV),'%missing.xlsx'];
 [X, Xtrue, Factors] = importX(filename, dim); 
-
+% find filled indices 
+[i,j,k]=findfill3(X);
 % define metrics here that need to be used 
 N = length(filled_linear_ind);
 smseN = zeros(1,N);
