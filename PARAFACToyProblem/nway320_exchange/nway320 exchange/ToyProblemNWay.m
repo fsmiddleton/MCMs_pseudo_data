@@ -44,40 +44,13 @@ else
     [X, Xtrue, Factors] = importX(filename, dim);  
 end 
 %% remove NaN  (3D)
-% saves the columns and rows with only Nan values 
-
-% isnan(X) returns logical array 
-% all(isnan(X),1) is also a logical array (1x30x40) - each row
-% find(all(isnan(X),1)) returns linear indices -> reshape array to correct
-% dimension to find missing slabs 
-% z slabs
-t1 = all(isnan(X),[1,2]);
-t1 = reshape(t1,[1,dim3]); %logical 
-r1=find(t1);
-X(:,:,r1)=[];
-
-% x slabs 
-t2 = all(isnan(X),[2,3]);
-t2 = reshape(t2,[1,dim1]); %logical 
-r2=find(t2);
-X(:,:,r2)=[];
-
-% y slabs 
-t3 = all(isnan(X),[1,3]);
-t3 = reshape(t3,[1,dim2]); %logical 
-r3=find(t3);
-X(:,:,r3)=[];
-
- %new X 
-dim = size(X);
+[X,dim, znan, ynan, xnan]=remove_nan(X);
 dim1 = dim(1);
 dim2 = dim(2);
 dim3 = dim(3);
-
-
 %% Tensor completion loops 
 %Find the correct number of factors 
-
+missing = [40,50,60];
 % necessary vectors 
 missing_ind = find(isnan(X));
 filled_linear_ind = find(~isnan(X));
@@ -90,7 +63,7 @@ fit = zeros(N,1);
 it = zeros(N,1);
 error = zeros(N, length(filled_linear_ind));
 mse = zeros(N,1);
-c = zeros(N,length(filled_linear_ind));
+c = zeros(N,length(missing));
 coreconsistency = zeros(N,1);
 % can also get Rho, Lambda, EV% and Max Gr
 % EV must be close to 100%
@@ -110,12 +83,17 @@ alphabet = 'ABCD'; %will use maximum 4way data
 
 count = 0; % index for the missing data arrays
 for miss = missing
+    disp('% missing')
+    disp(miss)
     count = count+1;
     dim = [5,30,40];
+    %import wanted data 
     filename = ['ToyProblemData3D_',num2str(miss),'%missing.xlsx'];
     [X, Xtrue, Factors] = importX(filename, dim);
+    %remove nan slabs from the 3-way array 
+    [X,dim, znan, ynan, xnan]=remove_nan(X);
+    % Find the correct number of factors for this percent missing 
     for n = 1:N % factors (== principal components) 
-        % LOOCV
         disp('n')
         disp(n) 
         %perform INDAFAC with missing values on the matrix with one entry missing
@@ -126,7 +104,7 @@ for miss = missing
         fit(n,count) = D.fit;
         %own metrics 
         % fix this 
-        error(n,:) = Xtrue(filled_linear_ind )-X_pred(filled_linear_ind);
+        error(n,:) = (Xtrue(filled_linear_ind )-X_pred(filled_linear_ind))';
         %[Consistency,G,stdG,Target]=corcond(X,Factors,Weights,Plot)
         c(n,count)= corcond(Xm,F,[],1); 
         % averages of metrics for LOOCV 
@@ -138,6 +116,7 @@ for miss = missing
     [sortmse, indexsortmse(:,count)]=sort(mse(:,count)); % sorts in ascending order 
     m = 0; % counter for finding consisent number of factors with lowest mse 
     check =1;
+    coreconsistency = c(:,count);
     while check==1
         m=m+1;
         if coreconsistency(indexsortmse(m,count))>0.9 % should be consistent 
@@ -147,30 +126,28 @@ for miss = missing
     minmse(count) = sortmse(m);
     numberOfFactors(count) = indexsortmse(m,count);
     cmin = coreconsistency(numberOfFactors(count));
-    dof(count) = dim1*dim2*dim3-numberOfFactors*(dim1+dim2+dim3-2);
+    dof(count) = dim1*dim2*dim3-numberOfFactors(count)*(dim1+dim2+dim3-2);
     % find the model 
     [F,D, X_pred(:,:,:,n)]=missing_indafac(X,numberOfFactors(count),mode, center,scale,1e-3,1000, method);
 end
 
-%create model
 
-[F,D, X_pred(:,:,:,n)]=missing_indafac(X_b,numberOfFactors,mode, center,scale,1e-3,1000, method);
+%% LOOCV for the correct number of factors for a % missing 
+% must be run after the correct nnumber of factors is found 
+missingLOOCV = 50;
+numberOfFactorsLOOCV = numberOfFactors(missing==missingLOOCV);
+filename = ['ToyProblemData3D_',num2str(missingLOOCV),'%missing.xlsx'];
+[X, Xtrue, Factors] = importX(filename, dim); 
 
-for alph=1:3 %each loading for each dimension of the data
-        eval([alphabet(alph) ,'= F{alph};']);
-end 
-Xm = nmodel(F);
-
-%% LOOCV for the correct number of factors 
 % define metrics here that need to be used 
 N = length(filled_linear_ind);
-smseN = zeros(N,1);
-fitN = zeros(N,1);
-itN = zeros(N,1);
-errorN = zeros(N, length(filled_linear_ind));
-mseN = zeros(N,1);
-cN = zeros(N,length(filled_linear_ind));
-coreconsistencyN = zeros(N,1);
+smseN = zeros(1,N);
+fitN = zeros(1,N);
+itN = zeros(1,N);
+errorN = zeros(1,N);
+mseN = zeros(1,N);
+cN = zeros(1,N);
+coreconsistencyN = zeros(1,N);
 % can also get Rho, Lambda, EV% and Max Gr
 % EV must be close to 100%
 
@@ -190,7 +167,7 @@ for filled_ind = filled_linear_ind' %filled_linear_ind must be a row vector
         count=count+1; % allowed, therefore the counter is increased 
         %perform INDAFAC with missing values on the matrix with one entry missing
         %[F,D, X_pred]=missing_indafac(X,fn,mode, center,scale,conv,max_iter)
-        [F,D, X_pred(:,:,:,count)]=missing_indafac(X_b,numberOfFactors,mode, center,scale,1e-3,1000,method);
+        [F,D, X_pred(:,:,:,count)]=missing_indafac(X_b,numberOfFactorsLOOCV,mode, center,scale,1e-3,1000,method);
         Xm = nmodel(F);
         %built in metric
         fit(n,count) = D.fit;
@@ -235,6 +212,40 @@ xlabel('x')
 ylabel('y')
 zlabel('z')
 %% 
+function [X,dim, znan, ynan, xnan]=remove_nan(X)
+    % saves the columns and rows with only Nan values 
+
+    % isnan(X) returns logical array 
+    % all(isnan(X),1) is also a logical array (1x30x40) - each row
+    % find(all(isnan(X),1)) returns linear indices -> reshape array to correct
+    % dimension to find missing slabs 
+    dim = size(X);
+    % z slabs
+    t1 = all(isnan(X),[1,2]);
+    t1 = reshape(t1,[1,dim(3)]); %logical 
+    r1=find(t1);
+    X(:,:,r1)=[];
+
+    % x slabs 
+    t2 = all(isnan(X),[2,3]);
+    t2 = reshape(t2,[1,dim(1)]); %logical 
+    r2=find(t2);
+    X(:,:,r2)=[];
+
+    % y slabs 
+    t3 = all(isnan(X),[1,3]);
+    t3 = reshape(t3,[1,dim(2)]); %logical 
+    r3=find(t3);
+    X(:,:,r3)=[];
+
+     %new X 
+    dim = size(X);
+    znan=r1;
+    xnan=r2;
+    ynan=r3;
+
+end 
+
 function [X, Xtrue, Factors] = importX(filename, dim)
     Factors = readtable(filename, 'Sheet', 'Factors');
     X=zeros(dim(1),dim(2),dim(3));
@@ -245,6 +256,7 @@ function [X, Xtrue, Factors] = importX(filename, dim)
         X(i,:,:)=table2array(T);
     end
 end
+
 function [F,D, X_pred]=missing_indafac(X,fn,mode, center,scale,conv,max_iter,method)
 % Input 
 % X = data array 
