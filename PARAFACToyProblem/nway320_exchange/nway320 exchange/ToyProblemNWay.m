@@ -129,7 +129,7 @@ for miss = missing
     minmse(count) = sortmse(m);
     numberOfFactors(count) = indexsortmse(m,count);
     cmin = coreconsistency(numberOfFactors(count));
-    dof(count) = dim1*dim2*dim3-numberOfFactors(count)*(dim1+dim2+dim3-2);
+    dof(count) = dim(1)*dim(2)*dim(3)-numberOfFactors(count)*(dim(1)+dim(2)+dim(3)-2);
     % find the model 
     [F,D, X_pred(:,:,:,n)]=missing_indafac(X,numberOfFactors(count),mode, center,scale,1e-3,1000, method);
 end
