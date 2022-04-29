@@ -8,6 +8,7 @@
 %%
 clc
 clear
+%%
 %dimensions of the toy array 
 dim1=5;
 dim2=30;
@@ -71,18 +72,21 @@ smse = zeros(N,1);
 fit = zeros(N,1);
 it = zeros(N,1);
 error = zeros(N, length(filled_linear_ind));
-mse = zeros(N,1);
+mse = zeros(N,length(missing));
 indexsortmse=zeros(N,length(missing));
 c = zeros(N,length(missing));
 coreconsistency = zeros(N,1);
-% define other needed vars 
+% metrics to compare to truth 
+msemiss = zeros(N,1);
+errormiss = zeros(N, length(missing_ind));
+% define other needed vars  
 X_pred = zeros(dim(1),dim(2),dim(3),N);
 center = 1;
 scale = 1;
 mode =1;
 method = 'Broindafac';
 alphabet = 'ABCD'; %will use maximum 4way data
-
+rng(20,'twister')
 count = 0; % index for the missing data arrays
 for miss = missing
     disp('% missing')
@@ -93,6 +97,7 @@ for miss = missing
     filename = ['ToyProblemData3D_',num2str(miss),'%missing.xlsx'];
     [X, Xtrue, Factors] = importX(filename, dim);
     filled_linear_ind = find(~isnan(X));
+    missing_ind = find(isnan(X));
     no_filled = miss/100*dim(1)*dim(2)*dim(3);
     %remove nan slabs from the 3-way array 
     [X,dim, znan, ynan, xnan]=remove_nan(X);
@@ -109,10 +114,12 @@ for miss = missing
         %own metrics 
         % fix this 
         error(n,1:length(filled_linear_ind)) = (Xtrue(filled_linear_ind)-Xm(filled_linear_ind))';
+        errormiss(n,1:length(missing_ind))= (Xtrue(missing_ind)-Xm(missing_ind))';
         %[Consistency,G,stdG,Target]=corcond(X,Factors,Weights,Plot)
         c(n,count)= corcond(Xm,F,[],1); 
         % averages of metrics for LOOCV 
         mse(n,count) = sum(error(n,1:length(filled_linear_ind)).^2)./length(error(n,1:length(filled_linear_ind)));
+        msemiss(n,count) = sum(errormiss(n,1:length(missing_ind)).^2)./length(errormiss(n,1:length(missing_ind)));
     end
     % Find true number of factors for this % missing 
     %Find the optimal rank prediction
