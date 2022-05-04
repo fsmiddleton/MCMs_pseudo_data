@@ -92,7 +92,93 @@ else
     disp('Please choose 0, 1, 2 to use data')
 end 
 
-
+%% Find true rank of imported matrix 
+clc
+clear
+n= 20;% number of ranks to try 
+zmax = 5; % number of matrices 
+error = zeros(n,zmax);
+normF = zeros(n,zmax);
+SVs = zeros(n,zmax);
+fnGavish = zeros(zmax,1);
+for z = 1:zmax
+    %Import data 
+    filename = 'ToyProblemData3DFull.xlsx';
+    Ttrue = readtable(filename, 'Sheet', num2str(z));
+    Xtrue = table2array(Ttrue);
+    dim = size(Xtrue);
+    dim1= dim(1);
+    dim2 = dim(2);
+    for fn = 1:n
+        % PCA
+        Xf=Xtrue;
+        %scale 
+        sj = sqrt(sum(sum((Xf).^2)));
+        Xf = Xf/sj;
+        %center
+        mx = mean(Xf); 
+        Xc = Xf-ones(dim1,1)*mx; %centering
+        % SVD
+        [S,V,D]=svd(Xc);
+        % X = S*V*D'; V = singular values 
+        S=S*V;
+        S=S(:,1:fn);
+        D=D(:,1:fn);
+        %uncenter and predict  
+        X_pred = S*D'+ones(dim1,1)*mx;
+        %unscale
+        X_pred = X_pred*sj;
+        
+        Xdiff = Xtrue-X_pred;
+        error(fn,z) = sqrt(sum(sum(Xdiff.^2)));
+        normF(fn,z) = norm(Xdiff,"fro"); % Frobenius norm 
+    end 
+    % Gavish 
+    if dim1/dim2 ==1
+        omega = 2.858; % omega(beta)=2.858 for n*n square matrix
+    elseif dim1/dim2 < 1
+        beta = dim1/dim2;
+        omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
+    else
+        beta = dim2/dim1; 
+        omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
+    end 
+    y_med = median(diag(V)); %ymed = median singular value of the noisy matrix  
+    cutoff = omega*y_med; %cutoff= tau= omega(beta)*ymed; matrix
+    % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
+    d=diag(V);
+    fnGavish(z) = length(find(d>cutoff));
+    % Gavish 
+    
+    %plots
+    subplot(2,2,1)
+    y = diag(V);
+    SVs(:,z)= y(1:n);
+    semilogy(1:n, y(1:n))
+    hold on
+    xlabel('Rank')
+    ylabel('Singular values')
+    subplot(2,2,2)
+    plotcumsum = cumsum(diag(V))/sum(diag(V));
+    plot(1:n,plotcumsum(1:n))
+    hold on
+    xlabel('Rank')
+    ylabel('Cumulative contribution to error')
+    subplot(2,2,3)
+    plot(1:n, error(:,z))
+    hold on
+    xlabel('Rank')
+    ylabel('Mean squared error')
+    subplot(2,2,4)
+    plot(1:n, normF(:,z))
+    hold on
+    xlabel('Rank')
+    ylabel('Frobenius norm')
+end 
+legend('1','2','3','4','5')
+hold off
+    
+         
 %% Plot the matrix generated
 clf
 %[Xs,missing_ind,filled_linear_ind]=fill_matrix(X,0.5);%missing data 
@@ -238,7 +324,7 @@ clc
 clear
 
 % choose which matrix to use in toy data (1 to 5)
-z=2;
+z=4;
 %Import true data 
 filename = 'ToyProblemData3DFull.xlsx';
 Ttrue = readtable(filename, 'Sheet', num2str(z));
@@ -276,7 +362,6 @@ winsorized_mse = 0;
 mse_LOOCV = zeros(length(missing),length(fns));
 wmse_LOOCV = zeros(length(missing),length(fns));
 mse_LOOCV_missing = zeros(length(missing),length(fns));
-fn_LOOCV = zeros(length(missing),1);
 min_mse_LOOCV = zeros(length(missing),1);
 min_wmse_LOOCV = zeros(length(missing),1);
 min_mse_LOOCV_missing = zeros(length(missing),1);
@@ -292,9 +377,14 @@ for composition = missing
     count_missing = count_missing+1;
     filename = ['ToyProblemData3D_',num2str(composition),'%missing.xlsx'];
     T = readtable(filename, 'Sheet', num2str(z));
-    Xs=table2array(T);
+    Xs = table2array(T);
     Xs = removenan(Xs);
+    Xfilled = Xs;
+    dim = size(Xs);
+    dim1 = dim(1);
+    dim2 = dim(2);
     missing_ind = find(isnan(Xs));
+    [row,col] = find(~isnan(Xs));
     filled_linear_ind = find(~isnan(Xs));
     disp('% missing')
     disp(composition)
@@ -302,29 +392,22 @@ for composition = missing
     Xm_boot=zeros(length(filled_linear_ind),1);
     error_LOOCV = zeros(length(filled_linear_ind),1);
     mse_miss = zeros(length(missing_ind),1);
-    %loop through ranks 
+    %loop through ranks
+    disp('fn')
     for fn = fns 
+        disp(fn)
         k=0;% for the bootstrapping/ LOOCV for each 
-        for filled_ind = filled_linear_ind' %filled_linear_ind must be a row vector for a for loop
-            %Find error bars of the predictions 
-            % remove a point from Xs 
+        for filled_ind = filled_linear_ind' %filled_linear_ind must be a row vector for a for loop    
+            k=k+1;
+            % remove a point from Xs
             X_b = Xs;
             X_b(filled_ind) = nan;
-            % find the location of the missing value (row and column) 
-            col = mod(filled_ind,dim2);
-            if col ==0
-                col=dim2;% mod(any integer*m,m)=0, but the column should be column m
-            end 
-            row = ceil(filled_ind/dim2);
-            if find(X_b(:,col)) & find(X_b(row,:)) %ensure at least one value in each column and row
-                k=k+1;
-                disp('k')
-                disp(k)
-                LOOCV_removed_col(k,count_missing) = col;
-                LOOCV_removed_row(k,count_missing) = row;
+            if find(~isnan(X_b(:,col(k)))) & find(~isnan(X_b(row(k),:))) %ensure at least one value in each column and row
+                LOOCV_removed_col(k,count_missing) = col(k);
+                LOOCV_removed_row(k,count_missing) = row(k);
                 %perform iterative PCA on the slightly more empty matrix 
                 %  [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
-                [U,D,V,Xm]=missing_svd(X_b,fn,1,1,1e-3,1000);%iterative PCA using the known rank 
+                [U,D,V,Xm]=missing_svd(X_b,fn,1,1,1e-3,1000); 
             end
             error_LOOCV(k) = Xs(filled_ind)-Xm(filled_ind);
             mse_miss(k) = sum((Xtrue(missing_ind)-Xm(missing_ind)).^2)/length(missing_ind);
@@ -339,11 +422,11 @@ for composition = missing
     end
     
     % find the optimal rank 
-    if winsorizedmse ==1
+    if winsorized_mse ==1
         fn_LOOCV(count_missing) = find(wmse_LOOCV(count_missing,:) == min(wmse_LOOCV(count_missing,:)));
     else 
         fn_LOOCV(count_missing) = find(mse_LOOCV(count_missing,:) == min(mse_LOOCV(count_missing,:)));
-    end 
+    end
     
     min_mse_LOOCV(count_missing) = mse_LOOCV(count_missing,fn_LOOCV(count_missing));
     min_wmse_LOOCV(count_missing) = wmse_LOOCV(count_missing,fn_LOOCV(count_missing));
@@ -353,6 +436,57 @@ end
 Results = table(["Sparsity"; (missing')],[ "SVs";fn_LOOCV],[ "MSE";min_mse_LOOCV],[ "wMSE";min_wmse_LOOCV], ["Missing data MSE";min_mse_LOOCV_missing]);
 disp(Results)
 toc 
+%% Gavish to find rank  
+clc
+clear
+% check rank found using Gavish 
+z=5; % which matrix to use 
+missing = 30:10:80;
+% Import data to set variables 
+miss = 30; % %missing values 
+filename = ['ToyProblemData3D_',num2str(miss),'%missing.xlsx'];
+T = readtable(filename, 'Sheet', num2str(z));
+Xs = table2array(T);
+Xs = removenan(Xs);
+dim = size(Xs);
+dim1 = dim(1);
+dim2 = dim(2);
+fn_LOOCV = zeros(length(missing),1);
+fn_Gavish = zeros(length(missing),1);
+SVs = zeros(dim1,length(missing));
+  
+
+count_missing = 0;
+for miss = missing 
+    disp('%missing')
+    disp(miss)
+    count_missing = count_missing +1;
+    % Import matrix 
+    filename = ['ToyProblemData3D_',num2str(miss),'%missing.xlsx'];
+    T = readtable(filename, 'Sheet', num2str(z));
+    Xs = table2array(T);
+    Xs = removenan(Xs);
+    % finds SVs using iterative PCA 
+    [U,D,V,Xpred_Gavish]=missing_svd(Xs,dim2,1,1,1e-3,1000);
+    
+    % Find rank using Gavish 
+    if dim1/dim2 ==1
+        omega = 2.858; % omega(beta)=2.858 for n*n square matrix
+    elseif dim1/dim2 < 1
+        beta = dim1/dim2;
+        omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
+    else
+        beta = dim2/dim1; 
+        omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
+    end 
+    y_med = median(diag(D)); %ymed = median singular value of the noisy matrix  
+    cutoff = omega*y_med; %cutoff= tau= omega(beta)*ymed; matrix
+    % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
+    d=diag(D);
+    fnGavish(count_missing) = length(find(d>cutoff));
+    SVs(:,count_missing)= diag(D);
+end 
+% end Gavish
 %% Error bars
 error_boot = zeros(length(filled_linear_ind),1);
 for j=1:k
@@ -372,7 +506,6 @@ if import ==1
     Xs = table2array(Ts);
     missing_ind = find(isnan(Xs));
     filled_linear_ind = find(~isnan(Xs));
-    disp(1)
 end 
 ind = find(intervals == composition);
 
@@ -382,6 +515,7 @@ wmseplot= find_wmse(X(missing_ind), X_pred_plot(missing_ind), length(missing_ind
 smseplot = sqrt(mse);
 Cyt = corrcoef(X_pred(missing_ind),Xs(missing_ind));
 R=sqrt(Cyt(2,1));
+
 %choose rank
 subplot(2,1,1)
 y = diag(D);
