@@ -112,7 +112,7 @@ for miss = missing
     missing_ind = find(isnan(X));
     no_filled = miss/100*dim(1)*dim(2)*dim(3)*dim(4);
     %remove nan slabs from the 4-way array 
-    [Xnew,dim, nan_coords]=remove_nan(X);
+    [Xnew,dim, nan_coords]=remove_nan4(X);
     
     % Find the correct number of factors for this percent missing 
     for n = 1:N % factors (== principal components) 
@@ -280,13 +280,17 @@ xlabel('x')
 ylabel('y')
 zlabel('z')
 %% 
-function [X,dim, nancoords]=remove_nan(X)
-    % saves the columns and rows with only Nan values 
+function [X,dim, nancoords]=remove_nan4(X)
+    % saves the columns and rows with only Nan values and removes them from
+    % the 4-way array 
+    % Input 
+    % X = 4-way array 
+    % Output
+    % X = 4-way array without slabs of only nan values 
+    % dim = dimensions of X outputted 
+    % nancoords = indices of each dimension that contained only nan values.
+    % Stored as a dictionary
 
-    % isnan(X) returns logical array 
-    % all(isnan(X),1) is also a logical array (1x30x40) - each row
-    % find(all(isnan(X),1)) returns linear indices -> reshape array to correct
-    % dimension to find missing slabs 
     dim = size(X);
     % z slabs
     t1 = all(isnan(X),[1,2,3]);% finds slabs with only nan values 
@@ -322,6 +326,19 @@ function [X,dim, nancoords]=remove_nan(X)
 end 
 
 function [X, Xtrue, Factors] = importX(filename, dim, truefilename)
+% Imports the toy data stored in a spreadsheet with each matrix on its own
+% sheet
+% Input 
+% filename = name of the file containing desired data 
+% dim = dimensions of the data expected in the spreadsheet or amount to
+% extract 
+% truefilename = name of the file containing desired data in its
+% non-noisy form without missing data 
+% Output 
+% X = desired 4-way array 
+% Xtrue = true, non-noisy, filled, 4-way array 
+% Factors = Factors used to construct the array; Xtrue = ABCD
+
     Factors = readtable(filename, 'Sheet', 'Factors');
     X=zeros(dim(1),dim(2),dim(3),dim(4));
     Xtrue=zeros(dim(1),dim(2),dim(3),dim(4));
