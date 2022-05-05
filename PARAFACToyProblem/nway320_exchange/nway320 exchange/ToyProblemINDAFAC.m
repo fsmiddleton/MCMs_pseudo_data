@@ -110,7 +110,7 @@ for miss = missing
     missing_ind = find(isnan(X));
     no_filled = miss/100*dim(1)*dim(2)*dim(3);
     %remove nan slabs from the 3-way array 
-    [X,dim, znan, ynan, xnan]=remove_nan(X);
+    [X,dim, znan, ynan, xnan]=remove_nan3(X);
     % Find the correct number of factors for this percent missing 
     for n = 1:N % factors (== principal components) 
         % initialise random number generator 
@@ -270,13 +270,17 @@ xlabel('x')
 ylabel('y')
 zlabel('z')
 %% 
-function [X,dim, znan, ynan, xnan]=remove_nan(X)
-    % saves the columns and rows with only Nan values 
-
-    % isnan(X) returns logical array 
-    % all(isnan(X),1) is also a logical array (1x30x40) - each row
-    % find(all(isnan(X),1)) returns linear indices -> reshape array to correct
-    % dimension to find missing slabs 
+function [X,dim, znan, ynan, xnan]=remove_nan3(X)
+    % saves the columns and rows with only Nan values and removes them from
+    % the 3-way array 
+    % Input 
+    % X = 3-way array 
+    % Output
+    % X = 3-way array without slabs of only nan values 
+    % dim = dimensions of X outputted 
+    % znan = index of z coordinates that contained only nan values 
+    % ynan = index of y coordinates that contained only nan values 
+    % xnan = index of x coordinates that contained only nan values 
     dim = size(X);
     % z slabs
     t1 = all(isnan(X),[1,2]);
@@ -301,7 +305,6 @@ function [X,dim, znan, ynan, xnan]=remove_nan(X)
     znan=r1;
     xnan=r2;
     ynan=r3;
-
 end 
 
 function [X, Xtrue, Factors] = importX(filename, dim)
@@ -316,11 +319,11 @@ function [X, Xtrue, Factors] = importX(filename, dim)
     end
 end
 
-function [F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_iter,method)
+function [F,D, X_pred]=missing_indafac(X,fn,mode, center,scale,conv,max_iter,method)
 % Input 
 % X = data array 
 % fn = number of factors 
-% modeINDAFAC = mode of unfolding used 
+% mode = mode of unfolding used 
 % center  =1 center data 
 % scale  =1 scale data 
 %         =0 do not scale data  
@@ -371,9 +374,9 @@ function [F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_i
                 if scale ==1 || center ==1
                     [x1,x2,x3]=nshape(Xf);
                     %unfold
-                    if modeINDAFAC ==1
+                    if mode ==1
                         Xp=x1;
-                    elseif modeINDAFAC ==2
+                    elseif mode ==2
                         Xp = x2;
                     else 
                         Xp = x3;
@@ -406,7 +409,6 @@ function [F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_i
                 end 
                 % indafac or parafac step 
                 if strcmp(method,'indafac') 
-
                     [F,D]=INDAFAC(Xc,fn,Fi);
                     Xm = nmodel(F);
                 else 
@@ -418,9 +420,9 @@ function [F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_i
                 if scale ==1 || center ==1
                     [x1,x2,x3]=nshape(Xm);
                     %unfold
-                    if modeINDAFAC ==1
+                    if mode ==1
                         Xp=x1;
-                    elseif modeINDAFAC ==2
+                    elseif mode ==2
                         Xp = x2;
                     else 
                         Xp = x3;
@@ -457,14 +459,14 @@ function [F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_i
 end % end function 
 
 function [X_filled, missing] = filldata3(X)
-% Input 
-% X = data array 
-% Output 
-% X_filled = filled data array
-% missing = M matrix with ones for nan values 
+    % filldata3 fills a 3-way array with the arithmetic mean of the other
+    % values in the array
+    % Input 
+    % X = data array 
+    % Output 
+    % X_filled = filled data array
+    % missing = linear indices of missing data 
 
-% filldata3 fills a 3-way array with the arithmetic mean of the other
-% values in the array
     % fill as done for PCA with SVD (averages of each dimension)
     [i, j, k]=findnan3(X);% returns rows and columns with nan elements
     dim = size(X);
