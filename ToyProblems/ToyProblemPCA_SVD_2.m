@@ -9,7 +9,7 @@ import = 1;
 % import = 0 to create a low rank matrix, 
 % import = 1 to fetch an already created low rank matrix (2-way) 
 % import = 2 to import excess enthalpy data (2-way),
-% import = 3 to import 3-way data 
+
 filename = 'RandomMatrixNoNoise.xlsx';
 export = 0; % either export data(1) or don't, only used for creating a low rank matrix
 noise=1; %noise =1 to add noise to the creation of the matrix
@@ -70,113 +70,9 @@ elseif import ==2
     T1 = readtable('HEmatrix298.15.2.xlsx', 'Sheet', 3); 
     X = table2array(T1);%only use T1, small enough to manage
     
-elseif import ==3
-    % Import multiple sheets, 3 way array 
-    filename = 'ToyProblemData3DFull.xlsx'; % created using parafac code 
-    % find sheet names 
-    sheets = sheetnames(filename);
-    % iterate for the number of sheets
-    dim3 =0;
-    for s=1:length(sheets)
-        [sNum,tf]=str2num(s);
-        % if the name of the sheet was a number, it can be converted and
-        % contains data for the problem 
-        if tf == 1
-            T = readtable(filename, 'Sheet', sNum);
-            X(:, :, sNum)=table2array(T); 
-        end 
-    end 
-    dim = size(X);
-    
 else
     disp('Please choose 0, 1, 2 to use data')
 end 
-
-%% Find true rank of imported matrix 
-clc
-clear
-n= 20;% number of ranks to try 
-zmax = 5; % number of matrices 
-error = zeros(n,zmax);
-normF = zeros(n,zmax);
-SVs = zeros(n,zmax);
-fnGavish = zeros(zmax,1);
-for z = 1:zmax
-    %Import data 
-    filename = 'ToyProblemData3DFull.xlsx';
-    Ttrue = readtable(filename, 'Sheet', num2str(z));
-    Xtrue = table2array(Ttrue);
-    dim = size(Xtrue);
-    dim1= dim(1);
-    dim2 = dim(2);
-    for fn = 1:n
-        % PCA
-        Xf=Xtrue;
-        %scale 
-        sj = sqrt(sum(sum((Xf).^2)));
-        Xf = Xf/sj;
-        %center
-        mx = mean(Xf); 
-        Xc = Xf-ones(dim1,1)*mx; %centering
-        % SVD
-        [S,V,D]=svd(Xc);
-        % X = S*V*D'; V = singular values 
-        S=S*V;
-        S=S(:,1:fn);
-        D=D(:,1:fn);
-        %uncenter and predict  
-        X_pred = S*D'+ones(dim1,1)*mx;
-        %unscale
-        X_pred = X_pred*sj;
-        
-        Xdiff = Xtrue-X_pred;
-        error(fn,z) = sqrt(sum(sum(Xdiff.^2)));
-        normF(fn,z) = norm(Xdiff,"fro"); % Frobenius norm 
-    end 
-    % Gavish 
-    if dim1/dim2 ==1
-        omega = 2.858; % omega(beta)=2.858 for n*n square matrix
-    elseif dim1/dim2 < 1
-        beta = dim1/dim2;
-        omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
-    else
-        beta = dim2/dim1; 
-        omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
-    end 
-    y_med = median(diag(V)); %ymed = median singular value of the noisy matrix  
-    cutoff = omega*y_med; %cutoff= tau= omega(beta)*ymed; matrix
-    % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
-    d=diag(V);
-    fnGavish(z) = length(find(d>cutoff));
-    % Gavish 
-    
-    %plots
-    subplot(2,2,1)
-    y = diag(V);
-    SVs(:,z)= y(1:n);
-    semilogy(1:n, y(1:n))
-    hold on
-    xlabel('Rank')
-    ylabel('Singular values')
-    subplot(2,2,2)
-    plotcumsum = cumsum(diag(V))/sum(diag(V));
-    plot(1:n,plotcumsum(1:n))
-    hold on
-    xlabel('Rank')
-    ylabel('Cumulative contribution to error')
-    subplot(2,2,3)
-    plot(1:n, error(:,z))
-    hold on
-    xlabel('Rank')
-    ylabel('Mean squared error')
-    subplot(2,2,4)
-    plot(1:n, normF(:,z))
-    hold on
-    xlabel('Rank')
-    ylabel('Frobenius norm')
-end 
-legend('1','2','3','4','5')
-hold off
     
          
 %% Plot the matrix generated
@@ -194,24 +90,15 @@ ylabel('Frequency')
 clc
 clear
 
-% choose which matrix to use in toy data (1 to 5)
-z=1;
 %Import true data 
-filename = 'ToyProblemData3DFull.xlsx';
-Ttrue = readtable(filename, 'Sheet', num2str(z));
+filename = 'RandomMatrixNoise.xlsx';
+Ttrue = readtable(filename, 'Sheet', 4);
 Xtrue = table2array(Ttrue);
-% Import other data for most missing 
-filename = ['ToyProblemData3D_',num2str(30),'%missing.xlsx'];
-T = readtable(filename, 'Sheet', num2str(z));
+% Import other data for most missing to allow variables to be declared
+miss=30;
+T = readtable(filename, 'Sheet', num2str(miss/100));
 Xs=table2array(T);
-%time the code 
-tic
-% declare missing % used and the file from which to extract information 
 
-
-% Import a matrix to allow variables to be declared 
-T = readtable(filename, 'Sheet', num2str(z));
-Xs=table2array(T);
 %necessary vars 
 dim = size(Xs);
 dim1=dim(1);
@@ -230,7 +117,6 @@ Gavish =0;
 winsorized_mse = 1; %1=use wmse. Used for iterative PCA 
  % Choose sparsities used for finding the rank 
 missing = 30:10:80;
-intervals = missing;
 %ranks to try 
 fns = 1:1:20;
 %choose whether to reorder matrix or not, 1 = true 
@@ -238,37 +124,38 @@ reorder = 0;
         
 %intialise the metrics to analyse each sparsity and its final rank found 
 % vectors, one for each matrix that is sliced 
-minmse = zeros(size(intervals,2),1); 
-minwmse = zeros(size(intervals,2),1);
-minmse_fill = zeros(size(intervals,2),1);
-minwmse_fill = zeros(size(intervals,2),1);
-min_fn = zeros(size(intervals,2),1);
-min_fn_fill = zeros(size(intervals,2),1);
-X_pred_best = zeros(dim1,dim2,size(intervals,2)); % and the X predictions
-R2 = zeros(size(intervals,2),1);
+minmse_miss = zeros(size(missing,2),1); 
+minwmse_miss = zeros(size(missing,2),1);
+minmse_fill = zeros(size(missing,2),1);
+minwmse_fill = zeros(size(missing,2),1);
+min_fn = zeros(size(missing,2),1);
+min_fn_fill = zeros(size(missing,2),1);
+X_pred_best = zeros(dim1,dim2,size(missing,2)); % and the X predictions
+R2 = zeros(size(missing,2),1);
 % initialise error vars 
 % column for each matrix (fn vs sparsity)
-mse = zeros(size(fns,2),size(intervals,2));
-smse = zeros(size(fns,2),size(intervals,2));
-msefill= zeros(size(intervals,2),1);
-wmse = zeros(size(fns,2),size(intervals,2));
-wmsefill = zeros(size(fns,2),size(intervals,2));
-R = zeros(size(fns,2),size(intervals,2));
-cumulative_contribution = zeros(length(intervals),length(fns));
-SVs = zeros(length(fns),length(intervals));
+mse_miss = zeros(size(fns,2),size(missing,2));
+smse_miss = zeros(size(fns,2),size(missing,2));
+msefill= zeros(size(missing,2),1);
+wmse_miss = zeros(size(fns,2),size(missing,2));
+wmsefill = zeros(size(fns,2),size(missing,2));
+R = zeros(size(fns,2),size(missing,2));
+cumulative_contribution = zeros(length(missing),length(fns));
+SVs = zeros(length(fns),length(missing));
+
 %time the method 
 tic
 j=0; % counter for intervals
 plotcount = 0;
-for composition = intervals
+for miss = missing
+     
     j=j+1; % for sparsity
     disp('missing')
-    disp(composition)
+    disp(miss)
     %Import sparse matrix for toy problem 
-    filename = ['ToyProblemData3D_',num2str(composition),'%missing.xlsx'];
-    T = readtable(filename, 'Sheet', num2str(z));
+    T = readtable(filename, 'Sheet', num2str(miss/100));
     Xs = table2array(T);
-    Xs = removenan(Xs);
+    Xs = remove_nan2(Xs);
     Xfilled = Xs;
     dim = size(Xs);
     dim1 = dim(1);
@@ -280,7 +167,7 @@ for composition = intervals
     % Find the optimal rank for this matrix
     
     if Gavish==1
-        [min_fn(j),minmse(j),minwmse(j),R2(j), X_pred_best(:,:,j)] = solveGavish(Xs, dim1, dim2);
+        [min_fn(j),minmse_miss(j),minwmse_miss(j),R2(j), X_pred_best(:,:,j)] = solveGavish(Xs, dim1, dim2);
          
     else
         % Iterative PCA with wMSE or MSE used to find rank
@@ -288,26 +175,29 @@ for composition = intervals
         %Find rank by minimising the mse or wmse 
         i=0;
         for fn=fns
+            i=i+1;
             disp('rank')
             disp(fn)
             %[U,D,V,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
-            [U,D,V,X_pred]=missing_svd(Xs,fn,1,1,1e-3,1000);
-            i=i+1;
+            [U,D,V,St,X_pred]=missing_svd(Xs,fn,1,1,1e-3,1000);
+            
             SRSS = sqrt((sum((X_pred(missing_ind)-Xtrue(missing_ind)).^2)));
-            mse(i,j) = (sum((X_pred(missing_ind)-Xtrue(missing_ind)).^2))/length(missing_ind);
-            wmse(i,j)= find_wmse(Xtrue(missing_ind), X_pred(missing_ind), length(missing_ind));
-            smse(i,j) = sqrt(mse(i));
-            msefill(i,j) = (sum((X_pred(filled_ind)-Xs(filled_ind)).^2))/length(filled_ind);
-            wmsefill(i,j) = find_wmse(Xs(filled_ind), X_pred(filled_ind), length(filled_ind));
+            mse_miss(i,j) = (sum((X_pred(missing_ind)-Xtrue(missing_ind)).^2))/length(missing_ind);
+            wmse_miss(i,j)= find_wmse(Xtrue(missing_ind), X_pred(missing_ind), length(missing_ind));
+            smse_miss(i,j) = sqrt(mse_miss(i));
+            Xm = St*V';% the actual model, not just filled values - can only use errors of filled values to find model error
+            Xm= X_pred;
+            msefill(i,j) = (sum((Xm(filled_ind)-Xs(filled_ind)).^2))/length(filled_ind);
+            wmsefill(i,j) = find_wmse(Xs(filled_ind), Xm(filled_ind), length(filled_ind));
             Cyt = corrcoef(X_pred(missing_ind),Xtrue(missing_ind));
             R(i,j)=sqrt(Cyt(2,1));
-
         end
+        
         minmse_fill(j)= min(msefill(:,j));
         min_fn_fill(j) = fns(find(msefill(:,j)==minmse_fill(j)));
         minwmse_fill(j) = min(wmsefill(:,j));
-        minmse(j) = min(mse(:,j));
-        minwmse(j)=min(wmse(:,j));
+        minmse_miss(j) = min(mse_miss(:,j));
+        minwmse_miss(j)=min(wmse_miss(:,j));
         
         if winsorized_mse ==1
             min_index = find(wmsefill(:,j)==minwmse_fill(j));
@@ -316,11 +206,11 @@ for composition = intervals
         end 
         min_fn(j) = fns(min_index);
         R2(j) = R(min_index,j)^2;
-        [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1,1e-3,1000);
+        [U,D,V,St,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1,1e-3,1000);
         % plot the scree plot for each composition
         plotcount =plotcount+1;
         subplot(6,2,plotcount)
-        [U,D,V,X_pred_plot]=missing_svd(Xs,20,1,1,1e-3,1000);
+        [U,D,V,St,X_pred_plot]=missing_svd(Xs,20,1,1,1e-3,1000);
         y = diag(D);
         SVs(:,j)=y;
         semilogy(1:20, y(1:20))
@@ -337,23 +227,23 @@ for composition = intervals
     end 
 end 
 % Create table with results 
-Results = table(["Sparsity"; (intervals')],[ "SVs";min_fn],[ "MSE";minmse],[ "wMSE";minwmse], ["R2";R2]);
+Results = table(["Sparsity"; (missing')],[ "SVs";min_fn],[ "MSE";minmse_fill],[ "wMSE";minwmse_fill], ["MSE missing";minmse_miss]);
 disp(Results)
 toc
 %% LOOCV to find rank using mse  
 clc
 clear
 
-% choose which matrix to use in toy data (1 to 5)
-z=4;
+
 %Import true data 
-filename = 'ToyProblemData3DFull.xlsx';
-Ttrue = readtable(filename, 'Sheet', num2str(z));
+filename = 'RandomMatrixNoise.xlsx';
+Ttrue = readtable(filename, 'Sheet', 4);
 Xtrue = table2array(Ttrue);
-% Import other data for most missing 
-filename = ['ToyProblemData3D_',num2str(30),'%missing.xlsx'];
-T = readtable(filename, 'Sheet', num2str(z));
+% Import other data for most missing to allow variables to be declared
+miss=30;
+T = readtable(filename, 'Sheet', num2str(miss/100));
 Xs=table2array(T);
+
 
 %[X_3D, Xtrue_3D, Factors] = importX3D(filename, dim);
 %unfolding
@@ -366,9 +256,6 @@ tic
 missing = 30:10:80;
 %ranks to try 
 fns = 1:1:20;
-% Import a matrix to allow variables to be declared 
-T = readtable(filename, 'Sheet', num2str(z));
-Xs=table2array(T);
 %necessary vars 
 dim = size(Xs);
 dim1=dim(1);
@@ -394,12 +281,11 @@ LOOCV_removed_row = zeros(length(filled_ind),1);
 % Error bars - LOOCV 
 % import the relevant sparse matrix from the spreadsheet
 count_missing = 0;
-for composition = missing
+for miss = missing
     count_missing = count_missing+1;
-    filename = ['ToyProblemData3D_',num2str(composition),'%missing.xlsx'];
-    T = readtable(filename, 'Sheet', num2str(z));
+    T = readtable(filename, 'Sheet', num2str(miss/100));
     Xs = table2array(T);
-    Xs = removenan(Xs);
+    Xs = remove_nan2(Xs);
     Xfilled = Xs;
     dim = size(Xs);
     dim1 = dim(1);
@@ -408,7 +294,7 @@ for composition = missing
     [row,col] = find(~isnan(Xs));
     filled_ind = find(~isnan(Xs));
     disp('% missing')
-    disp(composition)
+    disp(miss)
     %declare vars with size dependent on the array used 
     Xm_boot=zeros(length(filled_ind),1);
     error_LOOCV = zeros(length(filled_ind),1);
@@ -428,8 +314,9 @@ for composition = missing
                 LOOCV_removed_row(k,count_missing) = row(k);
                 %perform iterative PCA on the slightly more empty matrix 
                 %  [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
-                [U,D,V,Xm]=missing_svd(X_b,fn,1,1,1e-3,1000); 
+                [U,D,V,St,Xpred]=missing_svd(X_b,fn,1,1,1e-3,1000); 
             end
+            Xm= St*V';
             error_LOOCV(k) = Xs(filled_ind)-Xm(filled_ind);
             mse_miss(k) = sum((Xtrue(missing_ind)-Xm(missing_ind)).^2)/length(missing_ind);
             Xm_boot(k) = Xm(filled_ind);
@@ -463,16 +350,16 @@ clear
 % check rank found using Gavish 
 z=1; % which matrix to use 
 missing = 30:10:80;
+
 %Import true data 
-filename = 'ToyProblemData3DFull.xlsx';
-Ttrue = readtable(filename, 'Sheet', num2str(z));
+filename = 'RandomMatrixNoNoise.xlsx';
+Ttrue = readtable(filename, 'Sheet', 4);
 Xtrue = table2array(Ttrue);
-% Import data to set variables 
-miss = 30; % %missing values 
-filename = ['ToyProblemData3D_',num2str(miss),'%missing.xlsx'];
-T = readtable(filename, 'Sheet', num2str(z));
-Xs = table2array(T);
-Xs = removenan(Xs);
+% Import other data for most missing to allow variables to be declared
+miss=30;
+T = readtable(filename, 'Sheet', num2str(miss/100));
+Xs=table2array(T);
+Xs = remove_nan2(Xs);
 dim = size(Xs);
 dim1 = dim(1);
 dim2 = dim(2);
@@ -483,7 +370,7 @@ msemiss = zeros(length(missing),1);
 msefill= zeros(length(missing),1);
 wmsemiss = zeros(length(missing),1);
 wmsefill = zeros(length(missing),1);
-  
+fnGavish = zeros(length(missing),1);
 
 count_missing = 0;
 for miss = missing 
@@ -491,14 +378,13 @@ for miss = missing
     disp(miss)
     count_missing = count_missing +1;
     % Import matrix 
-    filename = ['ToyProblemData3D_',num2str(miss),'%missing.xlsx'];
-    T = readtable(filename, 'Sheet', num2str(z));
+    T = readtable(filename, 'Sheet', num2str(miss/100));
     Xs = table2array(T);
-    Xs = removenan(Xs);
+    Xs = remove_nan2(Xs);
     missing_ind = find(isnan(Xs));
     filled_ind = find(~isnan(Xs)); 
     % finds all SVs using iterative PCA 
-    [U,D,V,Xpred_Gavish]=missing_svd(Xs,dim1,1,1,1e-3,1000);
+    [U,D,V,St,Xpred_Gavish]=missing_svd(Xs,dim1,1,1,1e-3,1000);
     
     % Find rank using Gavish 
     if dim1/dim2 ==1
@@ -517,9 +403,10 @@ for miss = missing
     fnGavish(count_missing) = length(find(d>cutoff));
     SVs(:,count_missing)= diag(D);
     d(1+fnGavish(count_missing):end)=0;
-    [~,~,~,X_pred] = missing_svd(Xs,fnGavish(count_missing),1,1,1e-3,1000);
-    msefill(count_missing,1) = (sum((X_pred(filled_ind)-Xtrue(filled_ind)).^2))/length(filled_ind);
-    wmsefill(count_missing,1) = find_wmse(Xtrue(filled_ind), X_pred(filled_ind), length(filled_ind));
+    [~,~,D,St,X_pred] = missing_svd(Xs,fnGavish(count_missing),1,1,1e-3,1000);
+    Xm = St*D';
+    msefill(count_missing,1) = (sum((Xm(filled_ind)-Xtrue(filled_ind)).^2))/length(filled_ind);
+    wmsefill(count_missing,1) = find_wmse(Xtrue(filled_ind), Xm(filled_ind), length(filled_ind));
     msemiss(count_missing,1) = (sum((X_pred(missing_ind)-Xtrue(missing_ind)).^2))/length(missing_ind);
     wmsemiss(count_missing,1) = find_wmse(Xtrue(missing_ind), X_pred(missing_ind), length(missing_ind));
 end 
@@ -536,20 +423,20 @@ mse_boot = sum(error_boot.^2)/length(error_boot);
 %% Plots of the singular values 
 clf
 dim2=40;
-composition = 0.5200;
+miss = 0.5200;
 if import ==1
     % import the relevant sparse matrix from the spreadsheet
-    Ts = readtable(filename, 'Sheet', num2str(composition));
+    Ts = readtable(filename, 'Sheet', num2str(miss));
     Xs = table2array(Ts);
     missing_ind = find(isnan(Xs));
     filled_ind = find(~isnan(Xs));
 end 
-ind = find(intervals == composition);
+ind = find(missing == miss);
 
-[U,D,V,X_pred_plot]=missing_svd(Xs,dim2,1,1,1e-3,1000); %uncomment to
+[U,D,V,St,X_pred_plot]=missing_svd(Xs,dim2,1,1,1e-3,1000); %uncomment to
 mseplot = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
 wmseplot= find_wmse(X(missing_ind), X_pred_plot(missing_ind), length(missing_ind));
-smseplot = sqrt(mse);
+smseplot = sqrt(mse_miss);
 Cyt = corrcoef(X_pred(missing_ind),Xs(missing_ind));
 R=sqrt(Cyt(2,1));
 
@@ -578,23 +465,23 @@ if rank_mat>0
     legend('Cumulative error', 'Predicted rank')
     hold off
 end 
-sgtitle(strcat('Sparsity = ',num2str(composition)))
+sgtitle(strcat('Sparsity = ',num2str(miss)))
 %% Plots of errors 
 clf
-plotno = length(intervals);
+plotno = length(missing);
 a = ceil(sqrt(plotno));
 b = ceil(plotno/a);
 i=0;
-for composition = intervals
+for miss = missing
     i=i+1;
-    ind = find(intervals == composition);
+    ind = find(missing == miss);
     subplot(a,b,i)
-    titlestr = strcat('Sparsity = ',num2str(composition));
-    plot(fns, wmse(:,ind))
+    titlestr = strcat('Sparsity = ',num2str(miss));
+    plot(fns, wmse_miss(:,ind))
     hold on
-    plot(fns,mse(:,ind), 'm')
-    plot(rank_mat,mse(rank_mat-fns(1)+1,ind), 'ko', 'MarkerSize',5, 'LineWidth',5)
-    plot(min_fn(ind),wmse(min_fn(ind)-fns(1)+1,ind), 'r*', 'MarkerSize',15, 'LineWidth',1.5)
+    plot(fns,mse_miss(:,ind), 'm')
+    plot(rank_mat,mse_miss(rank_mat-fns(1)+1,ind), 'ko', 'MarkerSize',5, 'LineWidth',5)
+    plot(min_fn(ind),wmse_miss(min_fn(ind)-fns(1)+1,ind), 'r*', 'MarkerSize',15, 'LineWidth',1.5)
     hold off
     legend('Winsorized MSE', 'MSE', 'True rank', 'Predicted Rank')
     title(titlestr)
@@ -621,45 +508,51 @@ if Gavish ==1
 end 
 
 %% Functions
-function [X, Xtrue, Factors] = importX3D(filename, dim)
-    Factors = readtable(filename, 'Sheet', 'Factors');
-    X=zeros(dim(1),dim(2),dim(3));
-    Xtrue=zeros(dim(1),dim(2),dim(3));
-    for i =1:dim(1)
-        Ttrue = readtable('ToyProblemData3DFull.xlsx','Sheet', num2str(i));
-        Xtrue(i,:,:)= table2array(Ttrue);
-        T = readtable(filename, 'Sheet', num2str(i));
-        X(i,:,:)=table2array(T);
-    end
-end
 
-function  [fn,minmse,minwmse,R2, X_pred,cutoff,D] = solveGavish(Xs, dim1, dim2)
-% Gavish Hard thresholding 
-        if dim1/dim2 ==1
-            omega = 2.858; % omega(beta)=2.858 for n*n square matrix
-        elseif dim1/dim2 < 1
-            beta = dim1/dim2;
-            omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
-        else
-            beta = dim2/dim1; 
-            omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
-        end 
-        [U,D,V,X_pred]=missing_svd(Xs,dim2,1,1,1e-4,200); % PCA done once, the matrix needs to be filled to do this
-        missing_ind = find(isnan(Xs));
-        y_med = median(diag(D)); %ymed = median singular value of the noisy matrix  
-        cutoff = omega*y_med; %cutoff= tau= omega(beta)*ymed; matrix
-         % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
-        d_original = diag(D);
-        d=diag(D);
-        fn = length(find(diag(D)>cutoff));
-        d(1+fn:end)=0;
-        X_pred = U*diag(d)*V';
-        SRSS = sqrt((sum((X_pred(missing_ind)-Xs(missing_ind)).^2)));
-        minmse= (sum((X_pred(missing_ind)-Xs(missing_ind)).^2))/length(missing_ind);
-        minwmse= find_wmse(Xs(missing_ind), X_pred(missing_ind), length(missing_ind));
-        Cyt = corrcoef(X_pred(missing_ind),Xs(missing_ind));
-        R2=(Cyt(2,1));
-        %End Gavish method
+function  [fn,mse,wmse,R2, X_pred,cutoff,SVs] = solveGavish(Xs, dim1, dim2)
+    % Gavish Hard thresholding used to find the rank of the matrix using PCA
+    % with SVD 
+    % Input 
+    % Xs = data matrix 
+    % dim1 = number of rows
+    % dim2 = number of columns 
+    % Output 
+    % fn = Number of factors/ PCs
+    % mse = mean squared error for observed entries compared to the model predictions for these for the optimal number of factors 
+    % wmse = winsorized mean squared error for observed entries compared to the model predictions for these for the optimal number of factors
+    % R2 = correlation between the observed entries and the model predictions
+    % of those entries
+    % X_pred = the data matrix as predicted by the optimal number of factors 
+    % cutoff = cutoff used to find the number of factors 
+    % SVs = singular value matrix found 
+
+    missing_ind = find(isnan(Xs));
+    filled_ind = find(~isnan(Xs));
+    % find omega 
+    if dim1/dim2 ==1
+        omega = 2.858; % omega(beta)=2.858 for n*n square matrix
+    elseif dim1/dim2 < 1
+        beta = dim1/dim2;
+        omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
+    else
+        beta = dim2/dim1; 
+        omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
+    end 
+    % PCA done once for the maximum number of factors, the matrix needs to be filled to do this, which is
+    % done in the missing_svd function 
+    [~,SVs,~,~,~]=missing_svd(Xs,dim2,1,1,1e-4,200); 
+    y_med = median(diag(SVs)); %ymed = median singular value of the noisy matrix  
+    cutoff = omega*y_med; %cutoff= tau= omega(beta)*ymed; matrix
+     % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
+    fn = length(find(diag(SVs)>cutoff));
+    % solve for the correct number of factors 
+    [~,~,D,St,X_pred] = missing_svd(Xs,fn,1,1,1e-3,1000);
+    Xm = St*D';
+    %metrics 
+    mse = (sum((Xm(filled_ind)-Xs(filled_ind)).^2))/length(filled_ind);
+    wmse = find_wmse(Xs(filled_ind), X_m(filled_ind), length(filled_ind));
+    Cyt = corrcoef(X_pred(filled_ind),Xm(filled_ind));
+    R2=(Cyt(2,1));
 end 
 
 function [indices]=reorder_He(X, rand)
@@ -699,8 +592,21 @@ function [indices]=reorder_He(X, rand)
         indices = randperm(numel(X));
     end 
 end 
+
 function [X,Xnoise, rankU, rankV, noise]=create_matrix(n,m,r, mu, sigma)
     % create a matrix of size nxm with rank =r using SVD 
+    % Input 
+    % n = dimension 1 / rows
+    % m = dimension 2 / columns
+    % r = rank of matrix 
+    % mu = mean of data 
+    % sigma = standard deviation of data 
+    % Output 
+    % X = data matrix formed; X = UDV'
+    % Xnoise = X+noise; noisy matrix  
+    % rankU = rank of U 
+    % rankV = rank of V
+    % noise = noise matrix, normally distributed 
     
     sing_vals = normrnd(mu, sigma, r,1); % generate r singular values that are normally distributed 
     sing_vals = sort(sing_vals, 'descend'); % sorted from highest to lowest
@@ -722,14 +628,24 @@ function [X,Xnoise, rankU, rankV, noise]=create_matrix(n,m,r, mu, sigma)
     Xnoise = X+noise;
 end 
 
-function [X_sparse,remove_ind, fill_ind]=fill_matrix(X, perc_remove)
-    % fill data into a matrix until you have reached 1-perc_remove, save all
-    % indices not filled 
+function [X_sparse,M, remove_ind, fill_ind]=fill_matrix(X, perc_remove)
+    % Fill data into a matrix until you have reached 1-perc_remove
+    % Input 
+    % X = filled matrix 
+    % perc_remove = percentage of the data to remove. Pass as a fraction 
+    % Output 
+    % X_sparse = sparse matrix 
+    % M = matrix with the same dimensions of X with a 1 for
+    % each observed entry in X_sparse and a 0 for an unobserved entry
+    % remove_ind = linear indices of unobserved entries 
+    % fill_ind = linear indices of observed entries 
+    
     [n,m]=size(X);
     num_removed = floor(m*n*perc_remove);
     %create NaN matrix 
     X_sparse = NaN(n,m);
-    X_filled_indices = zeros(n,m);
+    M = zeros(n,m);
+    
     % fill in one entry in every row and column, randomly 
     filled_rows = zeros(n,1);
     cols=randperm(m); % sort the columns in a random order 
@@ -740,15 +656,13 @@ function [X_sparse,remove_ind, fill_ind]=fill_matrix(X, perc_remove)
         end
         filled_rows(j)=i;
         X_sparse(i, j)=X(i,j);
-        X_filled_indices(i,j)=1;
+        M(i,j)=1;
     end 
-  
     
-    for k= 1:(m*n-num_removed-m) % remove this many values from array X, 
-                                  % having filled at least one entry into every row and column 
-        i = randi(n,1); %matrix inidices start at 1 in MATLAB
+    for k= 1:(m*n-num_removed-m) % add this many values from array X, 
+        i = randi(n,1); 
         j = randi(m,1);
-        while X_filled_indices(i,j)==1
+        while M(i,j)==1
             %repeat the finding of indices to fill if this index is already filled 
             i = randi(n,1); %row
             j = randi(m,1);%col
@@ -779,8 +693,13 @@ function [X_sparse,remove_ind,fill_ind]=remove_matrix(X,perc_remove)
     fill_ind = find(~isnan(X_sparse));
 end 
 
-function [X_removed]=removenan(X)
-    %check for nan rows and columns and remove 
+function [X_removed]=remove_nan2(X)
+    %check for rows and columns containing only nan values in a matrix and remove them 
+    % Input 
+    % X = matrix with rows or columns containing nan values
+    % Output 
+    % X_removed = matrix without rows or columns containing only nan values
+    % 
     row_nan = find(all(isnan(X),2));
     col_nan = find(all(isnan(X),1));
     X_removed = X;
@@ -791,36 +710,55 @@ function [X_removed]=removenan(X)
         X_removed(:,col_nan)=[];
     end
 end 
+
 function [X_filled]=fill_data(X)
+% Fill a matrix which has missing entries. Missing entries are each filled with the average of the observed entries in its row and column. 
+% Input 
+% X = matrix with missing data 
+% Output 
+% X = filled matrix 
     [m,n]=size(X);
     missing_ind = (isnan(X));
     [i, j]=find(isnan(X));% returns rows and columns with nonzero elements
     X_filled=X;
     X_filled(missing_ind)=0; %fill NaN values with 0
-    %disp(X_filled)
-    %disp(length(i))
-    mean_col = sum(X_filled,1)./(ones(1,n)*m-sum(missing_ind,1)); %columns are dimension 1
-    mean_row= sum(X_filled,2)./(ones(1,m)*n-sum(missing_ind,2)); % rows are dimension 2 
-    
-    for k =1:length(i) % for all NaN elements that exist, loop through them to replace with means 
+    mean_col = sum(X_filled,1)./(ones(1,n)*m-sum(missing_ind,1)); 
+    mean_row = sum(X_filled,2)./(ones(1,m)*n-sum(missing_ind,2));  
+    % for all NaN elements that exist, loop through them to replace with means 
+    for k =1:length(i) 
         X_filled(i(k),j(k))=(mean_row(i(k))+mean_col(j(k)))/2;
-    end 
-     
+    end  
 end 
 
-function [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
+function [S,V,D,St,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
+    % Fill a matrix of missing data using PCA with SVD and a given number of
+    % PCs. Can also handle non-missing data. Missing data is handled as NaN
+    % values 
+    %
+    % Input 
+    % X = matrix
+    % fn = number of factors/ PCs used to fill the matrix 
+    % center = 1 center data / = 0 do not center 
+    % scale = 1 scale data / = 0 do not scale
+    % conv = stopping criterion, absolute value of the relative change of the
+    % sum of squares of the values of the unobserved entries 
+    % max_iter = maximum number of iterations 
+    % Output 
+    % S,V,D from X = SVD'
+    % St = SV
+    % X_pred = filled X with new values for the missing entries
     [m,n]=size(X);
-    miss_ind = find(isnan(X));
+    missing_ind = find(isnan(X));
     if any(isnan(X)) % there is missing data 
         Xfilled = fill_data(X); 
-        mx = mean(Xfilled);
-        SS = sum(sum(Xfilled(miss_ind).^2));
+        SS = sum(sum(Xfilled(missing_ind).^2));
         
         f=2*conv;
         iter = 1;
         while iter<max_iter && f>conv
-            SSold = SS;
+            SSold = SS;            
             % preprocess = scale and then center 
+            mx = mean(Xfilled);
             if scale ==1 
                 sj = sqrt(sum(sum((Xfilled).^2)));
                 Xfilled = Xfilled/sj;
@@ -832,23 +770,24 @@ function [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
                 Xc=Xfilled;
             end 
             [S,V,D]=svd(Xc);
-            S=S*V;
+            St=S*V;
+            St = St(:,1:fn);
             V=V(:,1:fn);
             S=S(:,1:fn);
             D=D(:,1:fn);
             % post process = uncenter, unscale  
             if center ==1
-                X_pred = S*D'+ones(m,1)*mx;
+                X_pred = St*D'+ones(m,1)*mx;
             else 
-                X_pred = S*D';
+                X_pred = St*D';
             end 
             if scale ==1
                 X_pred = X_pred*sj;
             end
             
             % fill misssing values 
-            Xfilled(miss_ind)=X_pred(miss_ind);
-            SS = sum(sum(Xfilled(miss_ind).^2));
+            Xfilled(missing_ind)=X_pred(missing_ind);
+            SS = sum(sum(Xfilled(missing_ind).^2));
             f = abs(SS-SSold)/(SSold);
             iter = iter+1;
         end 
@@ -867,14 +806,16 @@ function [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
             Xc=X;
         end 
         [S,V,D]=svd(Xc);
-        S=S*V;
+        St=S*V;
+        St = St(:,1:fn);
+        V=V(:,1:fn);
         S=S(:,1:fn);
         D=D(:,1:fn);
          
         if center ==1
-            X_pred = S*D'+ones(m,1)*mx;
+            X_pred = St*D'+ones(m,1)*mx;
         else 
-            X_pred = S*D';
+            X_pred = St*D';
         end 
         if scale ==1
                 X_pred = X_pred*sj;
@@ -882,16 +823,22 @@ function [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
     end %end if  else 
 end % end function 
 
-function [wmse]=find_wmse(X,X_pred,no_missing)
-% find the winsorized mse for the matrices 
-    % turn 
-    % find outliers
+function [wmse]=find_wmse(X,X_pred,no_points)
+% Find the winsorized mse between the matrices X and X_pred 
+% Input 
+% X = true matrix 
+% X_pred = predicted matrix using the model 
+% both X and X_pred must be passed as vectors 
+% no_points = number of points in the vectors passed
+% Output 
+% wmse = the winsorized MSE
+
     perc5 = prctile(X_pred,5, 'all');
     perc95 = prctile(X_pred, 95, 'all');
     %reassign
     X_pred(X_pred<perc5)=perc5;
     X_pred(X_pred> perc95)=perc95;
-    wmse = (sum((X_pred-X).^2))/no_missing;
+    wmse = (sum((X_pred-X).^2))/no_points;
 end 
 
 
