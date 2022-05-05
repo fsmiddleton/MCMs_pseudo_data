@@ -14,16 +14,16 @@ dim1 = 30;
 dim2 = 40;
 dim3 = 5;
 dim4 = 7;
-
+dim = [dim1, dim2, dim3, dim4];
 %[X,SeedOut,Factors{1:length(dimX)}] = CreaMiss(Rank,dimX,Noise,Congruence,Missing,Mode,SeedIn);
 %create true data 
 [Xtrue, Seed, Factors] = CreaMiss(5, [dim1,dim2,dim3,dim4], 0.01, 0, 0, 'RMV',42);
 
 
-missing =0;
+missing =20;
 filename = ['ToyProblemData4D_',num2str(missing),'%missing_2.xlsx'];
 
-export =1; %set to 0 to import 
+export =0; %set to 0 to import 
 
 if export ==1
     %create the matrix with missing entries 
@@ -43,10 +43,9 @@ if export ==1
     end 
 else 
     %import 
-    dim = [30,40,5,4];
     missing = 50;
-    filename = ['ToyProblemData4D_',num2str(missing),'%missing.xlsx'];
-    truefilename = ['ToyProblemData4D_0%missing.xlsx'];
+    filename = ['ToyProblemData4D_',num2str(missing),'%missing_2.xlsx'];
+    truefilename = ['ToyProblemData4D_0%missing_2.xlsx'];
     [X, Xtrue, Factors] = importX(filename, dim, truefilename);  
 end 
 
@@ -81,6 +80,7 @@ indexsortmse=zeros(N,length(missing));
 c = zeros(N,length(missing));
 coreconsistency = zeros(N,1);
 randomstart = zeros(N,length(missing));
+iterations = zeros(N,length(missing));
 
 %metrics defined
 smse = zeros(N,1);
@@ -111,13 +111,13 @@ for miss = missing
     filled_linear_ind = find(~isnan(X));
     missing_ind = find(isnan(X));
     no_filled = miss/100*dim(1)*dim(2)*dim(3)*dim(4);
-    %remove nan slabs from the 4-way array - to be fixed
-    %[X,dim, nan_coords]=remove_nan(X);
+    %remove nan slabs from the 4-way array 
+    [Xnew,dim, nan_coords]=remove_nan(X);
     
     % Find the correct number of factors for this percent missing 
     for n = 1:N % factors (== principal components) 
         % initialise random number generator 
-        randind = 1;
+        randind = 2;
         rng(randind, 'twister')
         
         disp('n')
@@ -144,6 +144,7 @@ for miss = missing
             errorfill(n,1:length(filled_linear_ind)) = (X(filled_linear_ind)-Xm(filled_linear_ind))'; % actual prediction error 
             msefill(n,count) = sum(errorfill(n,1:length(filled_linear_ind)).^2)/length(filled_linear_ind);
         end 
+        iterations(n,count) = D(1);
         randomstart(n,count) = randind;
         %built in metric
         error(n,1:length(filled_linear_ind)) = (Xtrue(filled_linear_ind)-Xm(filled_linear_ind))';
@@ -279,7 +280,7 @@ xlabel('x')
 ylabel('y')
 zlabel('z')
 %% 
-function [X,dim, znan, ynan, xnan]=remove_nan(X)
+function [X,dim, nancoords]=remove_nan(X)
     % saves the columns and rows with only Nan values 
 
     % isnan(X) returns logical array 
@@ -288,28 +289,35 @@ function [X,dim, znan, ynan, xnan]=remove_nan(X)
     % dimension to find missing slabs 
     dim = size(X);
     % z slabs
-    t1 = all(isnan(X),[1,2]);
-    t1 = reshape(t1,[1,dim(3)]); %logical 
+    t1 = all(isnan(X),[1,2,3]);% finds slabs with only nan values 
+    t1 = reshape(t1,[1,dim(4)]); %logical 
     r1=find(t1);
-    X(:,:,r1)=[];
+    X(:,:,:,r1)=[];
 
     % x slabs 
-    t2 = all(isnan(X),[2,3]);
+    t2 = all(isnan(X),[2,3,4]);
     t2 = reshape(t2,[1,dim(1)]); %logical 
     r2=find(t2);
-    X(:,:,r2)=[];
+    X(r2,:,:,:)=[];
 
     % y slabs 
-    t3 = all(isnan(X),[1,3]);
+    t3 = all(isnan(X),[1,3,4]);
     t3 = reshape(t3,[1,dim(2)]); %logical 
     r3=find(t3);
-    X(:,:,r3)=[];
+    X(:,r3,:,:)=[];
+    
+    % last slabs 
+    t4 = all(isnan(X),[1,2,4]);
+    t4 = reshape(t4,[1,dim(3)]); %logical 
+    r4=find(t4);
+    X(:,:,r4,:)=[];
 
      %new X 
     dim = size(X);
-    znan=r1;
-    xnan=r2;
-    ynan=r3;
+    nancoords{1} = r1; 
+    nancoords{2} = r2; 
+    nancoords{3} = r3; 
+    nancoords{4} = r4; 
 
 end 
 
