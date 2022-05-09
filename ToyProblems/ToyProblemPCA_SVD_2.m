@@ -113,7 +113,7 @@ remove = 0; % 1=remove to create sparse matrix, 2 = fill a sparse matrix, 0 = no
 remove_ind = 1:(dim1*dim2);
  
 %Time to choose how to find the best rank
-Gavish =0;
+Gavish =1;
 winsorized_mse = 1; %1=use wmse. Used for iterative PCA 
  % Choose sparsities used for finding the rank 
 missing = 30:10:80;
@@ -167,7 +167,7 @@ for miss = missing
     % Find the optimal rank for this matrix
     
     if Gavish==1
-        [min_fn(j),minmse_miss(j),minwmse_miss(j),R2(j), X_pred_best(:,:,j)] = solveGavish(Xs, dim1, dim2);
+        [min_fn(j),minmse_miss(j),minwmse_miss(j),R2(j), X_pred_best(:,:,j)] = solveGavish(Xs, dim1, dim2,1e-3,200);
          
     else
         % Iterative PCA with wMSE or MSE used to find rank
@@ -179,7 +179,7 @@ for miss = missing
             disp('rank')
             disp(fn)
             %[U,D,V,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
-            [U,D,V,St,X_pred]=missing_svd(Xs,fn,1,1,1e-3,1000);
+            [U,D,V,St,X_pred, ~]=missing_svd(Xs,fn,1,1,1e-3,1000);
             
             SRSS = sqrt((sum((X_pred(missing_ind)-Xtrue(missing_ind)).^2)));
             mse_miss(i,j) = (sum((X_pred(missing_ind)-Xtrue(missing_ind)).^2))/length(missing_ind);
@@ -206,11 +206,11 @@ for miss = missing
         end 
         min_fn(j) = fns(min_index);
         R2(j) = R(min_index,j)^2;
-        [U,D,V,St,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1,1e-3,1000);
+        [U,D,V,St,X_pred_best(:,:,j), ~]=missing_svd(Xs,min_fn(j),1,1,1e-3,1000);
         % plot the scree plot for each composition
         plotcount =plotcount+1;
         subplot(6,2,plotcount)
-        [U,D,V,St,X_pred_plot]=missing_svd(Xs,20,1,1,1e-3,1000);
+        [U,D,V,St,X_pred_plot, ~]=missing_svd(Xs,20,1,1,1e-3,1000);
         y = diag(D);
         SVs(:,j)=y;
         semilogy(1:20, y(1:20))
@@ -255,7 +255,7 @@ tic
 % declare missing % used and the file from which to extract information 
 missing = 30:10:80;
 %ranks to try 
-fns = 1:1:20;
+fns = 1:1:20; % maximum is 50 
 %necessary vars 
 dim = size(Xs);
 dim1=dim(1);
@@ -276,7 +276,7 @@ min_mse_LOOCV_missing = zeros(length(missing),1);
 X_pred_LOOCV = zeros(dim1,dim2,length(filled_ind));
 LOOCV_removed_col = zeros(length(filled_ind),1);
 LOOCV_removed_row = zeros(length(filled_ind),1);
-
+SVs = zeros(dim1,length(missing));
 
 % Error bars - LOOCV 
 % import the relevant sparse matrix from the spreadsheet
@@ -314,7 +314,8 @@ for miss = missing
                 LOOCV_removed_row(k,count_missing) = row(k);
                 %perform iterative PCA on the slightly more empty matrix 
                 %  [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
-                [U,D,V,St,Xpred]=missing_svd(X_b,fn,1,1,1e-3,1000); 
+                [U,D,V,St,Xpred, ~]=missing_svd(X_b,fn,1,1,1e-3,1000);
+                
             end
             Xm= St*V';
             error_LOOCV(k) = Xs(filled_ind)-Xm(filled_ind);
@@ -335,13 +336,15 @@ for miss = missing
     else 
         fn_LOOCV(count_missing) = find(mse_LOOCV(count_missing,:) == min(mse_LOOCV(count_missing,:)));
     end
-    
+    [U,D,V,St,Xpred, SVsmiss]=missing_svd(Xs,fn_LOOCV(count_missing),1,1,1e-3,1000);
+    y = diag(SVsmiss);
+    SVs(:,count_missing)=y;
     min_mse_LOOCV(count_missing) = mse_LOOCV(count_missing,fn_LOOCV(count_missing));
     min_wmse_LOOCV(count_missing) = wmse_LOOCV(count_missing,fn_LOOCV(count_missing));
     min_mse_LOOCV_missing(count_missing) = mse_LOOCV_missing(count_missing,fn_LOOCV(count_missing));
     % use the best rank to find error bars 
 end 
-Results = table(["Sparsity"; (missing')],[ "SVs";fn_LOOCV],[ "MSE";min_mse_LOOCV],[ "wMSE";min_wmse_LOOCV], ["Missing data MSE";min_mse_LOOCV_missing]);
+Results = table(["Sparsity"; (missing')],[ "SVs";fn_LOOCV'],[ "MSE";min_mse_LOOCV],[ "wMSE";min_wmse_LOOCV], ["Missing data MSE";min_mse_LOOCV_missing]);
 disp(Results)
 toc 
 %% Gavish to find rank  
@@ -383,9 +386,6 @@ for miss = missing
     Xs = remove_nan2(Xs);
     missing_ind = find(isnan(Xs));
     filled_ind = find(~isnan(Xs)); 
-    % finds all SVs using iterative PCA 
-    [U,D,V,St,Xpred_Gavish]=missing_svd(Xs,dim1,1,1,1e-3,1000);
-    
     % Find rank using Gavish 
     if dim1/dim2 ==1
         omega = 2.858; % omega(beta)=2.858 for n*n square matrix
@@ -396,15 +396,28 @@ for miss = missing
         beta = dim2/dim1; 
         omega = 0.56*beta^3 - 0.95*beta^2 + 1.82*beta + 1.43;
     end 
-    y_med = median(diag(D)); %ymed = median singular value of the noisy matrix  
-    cutoff = omega*y_med; %cutoff= tau= omega(beta)*ymed; matrix
-    % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
-    d=diag(D);
-    fnGavish(count_missing) = length(find(d>cutoff));
+    % finds all SVs using iterative PCA using smaller of dim1 and dim2 
+    if dim1<dim2
+        %only one iteration of SVD decomposition used 
+        [U,D,V,St,Xpred_Gavish,SVs, iterations]=missing_svd(Xs,dim1,1,1,1e-3,1); 
+    else 
+        [U,D,V,St,Xpred_Gavish,SVs, iterations]=missing_svd(Xs,dim2,1,1,1e-3,1);
+    end 
+    % D = singular values 
+    % find cutoff for these 
+    % use cutoff to fill 
+    % repeat until covergence 
+    for i=1:50
+        y_med = median(diag(D)); %ymed = median singular value of the noisy matrix  
+        cutoff = omega*y_med; %cutoff= tau= omega(beta)*ymed; matrix
+        % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
+        d=diag(D);
+        fnGavish(count_missing) = length(find(d>cutoff));
+    end 
     SVs(:,count_missing)= diag(D);
     d(1+fnGavish(count_missing):end)=0;
-    [~,~,D,St,X_pred] = missing_svd(Xs,fnGavish(count_missing),1,1,1e-3,1000);
-    Xm = St*D';
+    [~,~,V,St,X_pred,~, ~] = missing_svd(Xs,fnGavish(count_missing),1,1,1e-3,1000);
+    Xm = St*V';
     msefill(count_missing,1) = (sum((Xm(filled_ind)-Xtrue(filled_ind)).^2))/length(filled_ind);
     wmsefill(count_missing,1) = find_wmse(Xtrue(filled_ind), Xm(filled_ind), length(filled_ind));
     msemiss(count_missing,1) = (sum((X_pred(missing_ind)-Xtrue(missing_ind)).^2))/length(missing_ind);
@@ -433,7 +446,7 @@ if import ==1
 end 
 ind = find(missing == miss);
 
-[U,D,V,St,X_pred_plot]=missing_svd(Xs,dim2,1,1,1e-3,1000); %uncomment to
+[U,D,V,St,X_pred_plot,~]=missing_svd(Xs,dim2,1,1,1e-3,1000); %uncomment to
 mseplot = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
 wmseplot= find_wmse(X(missing_ind), X_pred_plot(missing_ind), length(missing_ind));
 smseplot = sqrt(mse_miss);
@@ -509,13 +522,15 @@ end
 
 %% Functions
 
-function  [fn,mse,wmse,R2, X_pred,cutoff,SVs] = solveGavish(Xs, dim1, dim2)
+function  [fn,mse,wmse,R2, X_pred,cutoff,SVs] = solveGavish(Xs, dim1, dim2, conv, iter)
     % Gavish Hard thresholding used to find the rank of the matrix using PCA
     % with SVD 
     % Input 
     % Xs = data matrix 
     % dim1 = number of rows
     % dim2 = number of columns 
+    % conv = convergence criterion 
+    % iter = maximum number of iterations 
     % Output 
     % fn = Number of factors/ PCs
     % mse = mean squared error for observed entries compared to the model predictions for these for the optimal number of factors 
@@ -540,17 +555,46 @@ function  [fn,mse,wmse,R2, X_pred,cutoff,SVs] = solveGavish(Xs, dim1, dim2)
     end 
     % PCA done once for the maximum number of factors, the matrix needs to be filled to do this, which is
     % done in the missing_svd function 
-    [~,SVs,~,~,~]=missing_svd(Xs,dim2,1,1,1e-4,200); 
-    y_med = median(diag(SVs)); %ymed = median singular value of the noisy matrix  
-    cutoff = omega*y_med; %cutoff= tau= omega(beta)*ymed; matrix
-     % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
-    fn = length(find(diag(SVs)>cutoff));
-    % solve for the correct number of factors 
-    [~,~,D,St,X_pred] = missing_svd(Xs,fn,1,1,1e-3,1000);
-    Xm = St*D';
+    Xfilled = fill_data(Xs);
+    SS = sum(sum(Xfilled(missing_ind).^2));
+    f=conv*2;
+    it=0;
+    if dim1<dim2
+        fn = dim1;
+    else 
+        fn=dim2;
+    end 
+    
+    while f>conv && it<iter
+        SSold = SS;
+        % find SVs for matrix 
+        [U,SVs,D,~,~,~, ~]=missing_svd(Xfilled,dim2,1,1,1e-4,2);
+        % find the threshold 
+        y_med = median(diag(SVs)); %ymed = median singular value of the noisy matrix  
+        cutoff = omega*y_med; %cutoff= tau= omega(beta)*ymed; matrix
+         % Keep modes w/ sig > cutoff; rank chosen as hard cutoff
+        fn = length(find(diag(SVs)>cutoff));
+        % reconstruct with the new SVs
+        SVs(:,fn:end)=0;
+        Xm = U*SVs*D';
+        %fill missing values 
+        Xfilled(missing_ind)=Xm(missing_ind);
+        
+        % check for convergence 
+        SS = sum(sum(Xm(missing_ind).^2));
+        f = abs((SS-SSold)/SSold);
+        it=it+1;
+    end 
+    disp('f')
+    disp(f)
+    disp('iter')
+    disp(it)
     %metrics 
+     % solve for the correct number of factors 
+    [~,~,D,St,X_pred,~,~] = missing_svd(Xs,fn,1,1,1e-3,1);
+    Xm = St*D';
     mse = (sum((Xm(filled_ind)-Xs(filled_ind)).^2))/length(filled_ind);
-    wmse = find_wmse(Xs(filled_ind), X_m(filled_ind), length(filled_ind));
+    wmse = find_wmse(Xs(filled_ind), Xm(filled_ind), length(filled_ind));
     Cyt = corrcoef(X_pred(filled_ind),Xm(filled_ind));
     R2=(Cyt(2,1));
 end 
@@ -730,7 +774,7 @@ function [X_filled]=fill_data(X)
     end  
 end 
 
-function [S,V,D,St,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
+function [S,V,D,St,X_pred, AllSVs, iterations]=missing_svd(X,fn,center,scale,conv,max_iter)
     % Fill a matrix of missing data using PCA with SVD and a given number of
     % PCs. Can also handle non-missing data. Missing data is handled as NaN
     % values 
@@ -754,8 +798,9 @@ function [S,V,D,St,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
         SS = sum(sum(Xfilled(missing_ind).^2));
         
         f=2*conv;
-        iter = 1;
+        iter = 0;
         while iter<max_iter && f>conv
+            iter = iter+1;
             SSold = SS;            
             % preprocess = scale and then center 
             mx = mean(Xfilled);
@@ -770,11 +815,12 @@ function [S,V,D,St,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
                 Xc=Xfilled;
             end 
             [S,V,D]=svd(Xc);
+            AllSVs = V;
             St=S*V;
-            St = St(:,1:fn);
-            V=V(:,1:fn);
-            S=S(:,1:fn);
-            D=D(:,1:fn);
+             St = St(:,1:fn);
+             V=V(:,1:fn);
+             S=S(:,1:fn);
+             D=D(:,1:fn);
             % post process = uncenter, unscale  
             if center ==1
                 X_pred = St*D'+ones(m,1)*mx;
@@ -789,9 +835,11 @@ function [S,V,D,St,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
             Xfilled(missing_ind)=X_pred(missing_ind);
             SS = sum(sum(Xfilled(missing_ind).^2));
             f = abs(SS-SSold)/(SSold);
-            iter = iter+1;
-        end 
+        end
+        iterations = iter;
+        
     else 
+        iterations =1;
         % no missing data 
         Xfilled=X;
         if scale ==1 
@@ -807,6 +855,7 @@ function [S,V,D,St,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
         end 
         [S,V,D]=svd(Xc);
         St=S*V;
+        AllSVs=V;
         St = St(:,1:fn);
         V=V(:,1:fn);
         S=S(:,1:fn);
