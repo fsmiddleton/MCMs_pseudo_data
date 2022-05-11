@@ -127,6 +127,7 @@ reorder = 0;
 minmse_miss = zeros(size(missing,2),1); 
 minwmse_miss = zeros(size(missing,2),1);
 minmse_fill = zeros(size(missing,2),1);
+minaapd = zeros(length(missing),1);
 minwmse_fill = zeros(size(missing,2),1);
 min_fn = zeros(size(missing,2),1);
 min_fn_fill = zeros(size(missing,2),1);
@@ -137,6 +138,7 @@ R2 = zeros(size(missing,2),1);
 mse_miss = zeros(size(fns,2),size(missing,2));
 smse_miss = zeros(size(fns,2),size(missing,2));
 msefill= zeros(size(missing,2),1);
+aapdfill = zeros(size(fns,2),size(missing,2));
 wmse_miss = zeros(size(fns,2),size(missing,2));
 wmsefill = zeros(size(fns,2),size(missing,2));
 R = zeros(size(fns,2),size(missing,2));
@@ -189,6 +191,8 @@ for miss = missing
             Xm= X_pred;
             msefill(i,j) = (sum((Xm(filled_ind)-Xs(filled_ind)).^2))/length(filled_ind);
             wmsefill(i,j) = find_wmse(Xs(filled_ind), Xm(filled_ind), length(filled_ind));
+            abserrorfill = abs(X_pred(filled_ind)-Xs(filled_ind));
+            aapdfill(i,j) = sum(abserrorfill/X(filled_ind))/length(filled_linear_ind);
             Cyt = corrcoef(X_pred(missing_ind),Xtrue(missing_ind));
             R(i,j)=sqrt(Cyt(2,1));
         end
@@ -206,6 +210,7 @@ for miss = missing
         end 
         min_fn(j) = fns(min_index);
         R2(j) = R(min_index,j)^2;
+        minaapd(count) = aapdfill(min_index,j)
         [U,D,V,St,X_pred_best(:,:,j), ~]=missing_svd(Xs,min_fn(j),1,1,1e-3,1000);
         % plot the scree plot for each composition
         plotcount =plotcount+1;

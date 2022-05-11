@@ -146,6 +146,7 @@ reorder = 0;
 % vectors, one for each matrix that is sliced 
 minmse = zeros(size(intervals,2),1); 
 minwmse = zeros(size(intervals,2),1);
+minaapd = zeros(length(intervals),1); % average absolute percent deviation = average(abs(Xpred-Xtrue)/Xtrue))
 minmse_fill = zeros(size(intervals,2),1);
 minwmse_fill = zeros(size(intervals,2),1);
 min_fn = zeros(size(intervals,2),1);
@@ -157,6 +158,7 @@ R2 = zeros(size(intervals,2),1);
 mse = zeros(size(fns,2),size(intervals,2));
 smse = zeros(size(fns,2),size(intervals,2));
 msefill= zeros(size(intervals,2),1);
+aapdfill = zeros(size(fns,2),size(intervals,2));
 wmse = zeros(size(fns,2),size(intervals,2));
 wmsefill = zeros(size(fns,2),size(intervals,2));
 R = zeros(size(fns,2),size(intervals,2));
@@ -206,6 +208,8 @@ for composition = intervals
             smse(i,j) = sqrt(mse(i));
             msefill(i,j) = (sum((X_pred(filled_ind)-Xs(filled_ind)).^2))/length(filled_ind);
             wmsefill(i,j) = find_wmse(Xs(filled_ind), X_pred(filled_ind), length(filled_ind));
+            abserrorfill = abs(X_pred(filled_ind)-Xs(filled_ind));
+            aapdfill(i,j) = sum(abserrorfill/X(filled_ind))/length(filled_linear_ind);
             Cyt = corrcoef(X_pred(missing_ind),Xtrue(missing_ind));
             R(i,j)=sqrt(Cyt(2,1));
 
@@ -222,6 +226,7 @@ for composition = intervals
             min_index = find(msefill(:,j)==minmse_fill(j));
         end 
         min_fn(j) = fns(min_index);
+        minaapd(count) = aapdfill(min_index,j);
         R2(j) = R(min_index,j)^2;
         [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1,1e-3,1000);
         % plot the scree plot for each composition

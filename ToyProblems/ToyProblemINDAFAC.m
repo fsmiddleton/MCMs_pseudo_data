@@ -56,7 +56,7 @@ filename = ['ToyProblemData3D_',num2str(missing),'%missing.xlsx'];
 
 [X, Xtrue, Factors] = importX(filename, dim);
 missing_ind = find(isnan(X));
-filled_linear_ind = find(~isnan(X));
+filled_ind = find(~isnan(X));
 % can also get Rho, Lambda, EV% and Max Gr
 % EV must be close to 100%
 
@@ -68,10 +68,12 @@ N=10;
 
 % for each % missing 
 minmse = zeros(1,length(missing));
+minaapd = zeros(1,length(missing)); % average absolute percent deviation = average(abs(Xpred-Xtrue)/Xtrue))
 numberOfFactors = zeros(1,length(missing));
 dof = zeros(1,length(missing));
 mse = zeros(N,length(missing));
 msefill = zeros(N,length(missing));
+aapdfill = zeros(N,length(missing));
 indexsortmse=zeros(N,length(missing));
 c = zeros(N,length(missing));
 coreconsistency = zeros(N,1);
@@ -83,6 +85,7 @@ fit = zeros(N,1);
 it = zeros(N,1);
 error = zeros(N, length(missing_ind));%missing_ind is biggest for 90% missing data, as initialisation was
 errorfill = zeros(N,length(missing_ind));
+
 % metrics to compare to truth 
 msemiss = zeros(N,1);
 errormiss = zeros(N, length(missing_ind));
@@ -106,7 +109,7 @@ for miss = missing
     %import wanted data 
     filename = ['ToyProblemData3D_',num2str(miss),'%missing.xlsx'];
     [X, Xtrue, Factors] = importX(filename, dim);
-    filled_linear_ind = find(~isnan(X));
+    filled_ind = find(~isnan(X));
     missing_ind = find(isnan(X));
     no_filled = miss/100*dim(1)*dim(2)*dim(3);
     %remove nan slabs from the 3-way array 
@@ -123,9 +126,9 @@ for miss = missing
         %[F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_iter)
         [F,D, X_pred]=missing_indafac(X,n,modeINDAFAC, center,scale,1e-3,1000,method);
         Xm = nmodel(F);
-        errorfill(n,1:length(filled_linear_ind)) = (X(filled_linear_ind)-Xm(filled_linear_ind))'; % actual prediction error
+        errorfill(n,1:length(filled_ind)) = (X(filled_ind)-Xm(filled_ind))'; % actual prediction error
         % averages of metrics 
-        msefill(n,count) = sum(errorfill(n,1:length(filled_linear_ind)).^2)/length(filled_linear_ind);
+        msefill(n,count) = sum(errorfill(n,1:length(filled_ind)).^2)/length(filled_ind);
 
         %if the correct starting value was not used, the error will be very
         %great 
@@ -136,17 +139,19 @@ for miss = missing
             %refit 
             [F,D, X_pred]=missing_indafac(X,n,modeINDAFAC, center,scale,1e-3,1000,method);
             Xm = nmodel(F);
-            errorfill(n,1:length(filled_linear_ind)) = (X(filled_linear_ind)-Xm(filled_linear_ind))'; % actual prediction error
+            errorfill(n,1:length(filled_ind)) = (X(filled_ind)-Xm(filled_ind))'; % actual prediction error
             % averages of metrics 
-            msefill(n,count) = sum(errorfill(n,1:length(filled_linear_ind)).^2)/length(filled_linear_ind);
+            msefill(n,count) = sum(errorfill(n,1:length(filled_ind)).^2)/length(filled_ind);
         end 
         randomstart(n,count) = randind;
+        abserrorfill = abs(errorfill(n,1:length(filled_ind)));
+        aapdfill(n,count) = sum(abserrorfill/X(filled_ind))/length(filled_ind);
         %built in metric
         fit(n,count) = D.fit; 
-        error(n,1:length(filled_linear_ind)) = (Xtrue(filled_linear_ind)-Xm(filled_linear_ind))';
+        error(n,1:length(filled_ind)) = (Xtrue(filled_ind)-Xm(filled_ind))';
         errormiss(n,1:length(missing_ind))= (Xtrue(missing_ind)-Xm(missing_ind))';
         msemiss(n,count) = sum(errormiss(n,1:length(missing_ind)).^2)/length(missing_ind);
-        mse(n,count) = sum(error(n,1:length(filled_linear_ind)).^2)/length(filled_linear_ind);
+        mse(n,count) = sum(error(n,1:length(filled_ind)).^2)/length(filled_ind);
         %[Consistency,G,stdG,Target]=corcond(X,Factors,Weights,Plot)
         c(n,count)= corcond(Xm,F,[],1);
     end
@@ -166,6 +171,7 @@ for miss = missing
     numberOfFactors(count) = indexsortmse(m,count);
     cmin = coreconsistency(numberOfFactors(count));
     dof(count) = dim(1)*dim(2)*dim(3)-numberOfFactors(count)*(dim(1)+dim(2)+dim(3)-2);
+    minaapd(count) = aapdfill(numberOfFactors(count),count);
     % find the model 
     [F,D, X_pred(:,:,:,n)]=missing_indafac(X,numberOfFactors(count),modeINDAFAC, center,scale,1e-3,1000, method);
 end
@@ -180,12 +186,12 @@ rng(2,'twister')
 numberOfFactorsLOOCV =4;% = numberOfFactors(missing==missingLOOCV);
 filename = ['ToyProblemData3D_',num2str(missingLOOCV),'%missing.xlsx'];
 [X, Xtrue, Factors] = importX(filename, dim);
-filled_linear_ind = find(~isnan(X));
+filled_ind = find(~isnan(X));
 missing_ind = find(isnan(X));
 % find filled indices 
 [i,j,k]=findfill3(X);
 % define metrics here that need to be used 
-N = length(filled_linear_ind);
+N = length(filled_ind);
 smseN = zeros(1,N);
 fitN = zeros(1,N);
 itN = zeros(1,N);
@@ -210,7 +216,7 @@ ind = 0; % counter for filled indices
 
 % time the LOOCV
 tic
-for filled_ind = filled_linear_ind' %filled_linear_ind must be a row vector  
+for filled_ind = filled_ind' %filled_linear_ind must be a row vector  
     % temporary X
     X_b = X;
     ind=ind+1;
