@@ -5,7 +5,8 @@
 clc
 clear
 % Import excess enthalpy data for one matrix 
-filename = 'TestSMALLHEMatrix13June298.15.xlsx';
+filename = 'TestHEMatrixSMALLreduced16June298.15.xlsx';
+%filename = 'TestHEMatrixSMALLreduced15June2022298.15.xlsx';
 T1 = readtable(filename, 'Sheet', '0.1'); 
 X = table2array(T1);%only use T1, small enough to manage
 dim = size(X);
@@ -14,8 +15,7 @@ dim2=dim(2);
 percmiss = length(find(isnan(X)))/(dim1*dim2)*100;
 percobs = length(find(~isnan(X)))/(dim1*dim2)*100;
 
-% Parallel computing stuff 
-parpool
+
 %% Plot the matrix generated
 clf
 %[Xs,missing_ind,filled_linear_ind]=fill_matrix(X,0.5);%missing data 
@@ -30,7 +30,6 @@ ylabel('Frequency')
 
 % Import other data for most missing to allow variables to be declared
 concentrations = 0.1:0.1:0.9;
-filename = 'TestSMALLHEMatrix13June298.15.xlsx';
 fn = min([dim1,dim2]);
 
 y1 = zeros(fn,length(concentrations));
@@ -62,24 +61,27 @@ end
 hold off 
 
 %% Preprocess the matrices
-clc 
-clear
-clf
-concentrations = 0.1;
-filename = 'TestSMALLHEMatrix13June298.15.xlsx';
-for c = concentrations
+
+concentrations = 0.1:0.1:0.9;
+corrcol = zeros(length(concentrations), dim1, dim2);
+corrrow = zeros(length(concentrations), dim1, dim2);
+covX = zeros(length(concentrations), dim1, dim2);
+detX = zeros(length(concentrations), dim1, dim2); % = product of singular values 
+trX  = zeros(length(concentrations));
+for c = 1:length(concentrations)
     i=i+1;
     %Import data 
-    T = readtable(filename, 'Sheet', num2str(c));
+    T = readtable(filename, 'Sheet', num2str(c/10));
     Xs=table2array(T);
     X = fill_data(Xs);
-    corrcol = corr(X);
-    corrrow = corr(X');
-    covX = cov(X);
+    corrcol(c, :, :) = corr(X);
+    corrrow(c, :, :) = corr(X');
+    covX(c, :, :) = cov(X);
+    detX(c) = det(reshape(covX(c,:,:), [dim1,dim2])); % = product of singular values 
+    trX(c) = trace(reshape(covX(c,:,:), [dim1,dim2])); % = sum of singular values
 end 
-detX = det(covX); % = product of singular values 
-trX = trace(covX); % = sum of singular values 
-heatmap(abs(tril(corrcol)))
+ 
+%heatmap(abs(tril(corrcol)))
 %% LOOCV to find rank using mse  
 %time the code 
 tic
@@ -104,10 +106,8 @@ LOOCV_removed_col = zeros(length(filled_ind),1);
 LOOCV_removed_row = zeros(length(filled_ind),1);
 SVs = zeros(dim1,length(concentrations));
 
-% Error bars - LOOCV 
-% import the relevant sparse matrix from the spreadsheet
-ind = 0;
-c = 0;
+maxiter = 10000;
+conv = 1e-10;
 Xm_boot=zeros(length(concentrations), length(fns), length(filled_ind));
 %concentrations=0.1;
 
@@ -140,7 +140,7 @@ for c = 1:length(concentrations)
                 LOOCV_removed_row(k,c) = row(k);
                 %perform iterative PCA on the slightly more empty matrix 
                 %  [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter, usemissing)
-                [~,~,~,~,Xpred, ~,iter(k)]=missing_svd(X_b,fn,1,0,1e-10,10000,1);
+                [~,~,~,~,Xpred, ~,iter(k)]=missing_svd(X_b,fn,1,1,conv,maxiter,1);
                 X_pred_LOOCV(:,:,k)=Xpred;
                 error_LOOCV(k) = Xs(filled_index)-Xpred(filled_index);
                 
@@ -164,7 +164,7 @@ for c = 1:length(concentrations)
     else 
         fn_LOOCV(c) = find(mse_LOOCV(c,:) == min(mse_LOOCV(c,:)));
     end
-    [U,D,V,St,Xpred, SVsmiss,it]=missing_svd(Xs,fn_LOOCV(c),1,1,1e-8,1000,1);
+    [U,D,V,St,Xpred, SVsmiss,it]=missing_svd(Xs,fn_LOOCV(c),1,1,conv,maxiter,1);
     y = diag(SVsmiss);
     SVs(:,c)=y;
     min_mse_LOOCV(c) = mse_LOOCV(c,fn_LOOCV(c));
@@ -174,7 +174,10 @@ end
 Results = table(["Concentration of component 1"; (concentrations')],[ "SVs";fn_LOOCV'],[ "MSE";min_mse_LOOCV],[ "wMSE";min_wmse_LOOCV]);
 disp(Results)
 toc 
-
+% Save variables from the run 
+filenametemp = strcat('2wayrunPCARKscaled',date, '.mat');
+save(filenametemp)
+%retrieve data using load(filename.mat)
 %% Plot errors 
 conc=0.1;
 c=conc*10;
@@ -324,10 +327,7 @@ Results = table(["Sparsity"; (concentrations')],[ "SVs";min_fn],[ "MSE";minmse_f
 disp(Results)
 toc
 
-%% Save variables from the run 
-filenametemp = strcat('2wayrun',date, '.mat');
-save(filenametemp)
-%retrieve data using load(filename.mat)
+
 %% Error bars
 error_boot = zeros(length(filled_ind),1);
 for j=1:length(filled_ind)
