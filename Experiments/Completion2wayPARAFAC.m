@@ -144,7 +144,7 @@ for c = 1:length(conc_interval)
         tempRAD = tempRAD(find(~isinf(tempRAD)));
         %RAD(n,c,1:size(tempRAD,3)) = tempRAD;
         %RAD(n,c,size(tempRAD,3):end)=0;
-        RADfill(n,c)= sqrt((sum(tempRAD)).^2)/size(tempRAD,3));
+        RADfill(n,c)= sqrt((sum(tempRAD)).^2/size(tempRAD,3));
         
              
     end
