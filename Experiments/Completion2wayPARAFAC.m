@@ -20,10 +20,10 @@ X = nan(dim1, dim2);
 table = table2array(readtable(filename, 'Sheet',num2str(conc_analysis)));
 X(:,:) = table;
 
-% Analysis of the 4-way array 
+% Analysis of the 2-way array 
 percmiss = length(find(isnan(X)))/(dim1*dim2)*100;
 percobs = length(find(~isnan(X)))/(dim1*dim2)*100;
-parpool
+%parpool
 %% Find the best rank for each 
 
 %assumes no missing values in any row/column
@@ -139,8 +139,13 @@ for c = 1:length(conc_interval)
         % find the model 
         X_pred(:,:,c,n)=Xm;
         mse(n,c) = sum(errorfill(n,c,:).^2)/length(filled_ind);
+        tempRAD = RAD(n,c,:);
+        tempRAD = tempRAD(find(~isnan(tempRAD)));
+        tempRAD = tempRAD(find(~isinf(tempRAD)));
+        %RAD(n,c,1:size(tempRAD,3)) = tempRAD;
+        %RAD(n,c,size(tempRAD,3):end)=0;
+        RADfill(n,c)= sqrt((sum(tempRAD)).^2)/size(tempRAD,3));
         
-        RADfill(n,c)= sqrt((sum(RAD(n,c,:)).^2)/length(filled_ind));
              
     end
         
@@ -166,7 +171,7 @@ save(filenametemp)
 %Find the correct number of factors 
 conc_interval = 0.1:0.1:0.9;%K
 %  number of factors maximum to try 
-N=9;
+N=6;
 maxiter=10000;
 
 missing_ind = find(isnan(X));
@@ -287,12 +292,12 @@ for c = 1:length(conc_interval)
             end 
         end
         mse(n,c) = sum(errorfill(n,c,:).^2)/length(filled_ind);
-        tempRAD = RAD(N,c,:);
+        tempRAD = RAD(n,c,:);
         tempRAD = tempRAD(find(~isnan(tempRAD)));
         tempRAD = tempRAD(find(~isinf(tempRAD)));
         RAD(n,c,1:size(tempRAD,3)) = tempRAD;
         RAD(n,c,size(tempRAD,3):end)=0;
-        RADfill(n,c)= sqrt((sum(RAD(n,c,1:size(tempRAD,3))).^2)/size(tempRAD,3));
+        RADfill(n,c)= sqrt((sum(tempRAD.^2))/size(tempRAD,3));
     end
     % Find true number of factors for this % missing 
     %Find the optimal rank prediction
@@ -308,7 +313,7 @@ end
 toc % end timer
 
 % Save variables from the run 
-filenametemp = strcat('2wayrunPARAFACRKn=9',date, '.mat');
+filenametemp = strcat('2wayrunPARAFACPoly288.15n=6',date, '.mat');
 save(filenametemp)
 %retrieve data using load(filename.mat)
 %%
