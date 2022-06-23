@@ -5,7 +5,7 @@
 %% Import data 
 clc
 clear
-T = 288.15; %K 
+T = 298.15; %K 
 Temps = [298.15;243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15];
 
 filename = strcat('HEMatrixPoly16June',num2str(T),'.xlsx');
@@ -29,126 +29,321 @@ percobs = length(find(~isnan(X)))/(dim1*dim2)*100;
 %assumes no missing values in any row/column
 %Find the correct number of factors 
 conc_interval = 0.1:0.1:0.9;%K
+%Temps = [298.15;243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 333.15; 343.15; 348.15; 363.15];
+%Temps = [298.15];
+
 %  number of factors maximum to try 
-N=12;
-maxiter=10000;
-
-missing_ind = find(isnan(X));
-[row,col]=find(~isnan(X));
-filled_ind = find(~isnan(X));
-% can also get Rho, Lambda, EV% and Max Gr
-% EV must be close to 100%
-
-% for each concentration and possible number of factors
-minmse = zeros(1,length(conc_interval));
-minaapd = zeros(1,length(conc_interval)); % average absolute percent deviation = average(abs(Xpred-Xtrue)/Xtrue))
-numberOfFactors = zeros(1,length(conc_interval));
-dof = zeros(1,length(conc_interval));
-mse = zeros(N,length(conc_interval));
-msefill = zeros(N,length(conc_interval));
-RADfill = zeros(N,length(conc_interval));
-aapdfill = zeros(N,length(conc_interval));
-indexsortmse=zeros(N,length(conc_interval));
-corecon = zeros(N,length(conc_interval));
-coreconsistency = zeros(N,1);
-randomstart = zeros(N,length(conc_interval), length(filled_ind));
-
-%metrics defined
-smse = zeros(N,1);
-fit = zeros(N,1);
-it = zeros(N,1);
-error = zeros(N, length(conc_interval),length(filled_ind));%missing_ind is biggest for 90% missing data, as initialisation was
-errorfill = zeros(N, length(conc_interval),length(filled_ind));
-RAD = zeros(N, length(conc_interval),length(filled_ind));
-% metrics to compare to truth 
-msemiss = zeros(N,1);
-errormiss = zeros(N, length(missing_ind));
-% define other needed vars  
-dim = size(X);
-X_pred = zeros(dim(1),dim(2),N, length(conc_interval));
-center = 1;
-scale = 1;
-modeINDAFAC =1;
-method = 'Broindafac';
-%ind = 0; % index for the missing data arrays
-mse_threshold = 50;
+N=25;
+maxiter=30000;
 % time the process 
 tic 
-for c = 1:length(conc_interval)
-    conc = conc_interval(c);
-    disp('Concentration')
-    disp(conc)
-    T = readtable(filename, 'Sheet', num2str(conc));
-    Xs = table2array(T);
-    
-    filled_ind = find(~isnan(X));
+for T = Temps'
+    filename = strcat('HEMatrixPoly16June',num2str(T),'.xlsx');
+    table = table2array(readtable(filename, 'Sheet', '0.1'));
+    conc_analysis = 0.1;
+    dim1 = size(table,1);
+    dim2 = size(table,2);
+    %dim3 = length(conc_interval);
+    X = nan(dim1, dim2);
+
+
+    table = table2array(readtable(filename, 'Sheet',num2str(conc_analysis)));
+    X(:,:) = table;
+
+    % Analysis of the 2-way array 
+    percmiss = length(find(isnan(X)))/(dim1*dim2)*100;
+    percobs = length(find(~isnan(X)))/(dim1*dim2)*100;
     missing_ind = find(isnan(X));
+    [row,col]=find(~isnan(X));
+    filled_ind = find(~isnan(X));
+    % can also get Rho, Lambda, EV% and Max Gr
+    % EV must be close to 100%
 
-    % Find the correct number of factors for this percent missing 
-    parfor n = 4:N % factors (== principal components) 
-        % initialise random number generator 
-        disp('n')
-        disp(n) 
-        %perform INDAFAC with missing values on the matrix with one entry missing
-        %[F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_iter)
-        Fi = ini(X,n,1);
-        [F,D, X_predloop]=missing_indafac(X,n,modeINDAFAC, center,scale,1e-10,maxiter,method, Fi);
-        Xm = nmodel(F);
+    % for each concentration and possible number of factors
+    minmse = zeros(1,length(conc_interval));
+    minaapd = zeros(1,length(conc_interval)); % average absolute percent deviation = average(abs(Xpred-Xtrue)/Xtrue))
+    numberOfFactors = zeros(1,length(conc_interval));
+    mse = zeros(N,length(conc_interval));
+    msefill = zeros(N,length(conc_interval));
+    RADfill = zeros(N,length(conc_interval));
+    aapdfill = zeros(N,length(conc_interval));
+    indexsortmse=zeros(N,length(conc_interval));
+    corecon = zeros(N,length(conc_interval));
+    coreconsistency = zeros(N,1);
+    randomstart = zeros(N,length(conc_interval), length(filled_ind));
 
+    %metrics defined
+    smse = zeros(N,1);
+    fit = zeros(N,1);
+    it = zeros(N,1);
+    error = zeros(N, length(conc_interval),length(filled_ind));%missing_ind is biggest for 90% missing data, as initialisation was
+    errorfill = zeros(N, length(conc_interval),length(filled_ind));
+    RAD = zeros(N, length(conc_interval),length(filled_ind));
+    % metrics to compare to truth 
+    msemiss = zeros(N,1);
+    errormiss = zeros(N, length(missing_ind));
+    % define other needed vars  
+    dim = size(X);
+    X_pred = zeros(dim(1),dim(2),N, length(conc_interval));
+    center = 1;
+    scale = 1;
+    modeINDAFAC =1;
+    method = 'Broindafac';
+    %ind = 0; % index for the missing data arrays
+    mse_threshold = 50;
 
-        % averages of metrics 
-        mseloocv = (sum((X(filled_ind)-Xm(filled_ind))'.^2))/length(filled_ind);
+    
+    for c = 1:length(conc_interval)
+        conc = conc_interval(c);
+        disp('Concentration')
+        disp(conc)
+        Table = readtable(filename, 'Sheet', num2str(conc));
+        X = table2array(Table);
 
-        %if the correct starting value was not used, the error will be very
-        %great 
-        % can make this a for loop for future code 
-        mseloop = zeros(3,1);
-        randind = 1;
-        mseloop(randind)=mseloocv;
+        filled_ind = find(~isnan(X));
+        missing_ind = find(isnan(X));
 
-        while mseloocv > mse_threshold && randind<=3
-            randind=randind+1;
-            rng(randind,'twister')
-            %refit 
+        % Find the correct number of factors for this percent missing 
+        parfor n = 1:N % factors (== principal components) 
+            % initialise random number generator 
+            disp('n')
+            disp(n) 
+            %perform INDAFAC with missing values on the matrix with one entry missing
+            %[F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_iter)
+            Fi = ini(X,n,1);
             [F,D, X_predloop]=missing_indafac(X,n,modeINDAFAC, center,scale,1e-10,maxiter,method, Fi);
             Xm = nmodel(F);
 
+
             % averages of metrics 
             mseloocv = (sum((X(filled_ind)-Xm(filled_ind))'.^2))/length(filled_ind);
+
+            %if the correct starting value was not used, the error will be very
+            %great 
+            % can make this a for loop for future code 
+            mseloop = zeros(3,1);
+            randind = 1;
             mseloop(randind)=mseloocv;
-        end 
-        %find random start with the lowest mse of those calculated 
-        randstart = find(mseloop==min(mseloop)); 
-        rng(randstart(1,1),'twister')
-        [F,D, X_predloop]=missing_indafac(X,n,modeINDAFAC, center,scale,1e-10,maxiter,method, Fi);
-        Xm = nmodel(F);
 
-        errorfill(n,c, :) = (X(filled_ind)-Xm(filled_ind)); % actual prediction error
-        % averages of metrics 
-        msefill(n,c) = sum(errorfill(n,c, :).^2)/length(filled_ind);
-       
-        RAD(n,c, :) = reshape(errorfill(n,c, :), length(filled_ind),1)./(X(filled_ind));
-        
+            while mseloocv > mse_threshold && randind<=3
+                randind=randind+1;
+                rng(randind,'twister')
+                %refit 
+                [F,D, X_predloop]=missing_indafac(X,n,modeINDAFAC, center,scale,1e-10,maxiter,method, Fi);
+                Xm = nmodel(F);
 
-        randomstart(n,c) = randstart(1,1);
-        %built in metric
-        %fit(n,count) = D.fit; 
+                % averages of metrics 
+                mseloocv = (sum((X(filled_ind)-Xm(filled_ind))'.^2))/length(filled_ind);
+                mseloop(randind)=mseloocv;
+            end 
+            %find random start with the lowest mse of those calculated 
+            randstart = find(mseloop==min(mseloop)); 
+            rng(randstart(1,1),'twister')
+            [F,D, X_predloop]=missing_indafac(X,n,modeINDAFAC, center,scale,1e-10,maxiter,method, Fi);
+            Xm = nmodel(F);
 
-        %[Consistency,G,stdG,Target]=corcond(X,Factors,Weights,Plot)
+            errorfill(n,c, :) = (X(filled_ind)-Xm(filled_ind)); % actual prediction error
+            % averages of metrics 
+            msefill(n,c) = sum(errorfill(n,c, :).^2)/length(filled_ind);
 
-        % find the model 
-        X_pred(:,:,c,n)=Xm;
-        mse(n,c) = sum(errorfill(n,c,:).^2)/length(filled_ind);
-        tempRAD = RAD(n,c,:);
-        tempRAD = tempRAD(find(~isnan(tempRAD)));
-        tempRAD = tempRAD(find(~isinf(tempRAD)));
-        %RAD(n,c,1:size(tempRAD,3)) = tempRAD;
-        %RAD(n,c,size(tempRAD,3):end)=0;
-        RADfill(n,c)= sqrt((sum(tempRAD)).^2/size(tempRAD,3));
-        
-             
+            RAD(n,c, :) = reshape(errorfill(n,c, :), length(filled_ind),1)./(X(filled_ind));
+
+
+            randomstart(n,c) = randstart(1,1);
+            %built in metric
+            %fit(n,count) = D.fit; 
+
+            %[Consistency,G,stdG,Target]=corcond(X,Factors,Weights,Plot)
+
+            % find the model 
+            X_pred(:,:,c,n)=Xm;
+            mse(n,c) = sum(errorfill(n,c,:).^2)/length(filled_ind);
+            tempRAD = RAD(n,c,:);
+            tempRAD = tempRAD(find(~isnan(tempRAD)));
+            tempRAD = tempRAD(find(~isinf(tempRAD)));
+            %RAD(n,c,1:size(tempRAD,3)) = tempRAD;
+            %RAD(n,c,size(tempRAD,3):end)=0;
+            RADfill(n,c)= sqrt((sum(tempRAD)).^2/size(tempRAD,3));
+
+
+        end
+
+            % Find true number of factors for this % missing 
+            %Find the optimal rank prediction
+            [sortmse, indexsortmse(:,c)]=sort(mse(:,c)); % sorts in ascending order 
+
+            minmse(c) = sortmse(1);
+            numberOfFactors(c) = indexsortmse(1,c);
+            cmin = coreconsistency(numberOfFactors(c));
+            dof(c) = dim(1)*dim(2)-numberOfFactors(c)*(dim(1)+dim(2)-2);
+            minaapd(c) = aapdfill(numberOfFactors(c),c);
+
     end
-        
+    
+
+    % Save variables from the run 
+    filenametemp = strcat('2wayrunPARAFACPoly',num2str(T),date, '.mat');
+    save(filenametemp)
+    %retrieve data using load(filename.mat)
+end 
+toc % end timer
+%% Use parafac and loocv for 2-way array completion to find the error of the best rank 
+%assumes no missing values in any row/column
+%Find the error for the correct number of factors for each temperature
+%Temps = [ 308.15; 313.15; 318.15; 323.15; 333.15; 343.15; 348.15; 363.15];
+Temps = [283.15; 288.15;  293.15;  298.15]; %more than 8 rows/columns per 2-way array
+Temps = [303.15; 308.15; 313.15; 318.15]; % more than 8 rows/columns, but very sparse 
+conc_interval = 0.5;%
+Temps = 298.15;
+%  number of factors maximum to try 
+N=10;
+maxiter=10000;
+% time the process 
+tic
+for T = Temps'
+    filename = strcat('HEMatrixPoly16June',num2str(T),'.xlsx');
+    table = table2array(readtable(filename, 'Sheet', '0.1'));
+    conc_analysis = 0.1;
+    dim1 = size(table,1);
+    dim2 = size(table,2);
+    %dim3 = length(conc_interval);
+    X = nan(dim1, dim2);
+
+
+    table = table2array(readtable(filename, 'Sheet',num2str(conc_analysis)));
+    X(:,:) = table;
+
+    % Analysis of the 2-way array 
+    percmiss = length(find(isnan(X)))/(dim1*dim2)*100;
+    percobs = length(find(~isnan(X)))/(dim1*dim2)*100;
+
+    missing_ind = find(isnan(X));
+    [row,col]=find(~isnan(X));
+    filled_ind = find(~isnan(X));
+    % can also get Rho, Lambda, EV% and Max Gr
+    % EV must be close to 100%
+
+    % for each concentration and possible number of factors
+    minmse = zeros(1,length(conc_interval));
+    minaapd = zeros(1,length(conc_interval)); % average absolute percent deviation = average(abs(Xpred-Xtrue)/Xtrue))
+    numberOfFactors = zeros(1,length(conc_interval));
+    dof = zeros(1,length(conc_interval));
+    mse = zeros(N,length(conc_interval));
+    msefill = zeros(N,length(conc_interval));
+    RADfill = zeros(N,length(conc_interval));
+    aapdfill = zeros(N,length(conc_interval));
+    indexsortmse=zeros(N,length(conc_interval));
+    corecon = zeros(N,length(conc_interval));
+    coreconsistency = zeros(N,1);
+    randomstart = zeros(N,length(conc_interval), length(filled_ind));
+
+    %metrics defined
+    smse = zeros(N,1);
+    fit = zeros(N,length(conc_interval),length(filled_ind));
+    it = zeros(N,length(conc_interval),length(filled_ind));
+    error = zeros(N, length(conc_interval),length(filled_ind));%missing_ind is biggest for 90% missing data, as initialisation was
+    errorfill = zeros(N, length(conc_interval),length(filled_ind));
+    RAD = zeros(N, length(conc_interval),length(filled_ind));
+    % metrics to compare to truth 
+    msemiss = zeros(N,1);
+    errormiss = zeros(N, length(missing_ind));
+    % define other needed vars  
+    dim = size(X);
+    X_pred = zeros(dim(1),dim(2),N, length(conc_interval));
+    center = 1;
+    scale = 1;
+    modeINDAFAC =1;
+    method = 'Broindafac';
+    %ind = 0; % index for the missing data arrays
+    mse_threshold = 50;
+
+     
+    for c = 1:length(conc_interval)
+        conc = conc_interval(c);
+        disp('Concentration')
+        disp(conc)
+        Table = readtable(filename, 'Sheet', num2str(conc));
+        X = table2array(Table);
+
+        filled_ind = find(~isnan(X));
+        missing_ind = find(isnan(X));
+
+        % Find the correct number of factors for this percent missing 
+        for n = N % factors (== principal components) 
+            % initialise random number generator 
+            disp('n')
+            disp(n) 
+            
+            OldLoad = ini(X,n,1);
+            %find the first load for all values - done to reduce
+            %computation for each filled index 
+            [OldLoad,~,~, X_predloop]=missing_indafac(X,n,modeINDAFAC, center,scale,1e-10,30000,method, OldLoad);
+            %perform INDAFAC with missing values on the matrix with one entry missing
+            %[F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_iter)
+            parfor ind = 1:length(filled_ind)
+                % temporary X
+                X_b = X;
+                filled_index = filled_ind(ind);
+                
+                X_b(row(ind),col(ind)) = nan;% remove a true data point from Xs
+                if   find(~isnan(X_b(row(ind),:)))&  find(~isnan(X_b(:,col(ind)))) & (X_b(row(ind),col(ind)))~=0 %ensure at least one value in each column and row
+                    
+                    [F,it(n,c, ind), fit(n,c, ind), X_predloop]=missing_indafac(X_b,n,modeINDAFAC, center,scale,1e-10,maxiter,method, OldLoad);
+                    Xm = nmodel(F);
+
+
+                    % averages of metrics 
+%                     mseloocv = (sum((X(filled_ind)-Xm(filled_ind))'.^2))/length(filled_ind);
+
+                    %if the correct starting value was not used, the error will be very
+                    %great 
+                    % can make this a for loop for future code 
+%                     mseloop = zeros(6,1);
+%                     randind = 1;
+%                     mseloop(randind)=mseloocv;
+
+%                     while mseloocv > mse_threshold && randind<=6
+%                         randind=randind+1;
+%                         rng(randind,'twister')
+%                         %refit 
+%                         [F,D, X_predloop]=missing_indafac(X_b,n,modeINDAFAC, center,scale,1e-3,maxiter,method, OldLoad);
+%                         Xm = nmodel(F);
+% 
+%                         % averages of metrics 
+%                         mseloocv = (sum((X(filled_ind)-Xm(filled_ind))'.^2))/length(filled_ind);
+%                         mseloop(randind)=mseloocv;
+%                     end 
+%                     %find random start with the lowest mse of those calculated 
+%                     randstart = find(mseloop==min(mseloop)); 
+%                     rng(randstart(1,1),'twister')
+%                     [F,D, X_predloop]=missing_indafac(X_b,n,modeINDAFAC, center,scale,1e-3,maxiter,method, OldLoad);
+%                     Xm = nmodel(F);
+
+                    errorfill(n,c,ind) = (X(filled_index)-Xm(filled_index)); % actual prediction error
+                    % averages of metrics 
+                    msefill(n,c,ind) = sum(errorfill(n,c,ind).^2)/length(filled_ind);
+                    if X(filled_index)~=0
+                        RAD(n,c,ind) = errorfill(n,c,ind)/(X(filled_index));
+                    end 
+
+                    %randomstart(n,c,ind) = randstart(1,1);
+                    
+                    error = (X(filled_ind)-Xm(filled_ind))';
+    
+                    %[Consistency,G,stdG,Target]=corcond(X,Factors,Weights,Plot)
+
+                    % find the model 
+                    X_pred(:,:,ind,n)=Xm;
+                end 
+            end
+            mse(n,c) = sum(errorfill(n,c,:).^2)/length(filled_ind);
+            tempRAD = RAD(n,c,:);
+            tempRAD = tempRAD(find(~isnan(tempRAD)));
+            tempRAD = tempRAD(find(~isinf(tempRAD)));
+            RAD(n,c,1:size(tempRAD,3)) = tempRAD;
+            RAD(n,c,size(tempRAD,3):end)=0;
+            RADfill(n,c)= sqrt((sum(tempRAD.^2))/size(tempRAD,3));
+        end
         % Find true number of factors for this % missing 
         %Find the optimal rank prediction
         [sortmse, indexsortmse(:,c)]=sort(mse(:,c)); % sorts in ascending order 
@@ -158,168 +353,17 @@ for c = 1:length(conc_interval)
         cmin = coreconsistency(numberOfFactors(c));
         dof(c) = dim(1)*dim(2)-numberOfFactors(c)*(dim(1)+dim(2)-2);
         minaapd(c) = aapdfill(numberOfFactors(c),c);
-    
-end
-toc % end timer
 
-% Save variables from the run 
-filenametemp = strcat('2wayrunPARAFACPoly',num2str(T),date, '.mat');
-save(filenametemp)
-%retrieve data using load(filename.mat)
-%% Use parafac and loocv for 2-way array completion to find the error of the best rank 
-%assumes no missing values in any row/column
-%Find the correct number of factors 
-conc_interval = 0.1:0.1:0.9;%K
-%  number of factors maximum to try 
-N=6;
-maxiter=10000;
-
-missing_ind = find(isnan(X));
-[row,col]=find(~isnan(X));
-filled_ind = find(~isnan(X));
-% can also get Rho, Lambda, EV% and Max Gr
-% EV must be close to 100%
-
-% for each concentration and possible number of factors
-minmse = zeros(1,length(conc_interval));
-minaapd = zeros(1,length(conc_interval)); % average absolute percent deviation = average(abs(Xpred-Xtrue)/Xtrue))
-numberOfFactors = zeros(1,length(conc_interval));
-dof = zeros(1,length(conc_interval));
-mse = zeros(N,length(conc_interval));
-msefill = zeros(N,length(conc_interval));
-RADfill = zeros(N,length(conc_interval));
-aapdfill = zeros(N,length(conc_interval));
-indexsortmse=zeros(N,length(conc_interval));
-corecon = zeros(N,length(conc_interval));
-coreconsistency = zeros(N,1);
-randomstart = zeros(N,length(conc_interval), length(filled_ind));
-
-%metrics defined
-smse = zeros(N,1);
-fit = zeros(N,1);
-it = zeros(N,1);
-error = zeros(N, length(conc_interval),length(filled_ind));%missing_ind is biggest for 90% missing data, as initialisation was
-errorfill = zeros(N, length(conc_interval),length(filled_ind));
-RAD = zeros(N, length(conc_interval),length(filled_ind));
-% metrics to compare to truth 
-msemiss = zeros(N,1);
-errormiss = zeros(N, length(missing_ind));
-% define other needed vars  
-dim = size(X);
-X_pred = zeros(dim(1),dim(2),N, length(conc_interval));
-center = 1;
-scale = 1;
-modeINDAFAC =1;
-method = 'Broindafac';
-%ind = 0; % index for the missing data arrays
-mse_threshold = 50;
-
-% time the process 
-tic 
-for c = 1:length(conc_interval)
-    conc = conc_interval(c);
-    disp('Concentration')
-    disp(conc)
-    T = readtable(filename, 'Sheet', num2str(conc));
-    Xs = table2array(T);
-    
-    filled_ind = find(~isnan(X));
-    missing_ind = find(isnan(X));
-
-    % Find the correct number of factors for this percent missing 
-    for n = N % factors (== principal components) 
-        % initialise random number generator 
-        disp('n')
-        disp(n) 
-        OldLoad = ini(X,n,2);
-        [OldLoad,D, X_predloop]=missing_indafac(X,n,modeINDAFAC, center,scale,1e-3,maxiter,method, OldLoad);
-        %perform INDAFAC with missing values on the matrix with one entry missing
-        %[F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_iter)
-        parfor ind = 1:length(filled_ind)
-            % temporary X
-            X_b = X;
-            filled_index = filled_ind(ind);
-            X_b(row(ind),col(ind)) = nan;% remove a true data point from Xs
-            if   find(~isnan(X_b(row(ind),:)))&  find(~isnan(X_b(:,col(ind)))) & (X_b(row(ind),col(ind)))~=0 %ensure at least one value in each column and row
-                 
-                [F,D, X_predloop]=missing_indafac(X_b,n,modeINDAFAC, center,scale,1e-3,maxiter,method, OldLoad);
-                Xm = nmodel(F);
-          
-                
-                % averages of metrics 
-                mseloocv = (sum((X(filled_ind)-Xm(filled_ind))'.^2))/length(filled_ind);
-
-                %if the correct starting value was not used, the error will be very
-                %great 
-                % can make this a for loop for future code 
-                mseloop = zeros(6,1);
-                randind = 1;
-                mseloop(randind)=mseloocv;
-                
-                while mseloocv > mse_threshold && randind<=6
-                    randind=randind+1;
-                    rng(randind,'twister')
-                    %refit 
-                    [F,D, X_predloop]=missing_indafac(X_b,n,modeINDAFAC, center,scale,1e-3,maxiter,method, OldLoad);
-                    Xm = nmodel(F);
-                   
-                    % averages of metrics 
-                    mseloocv = (sum((X(filled_ind)-Xm(filled_ind))'.^2))/length(filled_ind);
-                    mseloop(randind)=mseloocv;
-                end 
-                %find random start with the lowest mse of those calculated 
-                randstart = find(mseloop==min(mseloop)); 
-                rng(randstart(1,1),'twister')
-                [F,D, X_predloop]=missing_indafac(X_b,n,modeINDAFAC, center,scale,1e-3,maxiter,method, OldLoad);
-                Xm = nmodel(F);
-                
-                errorfill(n,c,ind) = (X(filled_index)-Xm(filled_index)); % actual prediction error
-                % averages of metrics 
-                msefill(n,c,ind) = sum(errorfill(n,c,ind).^2)/length(filled_ind);
-                if X(filled_index)~=0
-                    RAD(n,c,ind) = errorfill(n,c,ind)/(X(filled_index));
-                end 
-                
-                randomstart(n,c,ind) = randstart(1,1);
-                %built in metric
-                %fit(n,count) = D.fit; 
-                error = (X(filled_ind)-Xm(filled_ind))';
-                
-                %[Consistency,G,stdG,Target]=corcond(X,Factors,Weights,Plot)
-                
-                % find the model 
-                X_pred(:,:,ind,n)=Xm;
-            end 
-        end
-        mse(n,c) = sum(errorfill(n,c,:).^2)/length(filled_ind);
-        tempRAD = RAD(n,c,:);
-        tempRAD = tempRAD(find(~isnan(tempRAD)));
-        tempRAD = tempRAD(find(~isinf(tempRAD)));
-        RAD(n,c,1:size(tempRAD,3)) = tempRAD;
-        RAD(n,c,size(tempRAD,3):end)=0;
-        RADfill(n,c)= sqrt((sum(tempRAD.^2))/size(tempRAD,3));
     end
-    % Find true number of factors for this % missing 
-    %Find the optimal rank prediction
-    [sortmse, indexsortmse(:,c)]=sort(mse(:,c)); % sorts in ascending order 
     
-    minmse(c) = sortmse(1);
-    numberOfFactors(c) = indexsortmse(1,c);
-    cmin = coreconsistency(numberOfFactors(c));
-    dof(c) = dim(1)*dim(2)-numberOfFactors(c)*(dim(1)+dim(2)-2);
-    minaapd(c) = aapdfill(numberOfFactors(c),c);
-    
-end
+
+    % Save variables from the run 
+    filenametemp = strcat('2wayrunPARAFACn=',num2str(N),'Poly',num2str(T),'-',num2str(conc_interval),'-',date, '.mat');
+    save(filenametemp)
+    %retrieve data using load(filename.mat)
+end 
 toc % end timer
 
-% Save variables from the run 
-filenametemp = strcat('2wayrunPARAFACPoly288.15n=6',date, '.mat');
-save(filenametemp)
-%retrieve data using load(filename.mat)
-%%
- [F,D, X_predbest]=missing_indafac(X,5,modeINDAFAC, center,scale,1e-3,1000, method);
- 
- Xm=nmodel(F);
 %% LOOCV for the correct number of factors 
 % must be run after the correct nnumber of factors is found 
 rng(2,'twister')
@@ -448,7 +492,7 @@ function [X, Xtrue, Factors] = importX(filename, dim)
     end
 end
 
-function [F,D, X_pred]=missing_indafac(X,fn,mode, center,scale,conv,max_iter,method, Fi)
+function [F,it,err, X_pred]=missing_indafac(X,fn,mode, center,scale,conv,max_iter,method, Fi)
 % Input 
 % X = data array 
 % fn = number of factors 
@@ -482,9 +526,8 @@ OldLoad = Fi;
     [i,j]=find(isnan(X)); % missing indices 
     if method == 'Broindafac'
         % use their indafac algorithm, not my method 
-        Fi = ini(X, fn, 1); % initialise the three loadings 
-        
-        [F,D]=parafac(X,fn, Options, const, OldLoad);
+       
+        [F,it,err]=parafac(X,fn, Options, const, OldLoad);
         %function [Factors,it,err,corcondia]=parafac(X,Fac,Options,const,OldLoad,FixMode,Weights);
         Xm = nmodel(F);
         X_pred = X;
@@ -545,9 +588,11 @@ OldLoad = Fi;
                 % indafac or parafac step 
                 if strcmp(method,'indafac') 
                     [F,D]=INDAFAC(Xc,fn,Fi);
+                    it = D.it;
+                    err = D.fit;
                     Xm = nmodel(F);
                 else 
-                    [F, ~]=parafac(Xc,fn);
+                    [F, it, err]=parafac(Xc,fn);
                     Xm = nmodel(F);
                 end 
 
