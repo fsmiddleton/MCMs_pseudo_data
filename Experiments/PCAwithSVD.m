@@ -5,38 +5,24 @@
 clc
 clear
 
+
+% Import multiple sheets, 3 way array 
 filename = 'ToyProblemData3DFull.xlsx'; % created using parafac code 
-% find sheet names in the file 
+% find sheet names 
 sheets = sheetnames(filename);
 % iterate for the number of sheets
-
+dim3 =0;
 for s=1:length(sheets)
     [sNum,tf]=str2num(s);
     % if the name of the sheet was a number, it can be converted and
     % contains data for the problem 
     if tf == 1
-        T = readtable(filename, 'Sheet', num2str(sNum));
-        % fill X matrix, changes upon each iteration 
+        T = readtable(filename, 'Sheet', sNum);
+        % fill X matrix 
         X(:, :, sNum)=table2array(T); 
     end 
 end 
 dim = size(X);
-%% remove NaN rows or columns
-% saves the columns and rows with Nan values 
-% this does not work correctly
-% row_nan = find(all(isnan(X),2));
-% col_nan = find(all(isnan(X),1));
-% if row_nan
-%     X(row_nan,:)=[];
-% end 
-% if col_nan 
-%     X(:,col_nan)=[];
-% end 
-% dim = size(X);
-% dim1 = dim(1);
-% dim2 = dim(2);
-% missing_ind = find(isnan(X));
-% filled_linear_ind = find(~isnan(X));
  
 %% Matrix completion step 
  
@@ -51,67 +37,36 @@ R2 = zeros(size(intervals,2),1);
 % initialise error vars 
 % column for each matrix (fn vs sparsity)
 mse = zeros(size(fns,2),size(intervals,2));
-
 smse = zeros(size(fns,2),size(intervals,2));
 wmse = zeros(size(fns,2),size(intervals,2));
 R = zeros(size(fns,2),size(intervals,2));
 
-
+j=0; % counter 
 if size(dim,2)>2
     if size(dim,2)==3
         dim3 = dim(3);
-        j=0; % counter for matrices
-        for dim = 1:dim3 
+        for dim = dim3 
             j = j+1;
             Xs = X(:,:,j);
-            Xs = reshape(Xs,[dim(1),dim(2)]); %matrix
             % complete matrix
             % Iterative PCA with wMSE or MSE used to find rank 
         
             %choose which error measure to use for choosing the best PC
             winsorized_mse =1; %1=use wmse 
 
-            
-            %Find rank by minimising the mse or wmse  
-            i=0; %counter for ranks 
+            %Find rank by minimising the mse or wmse 
+            i=0;
             for fn=fns
-                % rank = fn 
+                [U,D,V,X_pred]=missing_svd(Xs,fn,1,1e-3,1000);
                 i=i+1;
-                % var filled for each rank 
-                error = zeros(size(filled_linear_ind,1),1);
-                
-                %LOOCV
-                k=0;% counter for LOOCV 
-                for filled_ind = filled_linear_ind' %filled_linear_ind must be a row vector  
-                    % temporary X
-                    X_b = Xs;
-                    col = mod(filled_ind,dim2);
-                    if col ==0
-                        col=dim2;% mod(integer*m,m)=0, therefore the column should be column m
-                    end 
-                    row = ceil(filled_ind/dim2);
-                    X_b(filled_ind) = nan;% remove a point from Xs
-                    if find(X_b(:,col)) &&  find(X_b(row,:)) %ensure at least one value in each column and row
-                        k=k+1;% allowed, therefore the counter is increased 
-                        boot_removed_col(k) = col;
-                        boot_removed_row(k) = row;
-                        %perform iterative PCA on the matrix with one entry missing
-                        [U,D,V,X_pred_boot(:,:)]=missing_svd(X_b,min_fn,1,1,1e-3,1000);
-                        %save error for this value left out 
-                        error(k) = X_pred_boot(filled_ind)- Xs(filled_ind);
-                    end 
-                end %end LOOCV 
-                % find error for matrix (i) and rank (j)
-                mse(i,j) = sum(error.^2)/k;
-                % find the winsorized mse for the matrices 
-                % find outliers
-                perc5 = prctile(error,5, 'all');
-                perc95 = prctile(error, 95, 'all');
-                %reassign
-                error(error<perc5)=perc5;
-                error(error> perc95)=perc95;
-                wmse(i,j) = (sum(error.^2))/k;
-            end %end ranks loop
+                SRSS = sqrt((sum((X_pred(missing_ind)-X(missing_ind)).^2)));
+                mse(i,j) = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
+                wmse(i,j)= find_wmse(X(missing_ind), X_pred(missing_ind), length(missing_ind));
+                smse(i,j) = sqrt(mse(i));
+                Cyt = corrcoef(X_pred(missing_ind),X(missing_ind));
+                R(i,j)=sqrt(Cyt(2,1));
+
+            end
             minmse(j) = min(mse(:,j));
             minwmse(j)=min(wmse(:,j));
 
@@ -121,39 +76,67 @@ if size(dim,2)>2
                 min_index = find(mse(:,j)==minmse(j));
             end 
             min_fn(j) = fns(min_index);
-            [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1,1e-3,1000);
-        end %end matrices loop 
+            R2(j) = R(min_index,j)^2;
+            [U,D,V,X_pred_best(:,:,j)]=missing_svd(Xs,min_fn(j),1,1e-3,1000);
+        end 
         
+        %Error bars
+        X_pred_boot = zeros(dim1,dim2,size(filled_linear_ind,1));
+        boot_removed_col = zeros(size(filled_linear_ind,1),1);
+        boot_removed_row = zeros(size(filled_linear_ind,1),1);
+        k=0;% for the bootstrapping to find error bars 
+        for filled_ind = filled_linear_ind' %filled_linear_ind must be a row vector for a for loop
+            %Find error bars of the predictions 
+            % remove a point from Xs 
+            X_b = Xs;
+            col = mod(filled_ind,dim2);
+            if col ==0
+                col=dim2;% mod(any integer*m,m)=0, but the column should be column m
+            end 
+            row = ceil(filled_ind/dim2);
+            X_b(filled_ind) = nan;
+            if find(X_b(:,col)) & find(X_b(row,:)) %ensure at least one value in each column and row
+                k=k+1;
+                boot_removed_col(k) = col;
+                boot_removed_row(k) = row;
+                %if there are other entries in the rows and columns,
+                %perform iterative PCA on the slightly more empty matrix 
+                X_b=fill_data(X_b);
+                [U,D,V,X_pred_boot(:,:,k)]=missing_svd(X_b,min_fn,1,1e-3,1000);%iterative PCA using the known rank 
+            end 
+        end 
+        % remove the predictions that were not made from the averaging and
+        % finding variance 
+
+        for l=1:k
+            X_pred_best_boot(boot_removed_row(l), boot_removed_col(l)) = mean(X_pred_boot(boot_removed_row(l), boot_removed_col(l), :));
+            X_var_best_boot(boot_removed_row(l), boot_removed_col(l)) = var(X_pred_boot(boot_removed_row(l), boot_removed_col(l), :));
+        end 
+         
+    %Unfold to 2-way arrays
+    % redo everything after this 
+    % functionise everything 
+    %else % must be 4way data 
+        % decide how to slice 
+        % T slices or x slices 
     end 
 end 
-
-%% Relate matrices to each other by RK 
-
-% initialise regression constants - will find matrix of each 
-A=ones(dim1,dim2);
-B=ones(dim1,dim2);
-C=ones(dim1,dim2);
-% function created 
-He = @(x1) x1*(1-x1)*(A+B*(2*x1-1)+C*(2*x1-1)^2);
-% call the function 
-He(x);
-% regress each system 
-
 
 %% Plots of the singular values 
 clf
 dim2=40;
 composition = 0.5200;
-
+if import ==1
     % import the relevant sparse matrix from the spreadsheet
     Ts = readtable(filename, 'Sheet', num2str(composition));
     Xs = table2array(Ts);
     missing_ind = find(isnan(Xs));
     filled_linear_ind = find(~isnan(Xs));
- 
+    disp(1)
+end 
 ind = find(intervals == composition);
 
-[U,D,V,X_pred_plot]=missing_svd(Xs,dim2,1,1e-3,1000); 
+[U,D,V,X_pred_plot]=missing_svd(Xs,dim2,1,1e-3,1000); %uncomment to
 mseplot = (sum((X_pred(missing_ind)-X(missing_ind)).^2))/length(remove_ind);
 wmseplot= find_wmse(X(missing_ind), X_pred_plot(missing_ind), length(missing_ind));
 smseplot = sqrt(mse);
@@ -208,7 +191,6 @@ for composition = intervals
     ylabel('Error')
 end 
 
-%% Functions 
 
 function [X_sparse,remove_ind, fill_ind]=fill_matrix(X, perc_remove)
     % fill data into a matrix until you have reached 1-perc_remove, save all
@@ -268,16 +250,15 @@ function [X_sparse,remove_ind,fill_ind]=remove_matrix(X,perc_remove)
 end 
 
 function [X_filled]=fill_data(X)
-    [dim1,dim2]=size(X);
+    [m,n]=size(X);
     missing_ind = (isnan(X));
     [i, j]=find(isnan(X));% returns rows and columns with nonzero elements
     X_filled=X;
     X_filled(missing_ind)=0; %fill NaN values with 0
     %disp(X_filled)
     %disp(length(i))
-    mean_col = sum(X_filled,1)./(ones(1,dim2)*dim1-sum(missing_ind,1)); %columns are dimension 1
-    % = sum of filled values/(number of existing values)
-    mean_row= sum(X_filled,2)./(ones(1,dim1)*dim2-sum(missing_ind,2)); % rows are dimension 2 
+    mean_col = sum(X_filled,1)./(ones(1,n)*m-sum(missing_ind,1)); %columns are dimension 1
+    mean_row= sum(X_filled,2)./(ones(1,m)*n-sum(missing_ind,2)); % rows are dimension 2 
     
     for k =1:length(i) % for all NaN elements that exist, loop through them to replace with means 
         X_filled(i(k),j(k))=(mean_row(i(k))+mean_col(j(k)))/2;
@@ -285,7 +266,7 @@ function [X_filled]=fill_data(X)
     end 
 end 
 
-function [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
+function [S,V,D,X_pred]=missing_svd(X,fn,center,conv,max_iter)
     [m,n]=size(X);
     miss_ind = find(isnan(X));
     if any(isnan(X)) % there is missing data 
@@ -297,10 +278,7 @@ function [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
         iter = 1;
         while iter<max_iter && f>conv
             SSold = SS;
-            % preprocess = scale and then center 
             if scale ==1 
-                sj = sqrt(sum(sum((Xf).^2)));
-                Xf = Xf/sj;
             end 
             if center ==1
                 mx = mean(Xf);
@@ -313,29 +291,18 @@ function [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
             V=V(:,1:fn);
             S=S(:,1:fn);
             D=D(:,1:fn);
-            % post process = uncenter, unscale  
             if center ==1
                 X_pred = S*D'+ones(m,1)*mx;
             else 
                 X_pred = S*D';
             end 
-            if scale ==1
-                X_pred = X_pred*sj;
-            end
-            
-            % fill misssing values 
             Xf(miss_ind)=X_pred(miss_ind);
             SS = sum(sum(Xf(miss_ind).^2));
             f = abs(SS-SSold)/(SSold);
             iter = iter+1;
         end 
     else 
-        % no missing data 
         Xf=X;
-        if scale ==1 
-            sj = sqrt(sum(sum((Xf).^2)));
-            Xf = Xf/sj;
-        end
         if center ==1
             mx = mean(Xf);
             %Xc = normalize(Xf); %normalizing 
@@ -347,15 +314,11 @@ function [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
         S=S*V;
         S=S(:,1:fn);
         D=D(:,1:fn);
-         
         if center ==1
             X_pred = S*D'+ones(m,1)*mx;
         else 
             X_pred = S*D';
         end 
-        if scale ==1
-                X_pred = X_pred*sj;
-        end
     end %end if  else 
 end % end function 
 
