@@ -1,4 +1,4 @@
-function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center)
+function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center, fillmethod)
     % Fill a matrix of missing data using PCA with SVD and a given number of
     % PCs. Can also handle non-missing data. Missing data is handled as NaN
     % values 
@@ -11,8 +11,8 @@ function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center)
     % conv = stopping criterion, absolute value of the relative change of the
     % sum of squares of the values of the unobserved entries 
     % max_iter = maximum number of iterations 
-    % use_missing = use the missing entries for the convergence, =1 to use
-    % missing 
+    % fillmethod = method used to guess initial values of X
+    %
     % Output 
     % S,V,D from X = SVD'
     % St = SV
@@ -24,8 +24,15 @@ function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center)
     indices=missing_ind;        
    
      
-    if any(isnan(X)) % there is missing data 
-        Xfilledini = filldata3(X, 'avg'); 
+    if any(isnan(X)) % there is missing data
+        if size(dim)>3 % more than 3 -way data = 4-way data
+            Xfilledini = zeros(dim);
+            for i = 1:dim(4)
+                Xfilledini(:,:,:,i) = filldata3(X(:,:,:,i),fillmethod);
+            end 
+        else
+            Xfilledini = filldata3(X, fillmethod); 
+        end
         f=2*conv;
         iter = 1;
         % PARAFAC options 
@@ -290,3 +297,22 @@ function [i,j,k]=findnan3(X)
         k = [k;ktemp];
     end 
 end
+
+function [X_filled]=fill_data(X)
+% Fill a matrix which has missing entries. Missing entries are each filled with the average of the observed entries in its row and column. 
+% Input 
+% X = matrix with missing data 
+% Output 
+% X = filled matrix 
+    [m,n]=size(X);
+    missing_ind = (isnan(X));
+    [i, j]=find(isnan(X));% returns rows and columns with nonzero elements
+    X_filled=X;
+    X_filled(missing_ind)=0; %fill NaN values with 0
+    mean_col = sum(X_filled,1)./(ones(1,n)*m-sum(missing_ind,1)); 
+    mean_row = sum(X_filled,2)./(ones(1,m)*n-sum(missing_ind,2));  
+    % for all NaN elements that exist, loop through them to replace with means 
+    for k =1:length(i) 
+        X_filled(i(k),j(k))=(mean_row(i(k))+mean_col(j(k)))/2;
+    end  
+end 

@@ -9,7 +9,7 @@
 clc
 clear
  
-%% Import and export data array
+%% Import and export data array old 
 load('HEData4waySmallPoly.mat') %data is in HE_data_sparse
 %mixtures is in here, as well as temps and everything else 
 dim = size(HE_data_sparse);
@@ -19,6 +19,35 @@ dim3=dim(3);
 dim4=dim(4);
 X = HE_data_sparse;
 mixtures = mixture';
+
+%% Import data new
+load('HEData4waySmallPoly.mat') %data is in HE_data_sparse
+%mixtures is in here, as well as temps and everything else 
+mix_original = mixture;
+dim = size(HE_data_sparse);
+dim1=dim(1);
+dim2=dim(2);
+dim3=dim(3);
+dim4=dim(4);
+X = HE_data_sparse(:,:,1:5,:);
+conc_interval = 0.1:0.1:0.5;
+mixtureT = mixture';
+[comps1,~,~]=unique(mixtureT(:,[1,2]), 'rows');
+[comps2,~,~]=unique(mixtureT(:,[3,4]), 'rows');
+[l,Locb] = ismember(comps2,comps1,'rows');
+include2 = find(Locb==0);
+%Temps in the 4-way array imported here 
+
+% all possible components in this matrix 
+comps = [comps1; comps2(include2,:)];
+mixtures = zeros(size(comps,1)^2,4);
+index = 0;
+for i = 1:length(comps)
+    for j = 1:length(comps)
+        index = index+1;
+        mixtures(index,:) = [comps(i,:) comps(j,:)];
+    end
+end 
 
 %% Tensor completion loops
 % Tensor completion, allowing the global minimum for a number of factors
@@ -61,8 +90,9 @@ for iter = 1:5
     X_pred = zeros(dim(1),dim(2),dim(3),dim(4),N);
     center = 1;
     scale = 1;
-    maxiter = 250000;
+    maxiter = 2500;
     conv = 1e-10;
+    fillmethod = 'avg';
     modeINDAFAC =1;
     method = 'Broparafac';
     alphabet = 'ABCD'; %will use maximum 4way data
@@ -94,9 +124,9 @@ for iter = 1:5
 
             %perform INDAFAC with missing values on the matrix with one entry missing
             %[F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_iter)
-            [F,D, X_pred(:,:,:,:,n)]=missing_indafac(X,n,modeINDAFAC, center,scale,conv,maxiter,method, mixtures,conc_interval);
-
-             Xm = nmodel(F);
+            
+            [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center, fillmethod);
+             Xm = X_pred;
             errorfill(n,:) = (X(filled_ind)-Xm(filled_ind))'; % actual prediction error
 
             % averages of metrics 
@@ -151,19 +181,19 @@ toc % end timer
 
 
 %% LOOCV for the correct number of factors for a % missing 
-% Fix now for 4D
 % must be run after the correct nnumber of factors is found 
 missingLOOCV = 50;
 dim = [30,40,5,7];
 rng(2,'twister')
 numberOfFactorsLOOCV =4;% = numberOfFactors(missing==missingLOOCV);
+fn = numberOfFactorsLOOCV;
 filename = ['ToyProblemData4D_',num2str(missingLOOCV),'%missing.xlsx'];
 truefilename = ['ToyProblemData4D_0%missing.xlsx'];
 [X, Xtrue, Factors] = importX(filename, dim, truefilename );
 filled_ind = find(~isnan(X));
 missing_ind = find(isnan(X));
 % find filled indices 
-[i,j,k]=findfill4(X);
+[i,j,k,l]=findfill4(X);
 % define metrics here that need to be used 
 N = length(filled_ind);
 smseN = zeros(1,N);
@@ -200,19 +230,15 @@ for filled_ind = filled_ind' %filled_linear_ind must be a row vector
         count=count+1; % allowed, therefore the counter is increased 
         %perform INDAFAC with missing values on the matrix with one entry missing
         %[F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_iter)
-        [F,D, X_pred(:,:,:,count)]=missing_parafac(X_b,numberOfFactorsLOOCV,model, center,scale,1e-3,1000,method);
-        Xm = nmodel(F);
+        %[F,D, X_pred(:,:,:,count)]=missing_parafac(X_b,numberOfFactorsLOOCV,model, center,scale,1e-3,1000,method);
+        [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center);
+        Xm = X_pred;
         %built in metric
         fit(n,count) = D.fit;
         %own metrics 
         % fix this 
         errorN(n,count) = Xtrue(filled_ind)-Xm(filled_ind);
-        while errorN(n,count) >1
-            rand(erorrN(n,count),'twister') % new random values 
-            [F,D, X_pred(:,:,:,count)]=missing_parafac(X_b,numberOfFactorsLOOCV,model, center,scale,1e-3,1000,method);
-            Xm = nmodel(F);
-        end 
-        %[Consistency,G,stdG,Target]=corcond(X,Factors,Weights,Plot)
+        %Core consistency: corcond(X,Factors,Weights,Plot)
         cN(n,count)= corcond(Xm,F,[],1);
     end 
 end %end LOOCV 

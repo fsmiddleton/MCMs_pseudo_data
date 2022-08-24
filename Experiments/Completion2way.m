@@ -160,15 +160,21 @@ hold off
 %time the code 
 tic
 % declare missing % used and the file from which to extract information 
-fns =8;
-concentrations=0.8:0.1:0.9;
+fns =7:1:10;
+concentrations=0.1:0.1:0.5;
 Xs=X;
 missing_ind = find(isnan(Xs));
 % largest length of filled_linear_ind is for 0.3
 filled_ind = find(~isnan(Xs));
 
-% choose whether to use mse or wmse to find the optimal rank 
+% vars for parafac
+maxiter = 10000;
+scale = 1;
+center = 1;
+conv = 1e-8;
 winsorized_mse = 0;
+fillmethod = 'avg';
+
 % declare vars for analysis 
 mse_LOOCV = zeros(length(concentrations),length(fns));
 wmse_LOOCV = zeros(length(concentrations),length(fns));
@@ -183,7 +189,7 @@ SVs = zeros(dim1,length(concentrations));
 % Error bars - LOOCV 
 % import the relevant sparse matrix from the spreadsheet
 ind = 0;
-c = 0;
+
 Xm_boot=zeros(length(concentrations), length(fns), length(filled_ind));
 %concentrations=0.1;
 
@@ -195,7 +201,7 @@ for c = 1:length(concentrations)
     Xfilled = Xs;
     [row,col] = find(~isnan(Xs));
     filled_ind = find(~isnan(Xs));
-    disp('Concentration of component 1')
+    disp('Concentration of compound 1')
     disp(c)
     %declare vars with size dependent on the array used 
     %loop through ranks
@@ -215,40 +221,37 @@ for c = 1:length(concentrations)
                 LOOCV_removed_col(k,c) = col(k);
                 LOOCV_removed_row(k,c) = row(k);
                 %perform iterative PCA on the slightly more empty matrix 
-                %  [S,V,D,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter, usemissing)
-                [~,~,~,~,Xpred, ~,iter(k)]=missing_svd(X_b,fn,1,1,1e-8,1000,0);
-                X_pred_LOOCV(:,:,k)=Xpred;
-                error_LOOCV(k) = Xs(filled_index)-Xpred(filled_index);
                 
-                Xm_boot(c, fnind, k) = Xpred(filled_index);
+                [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod);
+                X_pred_LOOCV(:,:,k)=X_pred;
+                error_LOOCV(fn,k) = Xs(filled_index)-X_pred(filled_index);
+                
+                Xm_boot(c, fnind, k) = X_pred(filled_index);
                 if Xs(filled_index)~=0
-                    RAD(k) = error_LOOCV(k)/Xs(filled_index);
+                    RAD(fn,k) = error_LOOCV(fn,k)/Xs(filled_index);
                 end
                 
             end
         end
         % mse for this composition and rank 
-        mse_LOOCV(c,fnind)= sum(error_LOOCV.^2)/length(error_LOOCV);
-        wmse_LOOCV(c, fnind) = find_wmse_error(error_LOOCV, length(filled_ind'));
+        mse_LOOCV(c,fnind)= sum(error_LOOCV(fn,:).^2)/length(error_LOOCV(fn,:));
+        wmse_LOOCV(c, fnind) = find_wmse_error(error_LOOCV(fn,:), length(filled_ind'));
         %absolute average deviation
-        RAD_LOOCV(c,fnind) = (sum(abs(RAD)))/length(RAD);
-    end
-    
+        RAD_LOOCV(c,fnind) = (sum(abs(RAD(fn,:))))/length(RAD(fn,:));
+    end % END FN
+    filenamesave = strcat('2wayPARAFACSmall-LOOCV-maxiter=10000-c=', num2str(c),  date, '.mat');
+    save(filenamesave)
     % find the optimal rank 
     if winsorized_mse ==1
         fn_LOOCV(c) = find(wmse_LOOCV(c,:) == min(wmse_LOOCV(c,:)));
     else 
         fn_LOOCV(c) = find(mse_LOOCV(c,:) == min(mse_LOOCV(c,:)));
     end
-    [U,D,V,St,Xpred, SVsmiss,it]=missing_svd(Xs,fn_LOOCV(c),1,1,1e-3,1000,0);
-    y = diag(SVsmiss);
-    SVs(:,c)=y;
+    
     min_mse_LOOCV(c) = mse_LOOCV(c,fn_LOOCV(c));
     min_wmse_LOOCV(c) = wmse_LOOCV(c,fn_LOOCV(c));
     % use the best rank to find error bars 
 end 
-Results = table(["Concentration of component 1"; (concentrations')],[ "SVs";fn_LOOCV'],[ "MSE";min_mse_LOOCV],[ "wMSE";min_wmse_LOOCV]);
-disp(Results)
 toc 
 
 %% Plot errors 
@@ -258,8 +261,6 @@ c=conc*10;
 plot(fns, (RAD_LOOCV(c,:)))
 
 %% Find optimal rank of the model for the filled data 
-
-
 
 % Import other data for most missing to allow variables to be declared
 c=30;
@@ -271,125 +272,147 @@ dim = size(Xs);
 dim1=dim(1);
 dim2=dim(2);
 missing_ind = find(isnan(Xs));
-% largest length of filled_linear_ind is for 0.3
-filled_ind = find(~isnan(Xs));
-% uses all the available data to find the rank and the first section of code to run 
-% remove data or fill a matrix 
-%filename specified in first block of code for import ==1 
-remove = 0; % 1=remove to create sparse matrix, 2 = fill a sparse matrix, 0 = no change to matrix
-remove_ind = 1:(dim1*dim2);
- 
-%Time to choose how to find the best rank
-Gavish =0;
-winsorized_mse = 1; %1=use wmse. Used for iterative PCA 
- % Choose sparsities used for finding the rank 
-concentrations = 10:10:50;
-%ranks to try 
-fns = 2:12;
+
+%vars to loop through 
+fillmethods = ["dia", "avg", "avr", "avc","uni"];
+fns =3:1:12;
+concentrations = 50:10:90;
+
+%vars governing the parafac algorithm 
 maxiter =10000;
 conv = 1e-8;
 scale = 1;
 center = 1;
-%choose whether to reorder matrix or not, 1 = true 
 reorder = 0;
-        
-%intialise the metrics to analyse each sparsity and its final rank found 
-% vectors, one for each matrix that is sliced 
-minmse_miss = zeros(size(concentrations,2),1); 
-minwmse_miss = zeros(size(concentrations,2),1);
-minmse_fill = zeros(size(concentrations,2),1);
-minaapd = zeros(length(concentrations),1);
-minwmse_fill = zeros(size(concentrations,2),1);
-min_fn = zeros(size(concentrations,2),1);
-min_fn_fill = zeros(size(concentrations,2),1);
-X_pred_best = zeros(dim1,dim2,size(concentrations,2)); % and the X predictions
-R2 = zeros(size(concentrations,2),1);
-% initialise error vars 
-% column for each matrix (fn vs sparsity)
-mse_miss = zeros(size(fns,2),size(concentrations,2));
-smse_miss = zeros(size(fns,2),size(concentrations,2));
-msefill= zeros(size(concentrations,2),1);
-aapdfill = zeros(size(fns,2),size(concentrations,2));
-wmse_miss = zeros(size(fns,2),size(concentrations,2));
-wmsefill = zeros(size(fns,2),size(concentrations,2));
-R = zeros(size(fns,2),size(concentrations,2));
-cumulative_contribution = zeros(length(concentrations),length(fns));
-SVs = zeros(length(fns),length(concentrations));
+winsorized_mse = 1;
+fillmethod = 'avg';
 
-%For gavish 
-ranks_attempted = zeros(1000,length(concentrations));
-%time the method 
-tic
-j=0; % counter for intervals
-plotcount = 0;
-for c = concentrations
-     
-    j=j+1; % for sparsity
-    disp('missing')
-    disp(c)
-    %Import sparse matrix for toy problem 
-    T = readtable(filename, 'Sheet', num2str(c/100));
-    Xs = table2array(T);
-    Xs = remove_nan2(Xs);
-    Xfilled = Xs;
-    dim = size(Xs);
-    dim1 = dim(1);
-    dim2 = dim(2);
-    missing_ind = find(isnan(Xs));
-    [row,col] = find(~isnan(Xs));
-    filled_ind = find(~isnan(Xs));
+% loops: fill method, concentration, fn 
+for iter = 1:2
     
-    % Find the optimal rank for this matrix
+    % can also get Rho, Lambda, EV% and Max Gr
+    % EV must be close to 100% - explained variation 
+    dim = size(X);
+    %Find the correct number of factors 
+    Temps = 298.15;%K
+    %  number of factors maximum to try 
     
-    if Gavish==1
-        [min_fn(j),minmse_fill(j),minwmse_fill(j),R2(j), X_pred_best,~,~,ranks] = solveGavish(Xs, dim1, dim2,1e-6,1000);
-        ranks_attempted(:,j) = ranks;
+    fillmethod = fillmethods(iter);
+    disp(fillmethod)
 
-        minmse_miss(j) =(sum((X_pred_best(missing_ind)-Xtrue(missing_ind)).^2))/length(missing_ind);
-    else
-        % Iterative PCA with wMSE or MSE used to find rank
+    %intialise the metrics to analyse each sparsity and its final rank found 
+    % vectors, one for each matrix that is sliced 
+    minmse_miss = zeros(size(concentrations,2),1); 
+    minwmse_miss = zeros(size(concentrations,2),1);
+    minmse_fill = zeros(size(concentrations,2),1);
+    minaapd = zeros(length(concentrations),1);
+    minwmse_fill = zeros(size(concentrations,2),1);
+    min_fn = zeros(size(concentrations,2),1);
+    min_fn_fill = zeros(size(concentrations,2),1);
+    X_pred_best = zeros(dim1,dim2,size(concentrations,2)); % and the X predictions
+    R2 = zeros(size(concentrations,2),1);
+    % initialise error vars 
+    % column for each matrix (fn vs sparsity)
+    mse_miss = zeros(size(fns,2),size(concentrations,2));
+    smse_miss = zeros(size(fns,2),size(concentrations,2));
+    msefill= zeros(size(concentrations,2),1);
+    aapdfill = zeros(size(fns,2),size(concentrations,2));
+    wmse_miss = zeros(size(fns,2),size(concentrations,2));
+    wmsefill = zeros(size(fns,2),size(concentrations,2));
+    R = zeros(size(fns,2),size(concentrations,2));
+    cumulative_contribution = zeros(length(concentrations),length(fns));
+    SVs = zeros(length(fns),length(concentrations));
 
-        %Find rank by minimising the mse or wmse 
-        i=0;
-        for fn=fns
-            i=i+1;
-            disp('rank')
-            disp(fn)
-            %[U,D,V,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
-            %[U,D,V,St,X_pred, iters]=missing_svd(Xs,fn,1,1,1e-8,1000);
-            [X_pred,iters,F,err] = missing_parafac3(Xs,fn,maxiter,conv,scale,center);
-            %X_pred is the model predictions, not only missing values are
-            %filled 
-            % the actual model, not just filled values - can only use errors of filled values to find model error
-            Xm= X_pred;
-            msefill(i,j) = (sum((Xm(filled_ind)-Xs(filled_ind)).^2))/length(filled_ind);
-            wmsefill(i,j) = find_wmse(Xs(filled_ind), Xm(filled_ind), length(filled_ind));
-            abserrorfill = abs(X_pred(filled_ind)-Xs(filled_ind));
-            aapdfill(i,j) = sum(abserrorfill./X(filled_ind))/length(filled_ind);
-%             Cyt = corrcoef(X_pred(missing_ind),Xs(missing_ind));
-%             R(i,j)=sqrt(Cyt(2,1));
-        end
+    %For gavish 
+    ranks_attempted = zeros(1000,length(concentrations));
+    %time the method 
+    tic
+    j=0; % counter for intervals
+    plotcount = 0;
+    for c = concentrations
+
+        j=j+1; % for sparsity
+        disp('missing')
+        disp(c)
+        %Import sparse matrix for toy problem 
+        T = readtable(filename, 'Sheet', num2str(c/100));
+        Xs = table2array(T);
+        Xs = remove_nan2(Xs);
+        dim = size(Xs);
+        dim1 = dim(1);
+        dim2 = dim(2);
+        missing_ind = find(isnan(Xs));
+        [row,col] = find(~isnan(Xs));
+        filled_ind = find(~isnan(Xs));
+
+        % Find the optimal rank for this matrix
+
         
-        minmse_fill(j)= min(msefill(:,j));
-        min_fn_fill(j) = fns(find(msefill(:,j)==minmse_fill(j)));
-        minwmse_fill(j) = min(wmsefill(:,j));
-        minmse_miss(j) = min(mse_miss(:,j));
-        minwmse_miss(j)=min(wmse_miss(:,j));
-        
-        if winsorized_mse ==1
-            min_index = find(wmsefill(:,j)==minwmse_fill(j));
-        else
-            min_index = find(msefill(:,j)==minmse_fill(j));
-        end 
-        min_fn(j) = fns(min_index);
-        minaapd(j) = aapdfill(min_index,j);
-        
-    end 
-end 
-% Create table with results 
-filename = strcat('2wayPARAFACPolySmall-', date, '.mat');
-save(filename)
+            % Iterative PCA with wMSE or MSE used to find rank
+
+            %Find rank by minimising the mse or wmse 
+            i=0;
+            for fn=fns
+                i=i+1;
+                disp('rank')
+                disp(fn)
+                %[U,D,V,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
+                %[U,D,V,St,X_pred, iters]=missing_svd(Xs,fn,1,1,1e-8,1000);
+                [X_pred,iters,F,err] = missing_parafac3(Xs,fn,maxiter,conv,scale,center, fillmethod);
+                %X_pred is the model predictions, not only missing values are
+                %filled 
+                % the actual model, not just filled values - can only use errors of filled values to find model error
+                Xm= X_pred;
+                msefill(i,j) = (sum((Xm(filled_ind)-Xs(filled_ind)).^2))/length(filled_ind);
+                wmsefill(i,j) = find_wmse(Xs(filled_ind), Xm(filled_ind), length(filled_ind));
+                abserrorfill = abs(X_pred(filled_ind)-Xs(filled_ind));
+                aapdfill(i,j) = sum(abserrorfill./X(filled_ind))/length(filled_ind);
+    %             Cyt = corrcoef(X_pred(missing_ind),Xs(missing_ind));
+    %             R(i,j)=sqrt(Cyt(2,1));
+            end %END FNS
+
+            minmse_fill(j)= min(msefill(:,j));
+            min_fn_fill(j) = fns(find(msefill(:,j)==minmse_fill(j)));
+            minwmse_fill(j) = min(wmsefill(:,j));
+            minmse_miss(j) = min(mse_miss(:,j));
+            minwmse_miss(j)=min(wmse_miss(:,j));
+
+            if winsorized_mse ==1
+                min_index = find(wmsefill(:,j)==minwmse_fill(j));
+            else
+                min_index = find(msefill(:,j)==minmse_fill(j));
+            end 
+            min_fn(j) = fns(min_index);
+            minaapd(j) = aapdfill(min_index,j);
+ 
+    end %END CONC 
+    % Export results 
+    filenamesave = strcat('2wayPARAFACPolySmall-2-fill=', fillmethod,'-', date, '.mat');
+    save(filenamesave)
+end % END FILL METHODS  
 toc
+
+%% Correlations
+% Change filename based on which corrs you want to find 
+fillmethods = ["dia", "avg", "avr", "avc","uni"];
+for iter =1:5
+    fillmethod = fillmethods(iter);
+    filename = strcat('2wayrunPARAFACPolySmall-0orth-298.15-',fillmethod,'-',date, '.mat');
+    load(filename)
+    disp(filename)
+
+    corrFac = cell(length(conc_interval),N,2);
+    pvalFac = cell(length(conc_interval),N,2);
+    for r = 3:N
+        for j = 1:9
+        for i =1:2
+            [corrFac{j,r,i}, pvalFac{j,r,i}] = corr(Factors{j,r}{1,i});
+        end 
+        end 
+    end 
+        
+    save(filename)
+end 
 
 %% Plots of the singular values 
 clf
@@ -477,244 +500,7 @@ if Gavish ==1
     xlabel('Component number')
     ylabel('Cumulative contribution to error')
 end 
-%% Getiing missing_parafac3 to work 
-missing_ind = find(isnan(X));
-filled_ind = find(~isnan(X));
-%choose indices to use for convergence 
-indices=missing_ind; 
-scale = 1;
-center = 1;
-Xfilled = Xf_ini(:,:,1);
-X = X3(:,:,1);
-max_iter = 200;
-fn = 4;
-
-if any(isnan(X)) % there is missing data 
-        Xfilledini = filldata3(X, 'avg'); 
-        f=2*conv;
-        iter = 1;
-        % PARAFAC options 
-         Options(1) = conv;
-         Options(2) = 1;
-         Options(3) = 0;
-         Options(4) = 0;
-         Options(5) = 1000;
-         Options(6) = max_iter;
-         const=[0 0 0]; % orthogonal factors
-        %initialise the factors - correct 
-        DimX = size(Xfilledini);
-        Xfilled = reshape(Xfilledini,DimX(1),prod(DimX(2:end)));
-        mx = mean(Xfilled);% you have to center, scaling is optional 
-        Xfilled = Xfilled-ones(size(Xfilled,1),1)*mx;
-        if scale ==1 
-            sj =sqrt(sum((Xfilled).^2,2)); % column vector 
-            Xfilled = Xfilled./(sj*(ones(1,size(Xfilled,2))));% scale across rows 
-        end 
-        if center ==1  
-            mx2 = mean(Xfilled);
-            Xc = Xfilled-ones(size(Xfilled,1),1)*mx2; 
-        end 
-        Xc = reshape(Xc,DimX);
-        % initialises the factors 
-        [F,~]=parafac(Xc,fn, Options, const);
-        model = nmodel(F);
-        % fill predicted values into array
-        X_pred = model;
-%         X_pred = Xc;
-%         X_pred(indices) = model(indices);
-        % uncenter and unscale and uncenter 
-        if center ==1
-            X_pred = X_pred + ones(size(Xfilled,1),1)*mx2;
-        end 
-        if scale ==1
-            X_pred = X_pred.*(sj*(ones(1,size(Xfilled,2))));
-        end
-        X_pred = X_pred + ones(size(Xfilled,1),1)*mx; 
-        
-        Xfilledini(indices) = X_pred(indices);
-        %find sum of squares 
-        SS = sum(sum(sum(Xfilledini(indices).^2)));
-        
-        % filling algorithm repeating 
-        while iter<max_iter && f>conv
-            iter = iter+1;
-            SSold = SS; 
-            Fi = F;
-            % preprocess - scale + center unfolded array  
-            DimX = size(Xfilledini);
-            Xfilled = reshape(Xfilledini,DimX(1),prod(DimX(2:end)));
-            mx = mean(Xfilled);% you have to center, scaling is optional 
-            Xfilled = Xfilled-ones(size(Xfilled,1),1)*mx;
-            if scale ==1 
-                sj =sqrt(sum((Xfilled).^2,2)); % column vector 
-                Xfilled = Xfilled./(sj*(ones(1,size(Xfilled,2))));% scale across rows 
-            end 
-            if center ==1  
-                mx2 = mean(Xfilled);
-                Xc = Xfilled-ones(size(Xfilled,1),1)*mx2; 
-            end 
-            Xc = reshape(Xc,DimX);
-            
-            % Find the factors  
-            [F,~]=parafac(Xc,fn, Options, const, Fi);
-            model = nmodel(F);
-            X_pred = model;
-%             X_pred = Xc;
-%             % fill missing values 
-%             X_pred(indices) = model(indices);
-            
-            %postprocess 
-            % uncenter and unscale and uncenter 
-            X_pred = reshape(X_pred,DimX(1),prod(DimX(2:end)));
-            if center ==1
-                X_pred = X_pred + ones(size(Xfilled,1),1)*mx2;
-            end 
-            if scale ==1
-                X_pred = X_pred.*(sj*(ones(1,size(Xfilled,2))));
-            end
-            X_pred = X_pred + ones(size(Xfilled,1),1)*mx;
-            X_pred = reshape(X_pred,DimX);
-            Xfilled = X_pred;
-            Xfilledini(indices) = X_pred(indices);
-            % calculate sum of squares 
-            SS = sum(sum(sum(Xfilledini(indices).^2)));
-           
-            f = abs(SS-SSold)/(SSold);
-            
-        end
-        err = Xfilled(filled_ind) - X_pred(filled_ind);
-else 
-    % no missing data 
-    disp('no missing data')
-
-end %end if  else 
-%% Functions
-function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center)
-    % Fill a matrix of missing data using PCA with SVD and a given number of
-    % PCs. Can also handle non-missing data. Missing data is handled as NaN
-    % values 
-    %
-    % Input 
-    % X = matrix
-    % fn = number of factors/ PCs used to fill the matrix 
-    % center = 1 center data / = 0 do not center 
-    % scale = 1 scale data / = 0 do not scale
-    % conv = stopping criterion, absolute value of the relative change of the
-    % sum of squares of the values of the unobserved entries 
-    % max_iter = maximum number of iterations 
-    % use_missing = use the missing entries for the convergence, =1 to use
-    % missing 
-    % Output 
-    % S,V,D from X = SVD'
-    % St = SV
-    % X_pred = filled X with new values for the missing entries
-    dim=size(X);
-    missing_ind = find(isnan(X));
-    filled_ind = find(~isnan(X));
-    %choose indices to use for convergence 
-    indices=missing_ind;        
-   
-     
-    if any(isnan(X)) % there is missing data 
-        Xfilledini = filldata3(X, 'avg'); 
-        f=2*conv;
-        iter = 1;
-        % PARAFAC options 
-         Options(1) = conv;
-         Options(2) = 1;
-         Options(3) = 0;
-         Options(4) = 0;
-         Options(5) = 1000;
-         Options(6) = max_iter;
-         const=[0 0 0]; % orthogonal factors
-        %initialise the factors - correct 
-        DimX = size(Xfilledini);
-        Xfilled = reshape(Xfilledini,DimX(1),prod(DimX(2:end)));
-        mx = mean(Xfilled);% you have to center, scaling is optional 
-        Xfilled = Xfilled-ones(size(Xfilled,1),1)*mx;
-        if scale ==1 
-            sj =sqrt(sum((Xfilled).^2,2)); % column vector 
-            Xfilled = Xfilled./(sj*(ones(1,size(Xfilled,2))));% scale across rows 
-        end 
-        if center ==1  
-            mx2 = mean(Xfilled);
-            Xc = Xfilled-ones(size(Xfilled,1),1)*mx2; 
-        end 
-        Xc = reshape(Xc,DimX);
-        % initialises the factors 
-        [F,~]=parafac(Xc,fn, Options, const);
-        model = nmodel(F);
-        % fill predicted values into array
-        X_pred = model;
-%         X_pred = Xc;
-%         X_pred(indices) = model(indices);
-        % uncenter and unscale and uncenter 
-        if center ==1
-            X_pred = X_pred + ones(size(Xfilled,1),1)*mx2;
-        end 
-        if scale ==1
-            X_pred = X_pred.*(sj*(ones(1,size(Xfilled,2))));
-        end
-        X_pred = X_pred + ones(size(Xfilled,1),1)*mx; 
-        
-        Xfilledini(indices) = X_pred(indices);
-        %find sum of squares 
-        SS = sum(sum(sum(Xfilledini(indices).^2)));
-        
-        % filling algorithm repeating 
-        while iter<max_iter && f>conv
-            iter = iter+1;
-            SSold = SS; 
-            Fi = F;
-            % preprocess - scale + center unfolded array  
-            DimX = size(Xfilledini);
-            Xfilled = reshape(Xfilledini,DimX(1),prod(DimX(2:end)));
-            mx = mean(Xfilled);% you have to center, scaling is optional 
-            Xfilled = Xfilled-ones(size(Xfilled,1),1)*mx;
-            if scale ==1 
-                sj =sqrt(sum((Xfilled).^2,2)); % column vector 
-                Xfilled = Xfilled./(sj*(ones(1,size(Xfilled,2))));% scale across rows 
-            end 
-            if center ==1  
-                mx2 = mean(Xfilled);
-                Xc = Xfilled-ones(size(Xfilled,1),1)*mx2; 
-            end 
-            Xc = reshape(Xc,DimX);
-            
-            % Find the factors  
-            [F,~]=parafac(Xc,fn, Options, const, Fi);
-            model = nmodel(F);
-            X_pred = model;
-%             X_pred = Xc;
-%             % fill missing values 
-%             X_pred(indices) = model(indices);
-            
-            %postprocess 
-            % uncenter and unscale and uncenter 
-            X_pred = reshape(X_pred,DimX(1),prod(DimX(2:end)));
-            if center ==1
-                X_pred = X_pred + ones(size(Xfilled,1),1)*mx2;
-            end 
-            if scale ==1
-                X_pred = X_pred.*(sj*(ones(1,size(Xfilled,2))));
-            end
-            X_pred = X_pred + ones(size(Xfilled,1),1)*mx;
-            X_pred = reshape(X_pred,DimX);
-            Xfilled = X_pred;
-            Xfilledini(indices) = X_pred(indices);
-            % calculate sum of squares 
-            SS = sum(sum(sum(Xfilledini(indices).^2)));
-           
-            f = abs(SS-SSold)/(SSold);
-            
-        end
-        err = Xfilled(filled_ind) - X_pred(filled_ind);
-    else 
-        % no missing data 
-        disp('no missing data')
-
-    end %end if  else 
-end 
+%% Functions 
 function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray)
     % filldata3 fills a 3-way array with the arithmetic mean of the other
     % values in the array. Used for a 2-way array here
