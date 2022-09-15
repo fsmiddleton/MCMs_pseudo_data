@@ -1,4 +1,4 @@
-%% 2-way arrays 
+%% 3-way array completion
 % Francesca Middleton, 2022-03-02
 
 %% Import toy data 
@@ -276,7 +276,7 @@ for c = 1:2:length(concentrations)
         %absolute average deviation
         RAD_LOOCV(c,fnind) = (sum(abs(RAD(fn,:))))/length(RAD(fn,:));
     end % END FN
-    filenamesave = strcat('2wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T),'-c=', num2str(c), '-fillmethod=',fillmethod,'-',  date, '.mat');
+    filenamesave = strcat('3wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T),'-c=', num2str(c), '-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
     % find the optimal rank 
     if winsorized_mse ==1
@@ -300,7 +300,7 @@ plot(fns, (RAD_LOOCV(c,:)))
 %% Find fits of the models to the data 
 
 % declare ranks to be tested 
-fns =[4:1:10, 12:2:18];
+fns =[1:1:10, 12:2:18];
 concentrations=conc_interval;
 Xscale = log(sign(X).*(X)).*sign(X);
 Xsign = sign(X);
@@ -330,25 +330,23 @@ for iter = [1:2]
     fillmethod = fillmethods(iter);
 
     %intialise the metrics 
-    msefill= zeros(size(fns,2),size(concentrations,2));
-    aardfill = zeros(size(fns,2),size(concentrations,2));
-    wmsefill = zeros(size(fns,2),size(concentrations,2));
+    msefill= zeros(size(fns,2),1);
+    aardfill = zeros(size(fns,2),1);
+    wmsefill = zeros(size(fns,2),1);
 
     %time the method 
     tic
     %j=0; % counter for intervals
     plotcount = 0;
-    for c = 2:2:length(concentrations)
-        conc = concentrations(c); 
+     
         if strcmp(whichX, 'scale') 
-            Xs = Xscale(:,:,c);
+            Xs = Xscale;
         else 
-            Xs = Xsign(:,:,c);
+            Xs = Xsign;
         end 
-        Xs = remove_nan2(Xs);
+        Xs = remove_nan3(Xs);
         dim = size(Xs);
         dim1 = dim(1);
-        dim2 = dim(2);
         missing_ind = find(isnan(Xs));
         [row,col] = find(~isnan(Xs));
         filled_ind = find(~isnan(Xs));
@@ -365,16 +363,15 @@ for iter = [1:2]
                 %filled 
                 % the actual model, not just filled values - can only use errors of filled values to find model error
                 Xm= X_pred;
-                msefill(i,c) = (sum((Xm(filled_ind)-Xs(filled_ind)).^2))/length(filled_ind);
-                wmsefill(i,c) = find_wmse(Xs(filled_ind), Xm(filled_ind), length(filled_ind));
+                msefill(i) = (sum((Xm(filled_ind)-Xs(filled_ind)).^2))/length(filled_ind);
+                wmsefill(i) = find_wmse(Xs(filled_ind), Xm(filled_ind), length(filled_ind));
                 abserrorfill = abs(X_pred(filled_ind)-Xs(filled_ind));
                 Xtemp = Xs(filled_ind);
                 indices_use = find(Xtemp~=0); 
-                aardfill(i,c) = sum(abserrorfill(indices_use)./Xtemp(indices_use))/length(Xtemp(indices_use));
+                aardfill(i) = sum(abserrorfill(indices_use)./Xtemp(indices_use))/length(Xtemp(indices_use));
             end %END FNS    
-    end %END CONC 
     % Export results for this filling method 
-    filenamesave = strcat('2wayPARAFAC-X',whichX,'-maxiter=10000-T=',num2str(T), '-fillmethod=', fillmethod ,'-orth=', num2str(orth),'-',date, '.mat');
+    filenamesave = strcat('3wayPARAFAC-X',whichX,'-maxiter=10000-T=',num2str(T), '-fillmethod=', fillmethod ,'-orth=', num2str(orth),'-',date, '.mat');
     save(filenamesave)
 end % END FILL METHODS  
 toc
@@ -1096,7 +1093,39 @@ function [i,j,k]=findnan3(X)
     end 
 end
 
+function [X,dim, znan, ynan, xnan]=remove_nan3(X)
+    % saves the columns and rows with only Nan values and removes them from
+    % the 3-way array 
+    % Input 
+    % X = 3-way array 
+    % Output
+    % X = 3-way array without slabs of only nan values 
+    % dim = dimensions of X outputted 
+    % znan = index of z coordinates that contained only nan values 
+    % ynan = index of y coordinates that contained only nan values 
+    % xnan = index of x coordinates that contained only nan values 
+    dim = size(X);
+    % z slabs
+    t1 = all(isnan(X),[1,2]);
+    t1 = reshape(t1,[1,dim(3)]); %logical 
+    r1=find(t1);
+    X(:,:,r1)=[];
 
+    % x slabs 
+    t2 = all(isnan(X),[2,3]);
+    t2 = reshape(t2,[1,dim(1)]); %logical 
+    r2=find(t2);
+    X(:,:,r2)=[];
 
+    % y slabs 
+    t3 = all(isnan(X),[1,3]);
+    t3 = reshape(t3,[1,dim(2)]); %logical 
+    r3=find(t3);
+    X(:,:,r3)=[];
 
-
+     %new X 
+    dim = size(X);
+    znan=r1;
+    xnan=r2;
+    ynan=r3;
+end 

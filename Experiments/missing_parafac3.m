@@ -1,4 +1,5 @@
-function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center, fillmethod)
+function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center, fillmethod, orth,mixtures,concinterval, whichX, Temp)
+   
     % Fill a matrix of missing data using PCA with SVD and a given number of
     % PCs. Can also handle non-missing data. Missing data is handled as NaN
     % values 
@@ -12,26 +13,37 @@ function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center,
     % sum of squares of the values of the unobserved entries 
     % max_iter = maximum number of iterations 
     % fillmethod = method used to guess initial values of X
+    % orth = number of orthogonal modes
+    % mixtures = numeric respresentation of mixtures
+    % concinterval = row vector of concentrations
+    % whichX = indicates which form of data it is receiving, necessary for initial guesses: 'scale' or 'sign' or 'none'
     %
     % Output 
-    % S,V,D from X = SVD'
-    % St = SV
     % X_pred = filled X with new values for the missing entries
+    % iter = number of iterations the algorithm used
+    % F = factors used to construct the final solution
+    % err = column vector of predictions
+    
     dim=size(X);
     missing_ind = find(isnan(X));
     filled_ind = find(~isnan(X));
     %choose indices to use for convergence 
-    indices=missing_ind;        
-   
+    indices=missing_ind;
+    const=zeros(1,length(dim)); % orthogonal factors
+    if orth ==1
+        const(1) = 1;
+    elseif orth ==2
+        const(1:2)=1;
+    end 
      
     if any(isnan(X)) % there is missing data
         if size(dim)>3 % more than 3 -way data = 4-way data
             Xfilledini = zeros(dim);
             for i = 1:dim(4)
-                Xfilledini(:,:,:,i) = filldata3(X(:,:,:,i),fillmethod);
+                Xfilledini(:,:,:,i) = filldata3(X(:,:,:,i),fillmethod, mixtures,concinterval, whichX, Temp);
             end 
         else
-            Xfilledini = filldata3(X, fillmethod); 
+            Xfilledini = filldata3(X, fillmethod, mixtures,concinterval, whichX, Temp); 
         end
         f=2*conv;
         iter = 1;
@@ -42,8 +54,8 @@ function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center,
          Options(4) = 0;
          Options(5) = 1000;
          Options(6) = max_iter;
-         const=[0 0 0]; % orthogonal factors
-        %initialise the factors - correct 
+         
+        %initialise the factors 
         DimX = size(Xfilledini);
         Xfilled = reshape(Xfilledini,DimX(1),prod(DimX(2:end)));
         mx = mean(Xfilled);% you have to center, scaling is optional 
@@ -53,6 +65,7 @@ function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center,
             Xfilled = Xfilled./(sj*(ones(1,size(Xfilled,2))));% scale across rows 
         end 
         if center ==1  
+            % recenter after scaling - optional, but should be done 
             mx2 = mean(Xfilled);
             Xc = Xfilled-ones(size(Xfilled,1),1)*mx2; 
         end 
@@ -62,9 +75,9 @@ function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center,
         model = nmodel(F);
         % fill predicted values into array
         X_pred = model;
-%         X_pred = Xc;
-%         X_pred(indices) = model(indices);
+
         % uncenter and unscale and uncenter 
+        X_pred = reshape(X_pred, DimX(1), prod(DimX(2:end)));
         if center ==1
             X_pred = X_pred + ones(size(Xfilled,1),1)*mx2;
         end 
@@ -72,7 +85,7 @@ function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center,
             X_pred = X_pred.*(sj*(ones(1,size(Xfilled,2))));
         end
         X_pred = X_pred + ones(size(Xfilled,1),1)*mx; 
-        
+        X_pred = reshape(X_pred, DimX);
         Xfilledini(indices) = X_pred(indices);
         %find sum of squares 
         SS = sum(sum(sum(Xfilledini(indices).^2)));
@@ -101,9 +114,6 @@ function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center,
             [F,~]=parafac(Xc,fn, Options, const, Fi);
             model = nmodel(F);
             X_pred = model;
-%             X_pred = Xc;
-%             % fill missing values 
-%             X_pred(indices) = model(indices);
             
             %postprocess 
             % uncenter and unscale and uncenter 
@@ -117,10 +127,11 @@ function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center,
             X_pred = X_pred + ones(size(Xfilled,1),1)*mx;
             X_pred = reshape(X_pred,DimX);
             Xfilled = X_pred;
+            % fill missing values with predictions 
             Xfilledini(indices) = X_pred(indices);
             % calculate sum of squares 
             SS = sum(sum(sum(Xfilledini(indices).^2)));
-           
+            % convergence criterion 
             f = abs(SS-SSold)/(SSold);
             
         end
@@ -128,23 +139,24 @@ function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center,
     else 
         % no missing data 
         disp('no missing data')
-
     end %end if  else 
 end
 
-
-function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray)
+function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, whichX, T)
     % filldata3 fills a 3-way array with the arithmetic mean of the other
     % values in the array. Used for a 2-way array here
     % Input 
     % X = data array 
-    % method = 'avg' - column and row averages 
-    %       or 'avc' - column averages 
-    %       or 'avr' - row averages 
+    % method = 'avg' - column and row averages
+    %          'dia' - triangular filling
+    %          'avc' - column averages
+    %          'avr' - row averages
     %       or 'uni' - unifac predictions 
-    %       or 'dia' - upper and lower diagonals used to fill initially 
-    % mixtures = dictionary containing components ordered according to their place on the axis 
-    % concintervalarray = concentration interval over which to fill data 
+    % mixtures = components ordered according to their place in the linear array (2D) 
+    % concinterval = concentration interval over which to fill data 
+    % whichX = indicates which form of data it is receiving, necessary for initial guesses: 'scale' or 'sign' or 'none'
+    % T = temperature of the system - used for UNIFAC initial guesses 
+    %
     % Output 
     % X_filled = filled data array
     % missing = linear indices of missing data 
@@ -163,59 +175,78 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray)
     
     if strcmp(method,'avg')
     % f
-        % in 2-wy array, do 2-way avg fills
+        % in 2-way array, do 2-way avg fills
         X_filled = zeros(dim);
         for i = 1:dim(3)
             X_filled(:,:,i) = fill_data(X(:,:,i)); 
         end 
+        
     elseif strcmp(method, 'avc')
         % column averages are used only 
-        [m,n]=size(X);
-        missing_ind = (isnan(X));
-        [i, j]=find(isnan(X));% returns rows and columns with nonzero elements
-        X_filled=X;
-        X_filled(missing_ind)=0; %fill NaN values with 0
-        mean_col = sum(X_filled,1)./(ones(1,n)*m-sum(missing_ind,1));   
-        % for all NaN elements that exist, loop through them to replace with means 
-        for k =1:length(i) 
-            X_filled(i(k),j(k))=mean_col(j(k));
-        end  
+        X_filledtemp = zeros(dim);
+        for ind =1:dim(3)
+            [m,n]=size(X(:,:,ind));
+            missing_ind = (isnan(X(:,:,ind)));
+            [i, j]=find(isnan(X(:,:,ind)));% returns rows and columns with nonzero elements
+            X_filled=X(:,:,ind);
+            X_filled(missing_ind)=0; %fill NaN values with 0
+            mean_col = sum(X_filled,1)./(ones(1,n)*m-sum(missing_ind,1));   
+            % for all NaN elements that exist, loop through them to replace with means 
+            for k =1:length(i) 
+                X_filled(i(k),j(k))=mean_col(j(k));
+            end  
+           X_filledtemp(:,:,ind)=X_filled;
+        end 
+        X_filled = X_filledtemp;
+         
     elseif strcmp(method, 'avr')
     % row averages are used only 
-        [m,n]=size(X);
-        missing_ind = (isnan(X));
-        [i, j]=find(isnan(X));% returns rows and columns with nonzero elements
-        X_filled=X;
-        X_filled(missing_ind)=0; %fill NaN values with 0
-        mean_row = sum(X_filled,2)./(ones(1,m)*n-sum(missing_ind,2));   
-        % for all NaN elements that exist, loop through them to replace with means 
-        for k =1:length(i) 
-            X_filled(i(k),j(k))=mean_row(i(k));
-        end
-    elseif strcmp(method, 'dia') % lower and upper diagonals are used in their averages 
-        [m,n]=size(X);
-        missing_ind = (isnan(X));
-        [i, j]=find(isnan(X));% returns rows and columns with nonzero elements
-        X_filled=X;
-        X_filled(missing_ind)=0; %fill NaN values with 0   
-        % for all NaN elements that exist, loop through them to replace with means 
+        X_filledtemp = zeros(dim);
+        for ind =1:dim(3)
+            [m,n]=size(X(:,:,ind));
+            missing_ind = (isnan(X(:,:,ind)));
+            [i, j]=find(isnan(X(:,:,ind)));% returns rows and columns with nonzero elements
+            X_filled=X(:,:,ind);
+            X_filled(missing_ind)=0; %fill NaN values with 0
+            mean_row = sum(X_filled,2)./(ones(1,m)*n-sum(missing_ind,2));   
+            % for all NaN elements that exist, loop through them to replace with means 
+            for k =1:length(i) 
+                X_filled(i(k),j(k))=mean_row(i(k));
+            end
+            X_filledtemp(:,:,ind)=X_filled;
+        end 
+        X_filled = X_filledtemp;
+         
+    elseif strcmp(method, 'dia') % lower and upper diagonals are used in their averages
+        X_filledtemp = zeros(dim);
+        for ind = 1:dim(3)
+            [m,n]=size(X(:,:,ind));
+            missing_ind = (isnan(X(:,:,ind)));
+            [i, j]=find(isnan(X(:,:,ind)));% returns rows and columns with nonzero elements
+            X_filled=X(:,:,ind);
+            X_filled(missing_ind)=0; %fill NaN values with 0   
+            % for all NaN elements that exist, loop through them to replace with means 
+
+            % lower and upper triangular parts of the array
+            LX = tril(X_filled,-1);
+            UX = triu(X_filled, 1);
+            % averages for lower and upper
+            mean_rowL = sum(LX,2)./(ones(1,m)*n-sum(missing_ind,2)/2);
+            mean_colL = sum(LX,1)./(ones(1,n)*m-sum(missing_ind,1)/2);
+            mean_rowU = sum(UX,2)./(ones(1,m)*n-sum(missing_ind,2)/2);
+            mean_colU = sum(UX,1)./(ones(1,n)*m-sum(missing_ind,1)/2);
+
+            for k =1:length(i) 
+                if i(k)>j(k) % lower diagonal
+                    X_filled(i(k),j(k))=(mean_colL(j(k))+mean_rowL(i(k)))/2;
+                else 
+                    X_filled(i(k),j(k))=(mean_colU(j(k))+mean_rowU(i(k)))/2;
+                end 
+            end
+            X_filledtemp(:,:,ind)=X_filled;
+        end 
+        X_filled = X_filledtemp;
         
-        % lower and upper triangular parts of the array
-        LX = tril(X_filled,-1);
-        UX = triu(X_filled, 1);
-        % averages for lower and upper
-        mean_rowL = sum(LX,2)./(ones(1,m)*n-sum(missing_ind,2)/2);
-        mean_colL = sum(LX,1)./(ones(1,n)*m-sum(missing_ind,1)/2);
-        mean_rowU = sum(UX,2)./(ones(1,m)*n-sum(missing_ind,2)/2);
-        mean_colU = sum(UX,1)./(ones(1,n)*m-sum(missing_ind,1)/2);
-        
-        for k =1:length(i) 
-            if i(k)>j(k) % lower diagonal
-                X_filled(i(k),j(k))=(mean_colL(j(k))+mean_rowL(i(k)))/2;
-            else 
-                X_filled(i(k),j(k))=(mean_colU(j(k))+mean_rowU(i(k)))/2;
-            end 
-        end
     else %method ='uni'
         % linearise X to a column vector - entries match mixtures
         X1 = reshape(X(:,:,1),[dim(1)*dim(2),1]); % column vector used for checks and indices
@@ -225,9 +256,9 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray)
         mix1 = mixtures(:,[1,2]);
         mix2 = mixtures(:,[3,4]);
         % load prediction data and mixtures  
-        load('heUNIQUACforT=298.15.mat','he') % he in J/mol for composition of 0.01 to 0.99 for 5151 components
-        load('heUNIQUACforT=298.15.mat','mixture') % mixtures for he data - 5151 components
-        load('heUNIQUACforT=298.15.mat','conc_interval')
+        load(strcat('heUNIFACforT=',num2str(T),'.mat'),'he') % he in J/mol for composition of 0.01 to 0.99 for 5151 components
+        load(strcat('heUNIFACforT=',num2str(T),'.mat'),'mixture') % mixtures for he data - 5151 components
+        load(strcat('heUNIFACforT=',num2str(T),'.mat'),'conc_interval')
         %convert arrays of concentrations to strings to allow them to be
         %compared 
         conc_unifac = string(conc_interval);
@@ -239,10 +270,13 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray)
         concindices2 = find(strcmp(conc_array2,conc_unifac));
         
         %components = possible components in this array, ordered 
+        disp('length x1')
+        disp(length(X1))
         for ind = 1:length(X1)
-            if isnan(X1(ind,1))
+            if isnan(X1(ind,1)) 
                 % fill with UNIFAC prediction 
-                [~,indexpred] = ismember(mixturesarray(ind,:),mixture,'rows');
+                %disp(ind)
+                [~,indexpred] = ismember(mixturesarray(ind,:),mixtures,'rows');
                 
                 if indexpred ==0
                     %mixture could be swapped around ie the concentration
@@ -252,11 +286,33 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray)
                         Xtemp(ind,:) = 0;
                         disp(ind)
                     else 
-                        Xtemp(ind,:)=he(indexpred,concindices2);
+                        if indexpred> size(he,1)
+                            [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixtures,'rows');
+                        end 
+                        temp = he(indexpred,concindices2);
+                        
+                        if strcmp(whichX, 'scale')
+                            Xtemp(ind,:)=sign(temp).*log(sign(temp).*temp);
+                        elseif strcmp(whichX, 'sign') 
+                            Xtemp(ind,:)= sign(temp);
+                        else 
+                            Xtemp(ind,:)=temp;
+                        end 
                     end    
                 else
                 %indexpred = find(ismember(mixturestemp(ind),mixture, 'rows'));%find mixture that is missing in the unifac prediction mixtures                
-                    Xtemp(ind,:)=he(indexpred,concindices);
+                    if indexpred> size(he,1)
+                        [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixtures,'rows');
+                    end     
+                    temp = he(indexpred,concindices2);
+                        
+                    if strcmp(whichX, 'scale')
+                        Xtemp(ind,:)=sign(temp).*log(sign(temp).*temp);
+                    elseif strcmp(whichX, 'sign') 
+                        Xtemp(ind,:)= sign(temp);
+                    else
+                        Xtemp(ind,:)=temp;
+                    end 
                 end 
             end 
         end 

@@ -49,204 +49,195 @@ for i = 1:length(comps)
     end
 end 
 
-%% Tensor completion loops
-% Tensor completion, allowing the global minimum for a number of factors
-% Find the optimal rank without LOOCV 
-for iter = 1:5
-    missing_ind = find(isnan(X));
-    filled_ind = find(~isnan(X));
-    % can also get Rho, Lambda, EV% and Max Gr
-    % EV must be close to 100% - explained variation 
-
-    %Find the correct number of factors 
-    Temps = 298.15;%K
-    %  number of factors maximum to try 
-    N=15;
-
-    filled_ind = find(~isnan(X));
-    % for each % missing 
-    minmse = zeros(1,length(Temps));
-    minaapd = zeros(1,length(Temps)); % average absolute percent deviation = average(abs(Xpred-Xtrue)/Xtrue))
-    numberOfFactors = zeros(1,length(Temps));
-    dof = zeros(1,length(Temps));
-    mse = zeros(N,length(Temps));
-    msefill = zeros(N,length(Temps));
-    RADfill = zeros(N,length(Temps));
-    aapdfill = zeros(N,length(Temps));
-    indexsortmse=zeros(N,length(Temps));
-    c = zeros(N,length(Temps));
-    coreconsistency = zeros(N,1);
-    randomstart = zeros(N,length(Temps));
-
-    %metrics defined
-    smse = zeros(N,1);
-    fit = zeros(N,1);
-    it = zeros(N,1);
-    error = zeros(N, length(filled_ind));%missing_ind is biggest for 90% missing data, as initialisation was
-    errorfill = zeros(N,length(filled_ind));
-
-    % define other needed vars  
-    dim = size(X);
-    X_pred = zeros(dim(1),dim(2),dim(3),dim(4),N);
-    center = 1;
-    scale = 1;
-    maxiter = 2500;
-    conv = 1e-10;
-    fillmethod = 'avg';
-    modeINDAFAC =1;
-    method = 'Broparafac';
-    alphabet = 'ABCD'; %will use maximum 4way data
-    randnum=linspace(1,100,50);
-    count = 0; % index for the missing data arrays
-    mse_threshold = 50;
-    % time the process 
-    tic 
-
-    for temperature = Temps
-        disp('Temperature')
-        disp(temperature)
-        count = count+1;
-
-
-        missing_ind = find(isnan(X));
-        no_filled = temperature/100*dim(1)*dim(2)*dim(3)*dim(4);
-        %remove nan slabs from the 3-way array 
-        %[X,dim, znan, ynan, xnan]=remove_nan3(X);
-        % Find the correct number of factors for this percent missing 
-        %X = filldata3(X);
-        for n = 2:N % factors (== principal components) 
-            % initialise random number generator 
-
-            %rng(randind, 'twister')
-
-             disp('n')
-             disp(n) 
-
-            %perform INDAFAC with missing values on the matrix with one entry missing
-            %[F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_iter)
-            
-            [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center, fillmethod);
-             Xm = X_pred;
-            errorfill(n,:) = (X(filled_ind)-Xm(filled_ind))'; % actual prediction error
-
-            % averages of metrics 
-            msefill(n,count) = sum(errorfill(n,:).^2)/length(filled_ind);
-
-            % can make this a for loop for future code 
-    %         while msefill(n,count) > mse_threshold && randind<=3
-    %             randind=randind+1;
-    %             rng(randind,'twister')
-    %             %refit 
-    %             [F,D, X_pred]=missing_indafac(X,n,modeINDAFAC, center,scale,conv,maxiter,method);
-    %             Xm = nmodel(F);
-    %             errorfill(n,:) = (X(filled_ind)-Xm(filled_ind))'; % actual prediction error
-    %             % averages of metrics 
-    %             msefill(n,count) = sum(errorfill(n,:).^2)/length(filled_ind);
-    %         end
-            RAD = errorfill(n,:)./(X(filled_ind))';
-            RAD = RAD(find(~isinf(RAD)));
-            RADfill(n,count)= sqrt((sum(RAD).^2)/length(filled_ind));
-            %randomstart(n,count) = randind;
-            abserrorfill = abs(errorfill(n,:));
-            %built in metric
-            %fit(n,count) = D.fit; 
-            error(n,:) = (X(filled_ind)-Xm(filled_ind))';
-            mse(n,count) = sum(error(n,:).^2)/length(filled_ind);
-            %[Consistency,G,stdG,Target]=corcond(X,Factors,Weights,Plot)
-            %c(n,count)= corcond(Xm,F,[],1);
-        end
-        % Find true number of factors for this % missing 
-        %Find the optimal rank prediction
-        [sortmse, indexsortmse(:,count)]=sort(mse(:,count)); % sorts in ascending order 
-
-    %     while check==1
-    %         m=m+1;
-    %         if coreconsistency(indexsortmse(m,count))>0.9 % should be consistent 
-    %             check =0;
-    %         end 
-    %     end 
-        m=1;
-        minmse(count) = sortmse(m);
-        numberOfFactors(count) = indexsortmse(m,count);
-        dof(count) = dim(1)*dim(2)*dim(3)-numberOfFactors(count)*(dim(1)+dim(2)+dim(3)-2);
-        minaapd(count) = aapdfill(numberOfFactors(count),count);
-        % find the model 
-        %[F,D, X_pred]=missing_indafac(X,numberOfFactors(count),modeINDAFAC, center,scale,conv,maxiter, method,mixtures,conc_interval);
-        filenametemp = strcat('4wayrunINDAFACPolySmall-0.1to0.5-AVG',num2str(iter),'-',date, '.mat');
-        save(filenametemp)
-    end
-end 
-toc % end timer 
-
-
-
-%% LOOCV for the correct number of factors for a % missing 
-% must be run after the correct nnumber of factors is found 
-missingLOOCV = 50;
-dim = [30,40,5,7];
-rng(2,'twister')
-numberOfFactorsLOOCV =4;% = numberOfFactors(missing==missingLOOCV);
-fn = numberOfFactorsLOOCV;
-filename = ['ToyProblemData4D_',num2str(missingLOOCV),'%missing.xlsx'];
-truefilename = ['ToyProblemData4D_0%missing.xlsx'];
-[X, Xtrue, Factors] = importX(filename, dim, truefilename );
-filled_ind = find(~isnan(X));
-missing_ind = find(isnan(X));
-% find filled indices 
-[i,j,k,l]=findfill4(X);
-% define metrics here that need to be used 
-N = length(filled_ind);
-smseN = zeros(1,N);
-fitN = zeros(1,N);
-itN = zeros(1,N);
-errorN = zeros(1,N);
-mseN = zeros(1,N);
-cN = zeros(1,N);
-coreconsistencyN = zeros(1,N);
-% can also get Rho, Lambda, EV% and Max Gr
-% EV must be close to 100%
-% define how to use method again 
-center = 1;
-scale = 1;
-model =1;
-method = 'Broparafac';
-
-% define other needed vars 
-X_predN = zeros(dim(1),dim(2),dim(3),N);
-n = 1; % factors (== principal components) 
-% LOOCV
-count=0;% counter for LOOCV
-ind = 0; % counter for filled indices 
-
-% time the LOOCV
+%% LOOCV to find rank using mse  
+%time the code 
 tic
-for filled_ind = filled_ind' %filled_linear_ind must be a row vector  
-    % temporary X
-    X_b = X;
-    ind=ind+1;
-    disp(ind)
-    X_b(filled_ind) = nan;% remove a point from Xs
-    if find(~isnan(X_b(i(ind),j(ind),:))) &  find(~isnan(X_b(i(ind),:,k(ind))))&  find(~isnan(X_b(i(ind),:,k(ind))))%ensure at least one value in each column and row
-        count=count+1; % allowed, therefore the counter is increased 
-        %perform INDAFAC with missing values on the matrix with one entry missing
-        %[F,D, X_pred]=missing_indafac(X,fn,modeINDAFAC, center,scale,conv,max_iter)
-        %[F,D, X_pred(:,:,:,count)]=missing_parafac(X_b,numberOfFactorsLOOCV,model, center,scale,1e-3,1000,method);
-        [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center);
-        Xm = X_pred;
-        %built in metric
-        fit(n,count) = D.fit;
-        %own metrics 
-        % fix this 
-        errorN(n,count) = Xtrue(filled_ind)-Xm(filled_ind);
-        %Core consistency: corcond(X,Factors,Weights,Plot)
-        cN(n,count)= corcond(Xm,F,[],1);
-    end 
-end %end LOOCV 
-% averages of metrics for LOOCV 
-msebest = sum(errorN(n,:).^2)./length(errorN(n,:));
-coreconsistencybest = sqrt(sum(cN(n,:).^2)./length(cN(n,:)));
+% declare ranks to be tested 
+fns =[1:2:6,7:1:10];
+concentrations=conc_interval;
+Xscale = log(sign(X).*(X)).*sign(X);
+Xsign = sign(X);
+Xs = Xscale;
+T = 298.15;
+% largest length of filled_linear_ind is for 0.3
+filled_ind = find(~isnan(Xs));
 
+% vars for missing_parafac3
+maxiter = 20000;
+scale = 1;
+center = 1;
+conv = 1e-10;
+winsorized_mse = 0;
+fillmethod = 'avg';
+orth = 1;
+whichX = 'sign';
+
+% declare vars for analysis 
+mse_LOOCV = zeros(length(concentrations),length(fns));
+wmse_LOOCV = zeros(length(concentrations),length(fns));
+RAD_LOOCV = zeros(length(concentrations),length(fns)); % relative absolute deviation 
+min_mse_LOOCV = zeros(length(concentrations),1);
+min_wmse_LOOCV = zeros(length(concentrations),1);
+X_pred_LOOCV = zeros(dim1,dim2,length(filled_ind));
+LOOCV_removed_col = zeros(length(filled_ind),1);
+LOOCV_removed_row = zeros(length(filled_ind),1);
+Xm_boot=zeros(length(concentrations), length(fns), length(filled_ind));
+
+for c = 1:2:length(concentrations)
+    conc = concentrations(c);
+    %Ts = readtable(filename, 'Sheet', num2str(conc));
+    %Xs = table2array(Ts);
+     if strcmp(whichX, 'scale') 
+        Xs = Xscale(:,:,c);
+    else 
+        Xs = Xsign(:,:,c);
+    end 
+    
+    Xs = remove_nan2(Xs);
+    Xfilled = Xs;
+    [row,col] = find(~isnan(Xs));
+    filled_ind = find(~isnan(Xs));
+    disp('Concentration of compound 1')
+    disp(c)
+    %declare vars with size dependent on the array used 
+    %loop through ranks
+    disp('fn')
+    fnind=0;
+    for fn = fns 
+        disp(fn)
+        fnind = fnind + 1; 
+        error_LOOCV = zeros(length(filled_ind),1);
+        RAD = zeros(length(filled_ind),1);
+        parfor k = 1:length(filled_ind') %filled_linear_ind must be a row vector for a for loop    
+            filled_index = filled_ind(k);
+            % remove a point from Xs
+            X_b = Xs;
+            X_b(filled_index) = nan;
+            if find(~isnan(X_b(:,col(k)))) & find(~isnan(X_b(row(k),:))) & Xs(filled_index)~=0 %ensure at least one value in each column and row
+                LOOCV_removed_col(k,c) = col(k);
+                LOOCV_removed_row(k,c) = row(k);
+                %perform iterative PCA on the slightly more empty matrix 
+                
+                [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX);
+                X_pred_LOOCV(:,:,k)=X_pred;
+                error_LOOCV(fn,k) = Xs(filled_index)-X_pred(filled_index);
+                
+                Xm_boot(c, fnind, k) = X_pred(filled_index);
+                if Xs(filled_index)~=0
+                    RAD(fn,k) = error_LOOCV(fn,k)/Xs(filled_index);
+                end
+                
+            end
+        end
+        % mse for this composition and rank 
+        mse_LOOCV(c,fnind)= sum(error_LOOCV(fn,:).^2)/length(error_LOOCV(fn,:));
+        wmse_LOOCV(c, fnind) = find_wmse_error(error_LOOCV(fn,:), length(filled_ind'));
+        %absolute average deviation
+        RAD_LOOCV(c,fnind) = (sum(abs(RAD(fn,:))))/length(RAD(fn,:));
+    end % END FN
+    filenamesave = strcat('4wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T),'-c=', num2str(c), '-fillmethod=',fillmethod,'-',  date, '.mat');
+    save(filenamesave)
+    % find the optimal rank 
+    if winsorized_mse ==1
+        fn_LOOCV(c) = find(wmse_LOOCV(c,:) == min(wmse_LOOCV(c,:)));
+    else 
+        fn_LOOCV(c) = find(mse_LOOCV(c,:) == min(mse_LOOCV(c,:)));
+    end
+    
+    min_mse_LOOCV(c) = mse_LOOCV(c,fn_LOOCV(c));
+    min_wmse_LOOCV(c) = wmse_LOOCV(c,fn_LOOCV(c));
+    % use the best rank to find error bars 
+end 
 toc 
+
+%% Plot errors 
+clf
+conc=0.1;
+c=conc*10;
+plot(fns, (RAD_LOOCV(c,:)))
+
+%% Find fits of the models to the data 
+
+% declare ranks to be tested 
+fns =[1:1:10, 12:2:18];
+concentrations=conc_interval;
+Xscale = log(sign(X).*(X)).*sign(X);
+Xsign = sign(X);
+%Xscale must have zeros on the diagonal too
+for j = 1:dim(4)
+    for i =1:dim3
+        Xtemp = Xscale(:,:,i,j);
+        Xtemp(1:1+size(Xtemp,1):end) = 0; % diagonals are zero
+        Xscale(:,:,i,j) = Xtemp;
+    end 
+end 
+Xs = Xscale;
+T = 298.15;
+filled_ind = find(~isnan(Xs));
+fillmethods = ["dia", "avg", "avr", "avc","uni"];
+
+% vars for missing_parafac3
+maxiter = 20000;
+scale = 1;
+center = 1;
+conv = 1e-10;
+winsorized_mse = 0;
+orth = 1;
+whichX = 'scale';
+
+% loops, outer to inner: fill method, concentration, fn 
+for iter = [1:2]
+    %find fill method to be used
+    fillmethod = fillmethods(iter);
+
+    %intialise the metrics 
+    msefill= zeros(size(fns,2),1);
+    aardfill = zeros(size(fns,2),1);
+    wmsefill = zeros(size(fns,2),1);
+
+    %time the method 
+    tic
+    %j=0; % counter for intervals
+    plotcount = 0;
+     
+        if strcmp(whichX, 'scale') 
+            Xs = Xscale;
+        else 
+            Xs = Xsign;
+        end 
+        for j = 1:dim(4)
+            Xs(:,:,:,j) = remove_nan3(Xs(:,:,:,j);
+        end 
+        dim = size(Xs);
+        dim1 = dim(1);
+        missing_ind = find(isnan(Xs));
+        [row,col] = find(~isnan(Xs));
+        filled_ind = find(~isnan(Xs));
+
+            for i=1:length(fns)
+                %i=i+1;
+                fn = fns(i);
+                disp('rank')
+                disp(fn)
+                %[U,D,V,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
+                %[U,D,V,St,X_pred, iters]=missing_svd(Xs,fn,1,1,1e-8,1000);
+                [X_pred,iters,F,err] = missing_parafac3(Xs,fn,maxiter,conv,scale,center, fillmethod, orth,mixtures, conc, whichX);
+                %X_pred is the model predictions, not only missing values are
+                %filled 
+                % the actual model, not just filled values - can only use errors of filled values to find model error
+                Xm= X_pred;
+                msefill(i) = (sum((Xm(filled_ind)-Xs(filled_ind)).^2))/length(filled_ind);
+                wmsefill(i) = find_wmse(Xs(filled_ind), Xm(filled_ind), length(filled_ind));
+                abserrorfill = abs(X_pred(filled_ind)-Xs(filled_ind));
+                Xtemp = Xs(filled_ind);
+                indices_use = find(Xtemp~=0); 
+                aardfill(i) = sum(abserrorfill(indices_use)./Xtemp(indices_use))/length(Xtemp(indices_use));
+            end %END FNS    
+    % Export results for this filling method 
+    filenamesave = strcat('4wayPARAFAC-X',whichX,'-maxiter=10000-T=',num2str(T), '-fillmethod=', fillmethod ,'-orth=', num2str(orth),'-',date, '.mat');
+    save(filenamesave)
+end % END FILL METHODS  
+toc
 %% confirm rank with plots 
 % cor consistency must be close to 100%
 xplot = 1:N;
