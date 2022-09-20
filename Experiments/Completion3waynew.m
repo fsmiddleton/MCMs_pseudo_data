@@ -1,79 +1,7 @@
 %% 3-way array completion
 % Francesca Middleton, 2022-03-02
 
-%% Import toy data 
 
-clc
-clear
-
-import = 1; 
-% import = 0 to create a low rank matrix, 
-% import = 1 to fetch an already created low rank matrix (2-way) 
-% import = 2 to import excess enthalpy data (2-way),
-
-filename = 'RandomMatrixNoise.xlsx';
-export = 0; % either export data(1) or don't, only used for creating a low rank matrix
-noise=1; %noise =1 to add noise to the creation of the matrix
-rank_mat = 0; % to be assigned later 
-
-if import ==0
-    % create array
-    % specify size and rank of array, choosing random mu and sigma to create
-    % singular values from, and the noise  
-    dim1=50;
-    dim2=50;
-    rank_mat = 10;
-    mu = 20;
-    sigma = 3;
-    [Xs,Xnoise, rankU, rankV, noiseMat]=create_matrix(dim1,dim2,rank_mat, mu, sigma);
-    Xdiff=Xs-Xnoise;
-    if noise ==1
-        X=Xnoise;
-    else 
-        X = Xs;
-    end 
-     
-    if export ==1
-        %create table with all this information
-        Ts = array2table(Xs);
-        Tnoise = array2table(Xnoise);
-        Tfinal = array2table(X);
-        info = table(["rank_mat"; "mu"; "sigma"; "noise"],[rank_mat; mu; sigma; noise], ["Sheet1";"Sheet2";"Sheet3";"Sheet4"], ["Info"; "Random matrix";"Noise matrix";"Noisy matrix"] );
-        %export it 
-        sheetname = append('Rank', num2str(rank_mat));
-        writetable(info,filename,'Sheet',1)
-        writetable(Ts,filename,'Sheet',2)
-        writetable(Tnoise,filename,'Sheet',3)
-        writetable(Tfinal,filename,'Sheet',4)
-        for i = 0.5:0.01:0.6
-            [Xsparse,missing_ind,filled_ind]=fill_matrix(X,i);
-            Tsparse = array2table(Xsparse);
-            writetable(Tsparse, filename, 'Sheet', num2str(i))
-        end 
-    end
-    
-        
-elseif import ==1
-    %import the data from the previously created random matrix 
-    filename = 'RandomMatrixNoise.xlsx'; % choose file here
-    % matrix with and without noise in sheets 2 and 4
-    if noise == 1
-        T2 = readtable(filename, 'Sheet', 4);
-    else
-        T2 = readtable(filename, 'Sheet', 2);
-    end 
-    X = table2array(T2);
-    T3 = readtable(filename, 'Sheet', 1); %info in sheet 1
-    rank_mat = T3(1,2);
-    
-elseif import ==2
-    % Import excess enthalpy data for one matrix 
-    T1 = readtable('TestSMALLHEMatrix13June298.15.xlsx', 'Sheet', '0.1'); 
-    X = table2array(T1);%only use T1, small enough to manage
-    
-else
-    disp('Please choose 0, 1, 2 to use data')
-end 
 %% Import .m file with 3-way array
 clc
 clear
@@ -106,58 +34,7 @@ for i = 1:length(comps)
         mixtures(index,:) = [comps(i,:) comps(j,:)];
     end
 end 
-%% Import or create data matrix for testing 3-way 
-clc
-clear
-T = 298.15;
-% Import excess enthalpy data for one matrix 
-filename = strcat('HEMatrixPoly16June', num2str(T),'.xlsx');
-T1 = readtable(filename, 'Sheet', '0.1'); 
-X = table2array(T1);%only use T1, small enough to manage
-dim = size(X);
-dim1=dim(1);
-dim2=dim(2);
-conc_interval = 0.1:0.1:0.9;
-percmiss = length(find(isnan(X)))/(dim1*dim2)*100;
-percobs = length(find(~isnan(X)))/(dim1*dim2)*100;
-b1 = table2array(readtable(filename, 'Sheet', 'B1'));
-b2 = table2array(readtable(filename, 'Sheet', 'B2'));
-[~,Locb] = ismember(b2,b1,'rows');
-include2 = find(Locb==0);
-% all possible components in this matrix 
-comps = [b1; b2(include2,:)];
 
-mixtures = zeros(size(comps,1)^2,4);
-index = 0;
-for i = 1:length(comps)
-    for j = 1:length(comps)
-        index = index+1;
-        mixtures(index,:) = [comps(i,:) comps(j,:)];
-    end
-end 
-%create the 3-way array with filled values - to be slices 
-dim1 = size(X,1);
-dim2 = size(X,2);
-dim3 = length(conc_interval);
-X3 = nan(dim1, dim2, dim3);
-
-for i = 1:length(conc_interval)
-    table = table2array(readtable(filename, 'Sheet',num2str(conc_interval(i))));
-    X3(:,:,i) = table;
-end 
-
-Xf_ini = filldata3(X3,'dia'); 
-
-%% Plot the matrix generated
-clf
-%[Xs,missing_ind,filled_linear_ind]=fill_matrix(X,0.5);%missing data 
-hm = HeatMap(X);
-addXLabel(hm,'Component 1','FontSize',12);
-addYLabel(hm,'Component 2','FontSize',12);
-view(hm)
-histogram(X)
-xlabel('Value in the matrix X')
-ylabel('Frequency')
 %% Rank determined from SVs
 % Import other data for most missing to allow variables to be declared
 concentrations = conc_interval;
@@ -214,27 +91,23 @@ orth = 1;
 whichX = 'sign';
 
 % declare vars for analysis 
-mse_LOOCV = zeros(length(concentrations),length(fns));
-wmse_LOOCV = zeros(length(concentrations),length(fns));
-RAD_LOOCV = zeros(length(concentrations),length(fns)); % relative absolute deviation 
-min_mse_LOOCV = zeros(length(concentrations),1);
-min_wmse_LOOCV = zeros(length(concentrations),1);
-X_pred_LOOCV = zeros(dim1,dim2,length(filled_ind));
+mse_LOOCV = zeros(length(fns),1);
+wmse_LOOCV = zeros(length(fns),1);
+RAD_LOOCV = zeros(length(fns),1); % relative absolute deviation 
 LOOCV_removed_col = zeros(length(filled_ind),1);
 LOOCV_removed_row = zeros(length(filled_ind),1);
-Xm_boot=zeros(length(concentrations), length(fns), length(filled_ind));
+Xm_boot=zeros(length(fns), length(filled_ind));
 
-for c = 1:2:length(concentrations)
-    conc = concentrations(c);
+conc = concentrations;
     %Ts = readtable(filename, 'Sheet', num2str(conc));
     %Xs = table2array(Ts);
      if strcmp(whichX, 'scale') 
-        Xs = Xscale(:,:,c);
+        Xs = Xscale;
     else 
-        Xs = Xsign(:,:,c);
+        Xs = Xsign;
     end 
     
-    Xs = remove_nan2(Xs);
+    Xs = remove_nan3(Xs);
     Xfilled = Xs;
     [row,col] = find(~isnan(Xs));
     filled_ind = find(~isnan(Xs));
@@ -255,12 +128,11 @@ for c = 1:2:length(concentrations)
             X_b = Xs;
             X_b(filled_index) = nan;
             if find(~isnan(X_b(:,col(k)))) & find(~isnan(X_b(row(k),:))) & Xs(filled_index)~=0 %ensure at least one value in each column and row
-                LOOCV_removed_col(k,c) = col(k);
-                LOOCV_removed_row(k,c) = row(k);
+                LOOCV_removed_col(k) = col(k);
+                LOOCV_removed_row(k) = row(k);
                 %perform iterative PCA on the slightly more empty matrix 
                 
-                [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX);
-                X_pred_LOOCV(:,:,k)=X_pred;
+                [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX,T);
                 error_LOOCV(fn,k) = Xs(filled_index)-X_pred(filled_index);
                 
                 Xm_boot(c, fnind, k) = X_pred(filled_index);
@@ -271,24 +143,14 @@ for c = 1:2:length(concentrations)
             end
         end
         % mse for this composition and rank 
-        mse_LOOCV(c,fnind)= sum(error_LOOCV(fn,:).^2)/length(error_LOOCV(fn,:));
-        wmse_LOOCV(c, fnind) = find_wmse_error(error_LOOCV(fn,:), length(filled_ind'));
+        mse_LOOCV(fnind)= sum(error_LOOCV(fn,:).^2)/length(error_LOOCV(fn,:));
+        wmse_LOOCV( fnind) = find_wmse_error(error_LOOCV(fn,:), length(filled_ind'));
         %absolute average deviation
-        RAD_LOOCV(c,fnind) = (sum(abs(RAD(fn,:))))/length(RAD(fn,:));
+        RAD_LOOCV(fnind) = (sum(abs(RAD(fn,:))))/length(RAD(fn,:));
     end % END FN
-    filenamesave = strcat('3wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T),'-c=', num2str(c), '-fillmethod=',fillmethod,'-',  date, '.mat');
+    filenamesave = strcat('3wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T), '-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
-    % find the optimal rank 
-    if winsorized_mse ==1
-        fn_LOOCV(c) = find(wmse_LOOCV(c,:) == min(wmse_LOOCV(c,:)));
-    else 
-        fn_LOOCV(c) = find(mse_LOOCV(c,:) == min(mse_LOOCV(c,:)));
-    end
-    
-    min_mse_LOOCV(c) = mse_LOOCV(c,fn_LOOCV(c));
-    min_wmse_LOOCV(c) = wmse_LOOCV(c,fn_LOOCV(c));
-    % use the best rank to find error bars 
-end 
+
 toc 
 
 %% Plot errors 
