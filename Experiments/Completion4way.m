@@ -94,7 +94,7 @@ Xm_boot=zeros( length(fns), length(filled_ind));
         for j = 1:dim(4)
             [row,col,~,~] = find(~isnan(Xs(:,:,:,j)));
             parfor k = 1:length(filled_ind') %filled_linear_ind must be a row vector for a for loop    
-                filled_index = [row(k),col(k),:,j];
+                filled_index = row(k),col(k),:,j;
                 % remove a point from Xs
                 X_b = Xs;
                 X_b(row(k),col(k),:,j) = nan;
@@ -107,7 +107,7 @@ Xm_boot=zeros( length(fns), length(filled_ind));
 
                     Xm_boot(fnind, k,j) = X_pred(filled_index);
                     if Xs(filled_index)~=0
-                        RAD(fn,k,j) = error_LOOCV(fn,k)/Xs(filled_index);
+                        RAD(fn,k,j) = error_LOOCV(fn,k,j)/Xs(filled_index);
                     end
 
                 end
