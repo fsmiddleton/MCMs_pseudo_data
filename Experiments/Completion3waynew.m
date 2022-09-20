@@ -111,8 +111,7 @@ conc = concentrations;
     Xfilled = Xs;
     [row,col] = find(~isnan(Xs));
     filled_ind = find(~isnan(Xs));
-    disp('Concentration of compound 1')
-    disp(c)
+    
     %declare vars with size dependent on the array used 
     %loop through ranks
     disp('fn')
@@ -122,11 +121,11 @@ conc = concentrations;
         fnind = fnind + 1; 
         error_LOOCV = zeros(length(filled_ind),1);
         RAD = zeros(length(filled_ind),1);
-        parfor k = 1:length(filled_ind') %filled_linear_ind must be a row vector for a for loop    
+        parfor k = 1:length(row') %filled_linear_ind must be a row vector for a for loop    
             filled_index = filled_ind(k);
             % remove a point from Xs
             X_b = Xs;
-            X_b(filled_index) = nan;
+            X_b(row(k),col(k),:) = nan; % removes the system
             if find(~isnan(X_b(:,col(k)))) & find(~isnan(X_b(row(k),:))) & Xs(filled_index)~=0 %ensure at least one value in each column and row
                 LOOCV_removed_col(k) = col(k);
                 LOOCV_removed_row(k) = row(k);
