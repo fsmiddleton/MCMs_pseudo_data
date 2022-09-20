@@ -5,20 +5,7 @@
 %PARAFAC and missing values
 %Chemometrics and Intelligent Laboratory Systems 75(2004)163-180
 
-%%
-clc
-clear
- 
-%% Import and export data array old 
-load('HEData4waySmallPoly.mat') %data is in HE_data_sparse
-%mixtures is in here, as well as temps and everything else 
-dim = size(HE_data_sparse);
-dim1=dim(1);
-dim2=dim(2);
-dim3=dim(3);
-dim4=dim(4);
-X = HE_data_sparse;
-mixtures = mixture';
+
 
 %% Import data new
 load('HEData4waySmallPoly.mat') %data is in HE_data_sparse
@@ -73,32 +60,28 @@ orth = 1;
 whichX = 'sign';
 
 % declare vars for analysis 
-mse_LOOCV = zeros(length(concentrations),length(fns));
-wmse_LOOCV = zeros(length(concentrations),length(fns));
-RAD_LOOCV = zeros(length(concentrations),length(fns)); % relative absolute deviation 
-min_mse_LOOCV = zeros(length(concentrations),1);
-min_wmse_LOOCV = zeros(length(concentrations),1);
-X_pred_LOOCV = zeros(dim1,dim2,length(filled_ind));
+mse_LOOCV = zeros(length(fns),1);
+wmse_LOOCV = zeros(length(fns),1);
+RAD_LOOCV = zeros(length(fns),1); % relative absolute deviation 
+
 LOOCV_removed_col = zeros(length(filled_ind),1);
 LOOCV_removed_row = zeros(length(filled_ind),1);
-Xm_boot=zeros(length(concentrations), length(fns), length(filled_ind));
+Xm_boot=zeros( length(fns), length(filled_ind));
 
-for c = 1:2:length(concentrations)
-    conc = concentrations(c);
+
+    conc = concentrations;
     %Ts = readtable(filename, 'Sheet', num2str(conc));
     %Xs = table2array(Ts);
      if strcmp(whichX, 'scale') 
-        Xs = Xscale(:,:,c);
+        Xs = Xscale;
     else 
-        Xs = Xsign(:,:,c);
+        Xs = Xsign;
     end 
     
-    Xs = remove_nan2(Xs);
     Xfilled = Xs;
-    [row,col] = find(~isnan(Xs));
-    filled_ind = find(~isnan(Xs));
-    disp('Concentration of compound 1')
-    disp(c)
+    [row,col,third,fourth] = find(~isnan(Xs));
+    filled_ind = find(~isnan(Xs)); % all filled indices
+    
     %declare vars with size dependent on the array used 
     %loop through ranks
     disp('fn')
@@ -114,15 +97,13 @@ for c = 1:2:length(concentrations)
             X_b = Xs;
             X_b(filled_index) = nan;
             if find(~isnan(X_b(:,col(k)))) & find(~isnan(X_b(row(k),:))) & Xs(filled_index)~=0 %ensure at least one value in each column and row
-                LOOCV_removed_col(k,c) = col(k);
-                LOOCV_removed_row(k,c) = row(k);
+
                 %perform iterative PCA on the slightly more empty matrix 
-                
-                [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX);
-                X_pred_LOOCV(:,:,k)=X_pred;
+                %Temps comes from the Data imported 
+                [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX, Temps);
                 error_LOOCV(fn,k) = Xs(filled_index)-X_pred(filled_index);
                 
-                Xm_boot(c, fnind, k) = X_pred(filled_index);
+                Xm_boot(fnind, k) = X_pred(filled_index);
                 if Xs(filled_index)~=0
                     RAD(fn,k) = error_LOOCV(fn,k)/Xs(filled_index);
                 end
@@ -130,10 +111,10 @@ for c = 1:2:length(concentrations)
             end
         end
         % mse for this composition and rank 
-        mse_LOOCV(c,fnind)= sum(error_LOOCV(fn,:).^2)/length(error_LOOCV(fn,:));
-        wmse_LOOCV(c, fnind) = find_wmse_error(error_LOOCV(fn,:), length(filled_ind'));
+        mse_LOOCV(fnind)= sum(error_LOOCV(fn,:).^2)/length(error_LOOCV(fn,:));
+        wmse_LOOCV( fnind) = find_wmse_error(error_LOOCV(fn,:), length(filled_ind'));
         %absolute average deviation
-        RAD_LOOCV(c,fnind) = (sum(abs(RAD(fn,:))))/length(RAD(fn,:));
+        RAD_LOOCV(fnind) = (sum(abs(RAD(fn,:))))/length(RAD(fn,:));
     end % END FN
     filenamesave = strcat('4wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T),'-c=', num2str(c), '-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
