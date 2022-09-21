@@ -71,7 +71,7 @@ save(filenamescree);
 %time the code 
 tic
 % declare ranks to be tested 
-fns =[1:2:6,7:1:10];
+fns =1;
 concentrations=conc_interval;
 Xscale = log(sign(X).*(X)).*sign(X);
 Xsign = sign(X);
@@ -91,9 +91,9 @@ maxiter = 20000;
 scale = 1;
 center = 1;
 conv = 1e-10;
-fillmethod = 'avg';
+fillmethod = 'uni';
 orth = 1;
-whichX = 'sign';
+whichX = 'scale';
     conc = concentrations;
 % declare vars for analysis 
 mse_LOOCV = zeros(length(fns),length(conc));
@@ -116,7 +116,8 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
     Xfilled = Xs;
     [row,col] = find(~isnan(Xs(:,:,1)));
     filled_ind = find(~isnan(Xs(:,:,1)));
-    
+    error_LOOCV = zeros(length(fns),length(row),length(conc));
+    RAD = zeros(length(fns),length(row),length(conc));
     %declare vars with size dependent on the array used 
     %loop through ranks
     disp('fn')
@@ -124,14 +125,13 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
     for fn = fns 
         disp(fn)
         fnind = fnind + 1; 
-        error_LOOCV = zeros(length(filled_ind),length(row),length(conc));
-        RAD = zeros(length(filled_ind),length(row),length(conc));
-        parfor k = 1:length(row) %filled_linear_ind must be a row vector for a for loop    
-            filled_index = filled_ind(k);
+        
+        for k = 1:length(row) %filled_linear_ind must be a row vector for a for loop    
+            
             % remove a point from Xs
             X_b = Xs;
             X_b(row(k),col(k),:) = nan;
-            if all(find(~isnan(X_b(:,col(k),:)))) & all(find(~isnan(X_b(row(k),:,:)))) & any(Xs(row(k),col(k),:))~=0 %ensure at least one value in each column and row
+            if any(find(~isnan(X_b(:,col(k),:)))) & any(find(~isnan(X_b(row(k),:,:)))) & all(Xs(row(k),col(k),:)~=0) %ensure at least one value in each column and row
                 
                 %perform iterative PCA on the slightly more empty matrix 
                 
@@ -140,7 +140,7 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
                 error_LOOCV(fn,k, :) = Xs(row(k),col(k),:)-X_pred(row(k),col(k),:);
                 
                 Xm_boot(fnind, k,:) = X_pred(row(k),col(k),:);
-                if Xs(filled_index)~=0
+                if any(Xs(row(k),col(k),:)~=0)
                     RAD(fn,k,:) = error_LOOCV(fn,k,:)/Xs(row(k),col(k),:);
                 end
                 

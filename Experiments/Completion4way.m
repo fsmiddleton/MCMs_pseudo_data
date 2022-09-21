@@ -55,7 +55,6 @@ for j = 1:dim(4)
         Xscale(:,:,i,j) = Xtemp;
     end 
 end 
-T = 298.15;
 % largest length of filled_linear_ind is for 0.3
 filled_ind = find(~isnan(Xs));
 

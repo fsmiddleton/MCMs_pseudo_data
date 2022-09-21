@@ -249,7 +249,8 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
         X_filled = X_filledtemp;
         
     else %method ='uni'
-        if size(dim)>4
+        
+        if size(dim,2)==3
             for count = 1:length(T)
                 % linearise X to a column vector - entries match mixtures
                 X1 = reshape(X(:,:,1),[dim(1)*dim(2),1]); % column vector used for checks and indices
@@ -264,13 +265,15 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                 load(strcat('heUNIFACforT=',num2str(T(count)),'.mat'),'conc_interval')
                 %convert arrays of concentrations to strings to allow them to be
                 %compared 
-                cconc_unifac = (conc_interval);
-                conc_array =(concintervalarray);
+                conc_unifac = string(conc_interval);
+                conc_array =string(concintervalarray);
                 conc_unifac2 = (1-conc_interval);
                 mixture = mixture'; % rows can now be compared 
 
-                concindices2 = find(intersect(conc_array,conc_unifac));
-
+                concindices2 = (intersect(conc_unifac,conc_array));
+                
+                [~,concindices2] = ismember(concindices2,conc_unifac);
+                
                 %components = possible components in this array, ordered 
                 
                 for ind = 1:length(X1)
@@ -343,9 +346,9 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                 mixture = mixture'; % rows can now be compared 
 
                 concindices2 = (intersect(conc_unifac,conc_array));
-                disp((concindices2))
+                
                 [~,concindices2] = ismember(concindices2,conc_unifac);
-                disp((concindices2))
+                
                 %components = possible components in this array, ordered 
                 
                 for ind = 1:length(X1)
