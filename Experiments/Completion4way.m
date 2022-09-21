@@ -73,7 +73,7 @@ wmse_LOOCV = zeros(length(Temps),length(fns));
 RAD_LOOCV = zeros(length(Temps),length(fns)); % relative absolute deviation 
 LOOCV_removed_col = zeros(length(filled_ind),1);
 LOOCV_removed_row = zeros(length(filled_ind),1);
-Xm_boot=zeros(length(Temps), length(fns),length(filled_ind));
+Xm_boot=zeros(length(Temps), length(fns),length(filled_ind), length(concentrations));
 
 conc = concentrations;
 
@@ -116,18 +116,18 @@ for count = 1:length(Temps)
                 
                 Xm_boot(count, fnind, k,:) = X_pred(row(k),col(k),:,count);
                 if Xs(filled_index)~=0
-                    RAD(fn,count,k,:) = error_LOOCV(fn,count,k,:)/Xs(row(k),col(k),:,count);
+                    RAD(fn,count,k,:) = error_LOOCV(fn,count,k,:)./reshape(Xs(row(k),col(k),:,count), error_LOOCV(fn,count,k,:));
                 end
                 
             end
         end
         % mse for this composition and rank 
         mse_LOOCV(count,fnind)= sum(sum(error_LOOCV(fn,count,:,:).^2))/length(error_LOOCV(fn,count,:,:));
-        wmse_LOOCV(count, fnind) = find_wmse_error(error_LOOCV(fn,count,:), length(error_LOOCV(fn,count,:)));
+        wmse_LOOCV(count, fnind) = find_wmse_error(error_LOOCV(fn,count,:), length(error_LOOCV(fn,count,:,:)));
         %absolute average deviation
         RAD_LOOCV(count,fnind) = sum(sum(abs(RAD(fn,count,:,:))))/length(RAD(fn,count,:,:));
     end % END FN
-    filenamesave = strcat('4wayPARAFAC-All-LOOCV-X',whichX,'-T=',num2str(T),'-c=', num2str(count), '-fillmethod=',fillmethod,'-',  date, '.mat');
+    filenamesave = strcat('4wayPARAFAC-All-LOOCV-X',whichX,'-c=', num2str(count), '-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
     
     % use the best rank to find error bars 
