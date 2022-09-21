@@ -250,7 +250,7 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
         
     else %method ='uni'
         
-        if size(dim,2)==3
+        if size(dim,2)>3
             for count = 1:length(T)
                 % linearise X to a column vector - entries match mixtures
                 X1 = reshape(X(:,:,1),[dim(1)*dim(2),1]); % column vector used for checks and indices
