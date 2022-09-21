@@ -131,7 +131,7 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
             % remove a point from Xs
             X_b = Xs;
             X_b(row(k),col(k),:) = nan;
-            if find(~isnan(X_b(:,col(k),:))) & find(~isnan(X_b(row(k),:,:))) & Xs(filled_index)~=0 %ensure at least one value in each column and row
+            if all(find(~isnan(X_b(:,col(k),:)))) & all(find(~isnan(X_b(row(k),:,:)))) & any(Xs(row(k),col(k),:))~=0 %ensure at least one value in each column and row
                 
                 %perform iterative PCA on the slightly more empty matrix 
                 
@@ -147,10 +147,10 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
             end
         end
         % mse for this composition and rank 
-        mse_LOOCV(c)= sum(sum(error_LOOCV(fn,:,:).^2))/length(error_LOOCV(fn,:,:));
-        wmse_LOOCV(c) = find_wmse_error(error_LOOCV(fn,:,:), length(filled_ind'));
+        mse_LOOCV(fn)= sum(sum(error_LOOCV(fn,:,:).^2))/length(error_LOOCV(fn,:,:));
+        wmse_LOOCV(fn) = find_wmse_error(error_LOOCV(fn,:,:), length(filled_ind'));
         %absolute average deviation
-        RAD_LOOCV(c) = sum(sum(abs(RAD(fn,:,:))))/length(RAD(fn,:,:));
+        RAD_LOOCV(fn) = sum(sum(abs(RAD(fn,:,:))))/length(RAD(fn,:,:));
     end % END FN
     filenamesave = strcat('3wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T),'-c=', num2str(c), '-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
