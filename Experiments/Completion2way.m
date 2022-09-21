@@ -79,7 +79,7 @@ clc
 clear
 % decide on which interval and temperature to evaluate 
 interval = 0.05;
-T = 298.15;
+T = 288.15;
 % comment out the small or all arrays (small contains only alkanes and
 % primary alcohols
 %filename = strcat('HEData3wayPolyAll-',num2str(interval), '-', num2str(T), '.mat');
@@ -106,58 +106,7 @@ for i = 1:length(comps)
         mixtures(index,:) = [comps(i,:) comps(j,:)];
     end
 end 
-%% Import or create data matrix for testing 3-way 
-clc
-clear
-T = 298.15;
-% Import excess enthalpy data for one matrix 
-filename = strcat('HEMatrixPoly16June', num2str(T),'.xlsx');
-T1 = readtable(filename, 'Sheet', '0.1'); 
-X = table2array(T1);%only use T1, small enough to manage
-dim = size(X);
-dim1=dim(1);
-dim2=dim(2);
-conc_interval = 0.1:0.1:0.9;
-percmiss = length(find(isnan(X)))/(dim1*dim2)*100;
-percobs = length(find(~isnan(X)))/(dim1*dim2)*100;
-b1 = table2array(readtable(filename, 'Sheet', 'B1'));
-b2 = table2array(readtable(filename, 'Sheet', 'B2'));
-[~,Locb] = ismember(b2,b1,'rows');
-include2 = find(Locb==0);
-% all possible components in this matrix 
-comps = [b1; b2(include2,:)];
 
-mixtures = zeros(size(comps,1)^2,4);
-index = 0;
-for i = 1:length(comps)
-    for j = 1:length(comps)
-        index = index+1;
-        mixtures(index,:) = [comps(i,:) comps(j,:)];
-    end
-end 
-%create the 3-way array with filled values - to be slices 
-dim1 = size(X,1);
-dim2 = size(X,2);
-dim3 = length(conc_interval);
-X3 = nan(dim1, dim2, dim3);
-
-for i = 1:length(conc_interval)
-    table = table2array(readtable(filename, 'Sheet',num2str(conc_interval(i))));
-    X3(:,:,i) = table;
-end 
-
-Xf_ini = filldata3(X3,'dia'); 
-
-%% Plot the matrix generated
-clf
-%[Xs,missing_ind,filled_linear_ind]=fill_matrix(X,0.5);%missing data 
-hm = HeatMap(X);
-addXLabel(hm,'Component 1','FontSize',12);
-addYLabel(hm,'Component 2','FontSize',12);
-view(hm)
-histogram(X)
-xlabel('Value in the matrix X')
-ylabel('Frequency')
 %% Rank determined from SVs
 % Import other data for most missing to allow variables to be declared
 concentrations = conc_interval;
@@ -168,15 +117,21 @@ y2 = zeros(fn,length(concentrations));
 
 %necessary for plots
 indexplot=20;
-
+whichX = 'sign';
+if strcmp(whichX,'scale')
+    Xss=Xscale;
+else 
+    Xss=Xsign;
+end
 i=0;
 for c = (concentrations)
     i=i+1;
     %Import data 
     %T = readtable(filename, 'Sheet', num2str(c));
-    Xs=Xsign(:,:,i);
+    Xs=Xss(:,:,i);
     %SVD
-    [~,D,~,~,~, ~]=missing_svd(Xs,fn,1,1,1e-8,1,0);
+    Xf = filldata3(Xs, 'uni',mixtures,c,whichX,T);
+    [~,D,~,~,~, ~]=missing_svd(Xf,fn,1,1,1e-8,1,0);
     %Plot
     y1(:,i) = diag(D);
     y2(:,i) = cumsum(y1(:,i))/sum(y1(:,i));
@@ -188,13 +143,13 @@ for c = (concentrations)
 end 
 
 hold off 
-filenamescree = strcat('Scree-All-Sign-',num2str(T),'K-interval=',num2str(interval),'.mat');
+filenamescree = strcat('Scree-All-',whichX,'-',num2str(T),'K-interval=',num2str(interval),'.mat');
 save(filenamescree);
 %% LOOCV to find rank using mse  
 %time the code 
 tic
 % declare ranks to be tested 
-fns =[1:2:6,7:1:10];
+fns =[6];
 concentrations=conc_interval;
 Xscale = log(sign(X).*(X)).*sign(X);
 Xsign = sign(X);
@@ -209,9 +164,9 @@ scale = 1;
 center = 1;
 conv = 1e-10;
 winsorized_mse = 0;
-fillmethod = 'avg';
+fillmethod = 'uni';
 orth = 1;
-whichX = 'sign';
+whichX = 'scale';
 
 % declare vars for analysis 
 mse_LOOCV = zeros(length(concentrations),length(fns));
@@ -259,7 +214,7 @@ for c = 1:2:length(concentrations)
                 LOOCV_removed_row(k,c) = row(k);
                 %perform iterative PCA on the slightly more empty matrix 
                 
-                [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX);
+                [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX,T);
                 X_pred_LOOCV(:,:,k)=X_pred;
                 error_LOOCV(fn,k) = Xs(filled_index)-X_pred(filled_index);
                 
@@ -325,7 +280,7 @@ orth = 1;
 whichX = 'scale';
 
 % loops, outer to inner: fill method, concentration, fn 
-for iter = [1:2]
+for iter = 5
     %find fill method to be used
     fillmethod = fillmethods(iter);
 
@@ -338,8 +293,9 @@ for iter = [1:2]
     tic
     %j=0; % counter for intervals
     plotcount = 0;
-    for c = 2:2:length(concentrations)
+    for c = [2,4]%:2:length(concentrations)
         conc = concentrations(c); 
+        disp(conc)
         if strcmp(whichX, 'scale') 
             Xs = Xscale(:,:,c);
         else 
@@ -353,14 +309,14 @@ for iter = [1:2]
         [row,col] = find(~isnan(Xs));
         filled_ind = find(~isnan(Xs));
 
-            for i=1:length(fns)
+            parfor i=1:length(fns)
                 %i=i+1;
                 fn = fns(i);
                 disp('rank')
                 disp(fn)
                 %[U,D,V,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
                 %[U,D,V,St,X_pred, iters]=missing_svd(Xs,fn,1,1,1e-8,1000);
-                [X_pred,iters,F,err] = missing_parafac3(Xs,fn,maxiter,conv,scale,center, fillmethod, orth,mixtures, conc, whichX);
+                [X_pred,iters,F,err] = missing_parafac3(Xs,fn,maxiter,conv,scale,center, fillmethod, orth,mixtures, conc, whichX, T);
                 %X_pred is the model predictions, not only missing values are
                 %filled 
                 % the actual model, not just filled values - can only use errors of filled values to find model error
@@ -374,7 +330,7 @@ for iter = [1:2]
             end %END FNS    
     end %END CONC 
     % Export results for this filling method 
-    filenamesave = strcat('2wayPARAFAC-X',whichX,'-maxiter=10000-T=',num2str(T), '-fillmethod=', fillmethod ,'-orth=', num2str(orth),'-',date, '.mat');
+    filenamesave = strcat('2wayPARAFAC-X',whichX,'-maxiter=10000-T=',num2str(T), '-fillmethod=', fillmethod ,'-orth=', num2str(orth),'-',date, '.3.mat');
     save(filenamesave)
 end % END FILL METHODS  
 toc
@@ -490,15 +446,22 @@ end
 Xf = filldata3(Xs,'uni',mixtures,conc,'sign');
 %% Functions 
 
-function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, whichX)
+
+function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, whichX, T)
     % filldata3 fills a 3-way array with the arithmetic mean of the other
     % values in the array. Used for a 2-way array here
     % Input 
     % X = data array 
-    % method = 'avg' - column and row averages 
+    % method = 'avg' - column and row averages
+    %          'dia' - triangular filling
+    %          'avc' - column averages
+    %          'avr' - row averages
     %       or 'uni' - unifac predictions 
-    % components = components ordered according to their place on the axis 
+    % mixtures = components ordered according to their place in the linear array (2D) 
     % concinterval = concentration interval over which to fill data 
+    % whichX = indicates which form of data it is receiving, necessary for initial guesses: 'scale' or 'sign' or 'none'
+    % T = temperature of the system - used for UNIFAC initial guesses 
+    %
     % Output 
     % X_filled = filled data array
     % missing = linear indices of missing data 
@@ -598,63 +561,61 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
         mix1 = mixtures(:,[1,2]);
         mix2 = mixtures(:,[3,4]);
         % load prediction data and mixtures  
-        load('heUNIFACforT=298.15.mat','he') % he in J/mol for composition of 0.01 to 0.99 for 5151 components
-        load('heUNIFACforT=298.15.mat','mixture') % mixtures for he data - 5151 components
-        load('heUNIFACforT=298.15.mat','conc_interval')
+        load(strcat('heUNIFACforT=',num2str(T),'.mat'),'he') % he in J/mol for composition of 0.01 to 0.99 for 5151 components
+        load(strcat('heUNIFACforT=',num2str(T),'.mat'),'mixture') % mixtures for he data - 5151 components
+        load(strcat('heUNIFACforT=',num2str(T),'.mat'),'conc_interval')
         %convert arrays of concentrations to strings to allow them to be
         %compared 
         conc_unifac = string(conc_interval);
         conc_array = string(concintervalarray);
         conc_array2 = string(1-conc_interval);
-        
+        mixture = mixture';
             
         concindices = find(strcmp(conc_array,conc_unifac));
         concindices2 = find(strcmp(conc_array2,conc_unifac));
         
         %components = possible components in this array, ordered 
-        %disp('length x1')
-        %disp(length(X1))
         for ind = 1:length(X1)
-            if isnan(X1(ind,1))
+            if isnan(X1(ind,1)) 
                 % fill with UNIFAC prediction 
                 %disp(ind)
-                [~,indexpred] = ismember(mixturesarray(ind,:),mixtures,'rows');
+                [~,indexpred] = ismember(mixturesarray(ind,:),mixture,'rows');
                 
                 if indexpred ==0
                     %mixture could be swapped around ie the concentration
                     %is 1-conc as well and is not in the UNIFAC data set 
-                    [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixtures,'rows');
+                    [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixture,'rows');
                     if indexpred == 0
                         Xtemp(ind,:) = 0;
-                        disp(ind)
                     else 
-                        temp = he(indexpred,concindices2);
+                        if indexpred> size(he,2)
+                            [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixture,'rows');
+                        end 
+                        temp = he(concindices2, indexpred);
                         
                         if strcmp(whichX, 'scale')
-                            
                             Xtemp(ind,:)=sign(temp).*log(sign(temp).*temp);
                         elseif strcmp(whichX, 'sign') 
-                            
                             Xtemp(ind,:)= sign(temp);
                         else 
-                            
                             Xtemp(ind,:)=temp;
                         end 
                     end    
                 else
                 %indexpred = find(ismember(mixturestemp(ind),mixture, 'rows'));%find mixture that is missing in the unifac prediction mixtures                
-                    temp = he(indexpred,concindices2);
+                    if indexpred> size(he,2)
+                        [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixture,'rows');
+                    end     
+                    
+                    temp = he(concindices2, indexpred);
                         
-                        if strcmp(whichX, 'scale')
-                            
-                            Xtemp(ind,:)=sign(temp).*log(sign(temp).*temp);
-                        elseif strcmp(whichX, 'sign') 
-                            
-                            Xtemp(ind,:)= sign(temp);
-                        else
-                            Xtemp(ind,:)=temp;
-                        end     
-%                     Xtemp(ind,:)=he(indexpred,concindices);
+                    if strcmp(whichX, 'scale')
+                        Xtemp(ind,:)=sign(temp).*log(sign(temp).*temp);
+                    elseif strcmp(whichX, 'sign') 
+                        Xtemp(ind,:)= sign(temp);
+                    else
+                        Xtemp(ind,:)=temp;
+                    end 
                 end 
             end 
         end 
@@ -665,7 +626,6 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
         X_filled = filldata3(X_filled,'avg',mixtures,conc_interval);
     end 
 end 
-
  
 
 function  [fn,msefill,wmsefill,R2, X_pred,cutoff,SVs,ranks_iterations] = solveGavish(Xs, dim1, dim2, conv, iter)
@@ -1095,8 +1055,4 @@ function [i,j,k]=findnan3(X)
         k = [k;ktemp];
     end 
 end
-
-
-
-
 

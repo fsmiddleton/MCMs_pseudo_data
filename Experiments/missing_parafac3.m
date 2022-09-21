@@ -40,7 +40,7 @@ function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center,
         if size(dim)>3 % more than 3 -way data = 4-way data
             Xfilledini = zeros(dim);
             for i = 1:dim(4)
-                Xfilledini(:,:,:,i) = filldata3(X(:,:,:,i),fillmethod, mixtures,concinterval, whichX, Temp);
+                Xfilledini(:,:,:,i) = filldata3(X(:,:,:,i),fillmethod, mixtures,concinterval, whichX, Temp(i));
             end 
         else
             Xfilledini = filldata3(X, fillmethod, mixtures,concinterval, whichX, Temp); 
@@ -248,79 +248,82 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
         X_filled = X_filledtemp;
         
     else %method ='uni'
-        % linearise X to a column vector - entries match mixtures
-        X1 = reshape(X(:,:,1),[dim(1)*dim(2),1]); % column vector used for checks and indices
-        Xtemp = reshape(X,[dim(1)*dim(2), dim(3)]); % reshaped to column vectors with each column containing a concentration interval
-        
-        mixturesarray = mixtures; % each row contains the mixture of that X (if X were a 2-way array)
-        mix1 = mixtures(:,[1,2]);
-        mix2 = mixtures(:,[3,4]);
-        % load prediction data and mixtures  
-        load(strcat('heUNIFACforT=',num2str(T),'.mat'),'he') % he in J/mol for composition of 0.01 to 0.99 for 5151 components
-        load(strcat('heUNIFACforT=',num2str(T),'.mat'),'mixture') % mixtures for he data - 5151 components
-        load(strcat('heUNIFACforT=',num2str(T),'.mat'),'conc_interval')
-        %convert arrays of concentrations to strings to allow them to be
-        %compared 
-        conc_unifac = string(conc_interval);
-        conc_array = string(concintervalarray);
-        conc_array2 = string(1-conc_interval);
-        
-            
-        concindices = find(strcmp(conc_array,conc_unifac));
-        concindices2 = find(strcmp(conc_array2,conc_unifac));
-        
-        %components = possible components in this array, ordered 
-        disp('length x1')
-        disp(length(X1))
-        for ind = 1:length(X1)
-            if isnan(X1(ind,1)) 
-                % fill with UNIFAC prediction 
-                %disp(ind)
-                [~,indexpred] = ismember(mixturesarray(ind,:),mixtures,'rows');
+        if size(dim)>4
+            for count = 1:length(T)
+                % linearise X to a column vector - entries match mixtures
+                X1 = reshape(X(:,:,1),[dim(1)*dim(2),1]); % column vector used for checks and indices
+                Xtemp = reshape(X(:,:,:,count),[dim(1)*dim(2), dim(3)]); % reshaped to column vectors with each column containing a concentration interval
+
+                mixturesarray = mixtures; % each row contains the mixture of that X (if X were a 2-way array)
+                mix1 = mixtures(:,[1,2]);
+                mix2 = mixtures(:,[3,4]);
+                % load prediction data and mixtures  
+                load(strcat('heUNIFACforT=',num2str(T),'.mat'),'he') % he in J/mol for composition of 0.01 to 0.99 for 5151 components
+                load(strcat('heUNIFACforT=',num2str(T),'.mat'),'mixture') % mixtures for he data - 5151 components
+                load(strcat('heUNIFACforT=',num2str(T),'.mat'),'conc_interval')
+                %convert arrays of concentrations to strings to allow them to be
+                %compared 
+                conc_unifac = string(conc_interval);
+                conc_array = string(concintervalarray);
+                conc_array2 = string(1-conc_interval);
+                mixture = mixture';
+
+                concindices2 = find(strcmp(conc_array2,conc_unifac));
+
+                %components = possible components in this array, ordered 
                 
-                if indexpred ==0
-                    %mixture could be swapped around ie the concentration
-                    %is 1-conc as well and is not in the UNIFAC data set 
-                    [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixtures,'rows');
-                    if indexpred == 0
-                        Xtemp(ind,:) = 0;
-                        disp(ind)
-                    else 
-                        if indexpred> size(he,1)
-                            [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixtures,'rows');
+                for ind = 1:length(X1)
+                    if isnan(X1(ind,1)) 
+                        % fill with UNIFAC prediction 
+                        %disp(ind)
+                        [~,indexpred] = ismember(mixturesarray(ind,:),mixture,'rows');
+
+                        if indexpred ==0
+                            %mixture could be swapped around ie the concentration
+                            %is 1-conc as well and is not in the UNIFAC data set 
+                            [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixture,'rows');
+                            if indexpred == 0
+                                Xtemp(ind,:) = 0;
+                                disp(ind)
+                            else 
+                                if indexpred> size(he,2)
+                                    [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixture,'rows');
+                                end 
+                                temp = he(concindices2, indexpred);
+
+                                if strcmp(whichX, 'scale')
+                                    Xtemp(ind,:)=sign(temp).*log(sign(temp).*temp);
+                                elseif strcmp(whichX, 'sign') 
+                                    Xtemp(ind,:)= sign(temp);
+                                else 
+                                    Xtemp(ind,:)=temp;
+                                end 
+                            end    
+                        else
+                        %indexpred = find(ismember(mixturestemp(ind),mixture, 'rows'));%find mixture that is missing in the unifac prediction mixtures                
+                            if indexpred> size(he,2)
+                                [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixture,'rows');
+                            end     
+
+                            temp = he(concindices2, indexpred);
+
+                            if strcmp(whichX, 'scale')
+                                Xtemp(ind,:)=sign(temp).*log(sign(temp).*temp);
+                            elseif strcmp(whichX, 'sign') 
+                                Xtemp(ind,:)= sign(temp);
+                            else
+                                Xtemp(ind,:)=temp;
+                            end 
                         end 
-                        temp = he(indexpred,concindices2);
-                        
-                        if strcmp(whichX, 'scale')
-                            Xtemp(ind,:)=sign(temp).*log(sign(temp).*temp);
-                        elseif strcmp(whichX, 'sign') 
-                            Xtemp(ind,:)= sign(temp);
-                        else 
-                            Xtemp(ind,:)=temp;
-                        end 
-                    end    
-                else
-                %indexpred = find(ismember(mixturestemp(ind),mixture, 'rows'));%find mixture that is missing in the unifac prediction mixtures                
-                    if indexpred> size(he,1)
-                        [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixtures,'rows');
-                    end     
-                    temp = he(indexpred,concindices2);
-                        
-                    if strcmp(whichX, 'scale')
-                        Xtemp(ind,:)=sign(temp).*log(sign(temp).*temp);
-                    elseif strcmp(whichX, 'sign') 
-                        Xtemp(ind,:)= sign(temp);
-                    else
-                        Xtemp(ind,:)=temp;
                     end 
                 end 
+                %reshape X to the 3-way array
+                X_filledtemp = reshape(Xtemp,[dim(1), dim(2), dim(3)]);
+                %fills remaining few Nan values with averages 
+                X_filled(:,:,:,count) = filldata3(X_filledtemp,'avg',mixtures,conc_interval);
             end 
         end 
-       
-        %reshape X to the 3-way array
-        X_filled = reshape(Xtemp,[dim(1), dim(2), dim(3)]);
-        %fills remaining few Nan values with averages 
-        X_filled = filldata3(X_filled,'avg',mixtures,conc_interval);
+        
     end 
 end 
 
