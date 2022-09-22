@@ -10,7 +10,7 @@ clc
 clear
 
 %% Import data 
-load('HEData4waySmallPoly.mat') %data is in HE_data_sparse
+load('HEData4wayArraypolySmall.mat') %data is in HE_data_sparse
 %mixtures is in here, as well as temps and everything else 
 mix_original = mixture;
 dim = size(HE_data_sparse);
@@ -71,8 +71,6 @@ whichX = 'sign';
 mse_LOOCV = zeros(length(Temps),length(fns));
 wmse_LOOCV = zeros(length(Temps),length(fns));
 RAD_LOOCV = zeros(length(Temps),length(fns)); % relative absolute deviation 
-LOOCV_removed_col = zeros(length(filled_ind),1);
-LOOCV_removed_row = zeros(length(filled_ind),1);
 Xm_boot=zeros(length(Temps), length(fns),length(filled_ind), length(concentrations));
 
 conc = concentrations;
@@ -107,8 +105,7 @@ for count = 1:length(Temps)
             X_b = Xs;
             X_b(row(k),col(k),:,count) = nan;
             if any(find(~isnan(X_b(:,col(k),:,:)))) & any(find(~isnan(X_b(row(k),:,:,:)))) & all(Xs(row(k),col(k),:,count)~=0) %ensure at least one value in each column and row
-                LOOCV_removed_col(k,count) = col(k);
-                LOOCV_removed_row(k,count) = row(k);
+                
                 %perform iterative PCA on the slightly more empty matrix 
                 
                 [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX, Temps);
