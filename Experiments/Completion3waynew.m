@@ -141,7 +141,7 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
                 
                 Xm_boot(fnind, k,:) = X_pred(row(k),col(k),:);
                 if any(Xs(row(k),col(k),:)~=0)
-                    RAD(fn,k,:) = error_LOOCV(fn,k,:)/Xs(row(k),col(k),:);
+                    RAD(fn,k,:) = error_LOOCV(fn,k,:)./Xs(row(k),col(k),:);
                 end
                 
             end
