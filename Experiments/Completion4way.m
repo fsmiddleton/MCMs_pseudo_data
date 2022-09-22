@@ -120,7 +120,7 @@ for count = 1:length(Temps)
         end
         % mse for this composition and rank 
         mse_LOOCV(count,fnind)= sum(sum(error_LOOCV(fn,count,:,:).^2))/length(error_LOOCV(fn,count,:,:));
-        wmse_LOOCV(count, fnind) = find_wmse_error(error_LOOCV(fn,count,:), length(error_LOOCV(fn,count,:,:)));
+        wmse_LOOCV(count, fnind) = find_wmse_error(error_LOOCV(fn,count,:,:), length(error_LOOCV(fn,count,:,:)));
         %absolute average deviation
         RAD_LOOCV(count,fnind) = sum(sum(abs(RAD(fn,count,:,:))))/length(RAD(fn,count,:,:));
     end % END FN
@@ -944,4 +944,12 @@ function [i,j,k]=findnan3(X)
     end 
 end
 
+function [wmse]=find_wmse_error(errors, count)
+    errors = reshape(errors, prod(dim(errors)),1);
+    perc5=prctile(errors,5,'all');
+    perc95=prctile(errors,95,'all');
+    errors(errors<perc5)=perc5;
+    errors(errors>perc95)=perc95;
+    wmse = (sum((errors).^2))/count;
+end 
 
