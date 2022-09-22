@@ -1,79 +1,7 @@
 %% 2-way arrays 
 % Francesca Middleton, 2022-03-02
 
-%% Import toy data 
 
-clc
-clear
-
-import = 1; 
-% import = 0 to create a low rank matrix, 
-% import = 1 to fetch an already created low rank matrix (2-way) 
-% import = 2 to import excess enthalpy data (2-way),
-
-filename = 'RandomMatrixNoise.xlsx';
-export = 0; % either export data(1) or don't, only used for creating a low rank matrix
-noise=1; %noise =1 to add noise to the creation of the matrix
-rank_mat = 0; % to be assigned later 
-
-if import ==0
-    % create array
-    % specify size and rank of array, choosing random mu and sigma to create
-    % singular values from, and the noise  
-    dim1=50;
-    dim2=50;
-    rank_mat = 10;
-    mu = 20;
-    sigma = 3;
-    [Xs,Xnoise, rankU, rankV, noiseMat]=create_matrix(dim1,dim2,rank_mat, mu, sigma);
-    Xdiff=Xs-Xnoise;
-    if noise ==1
-        X=Xnoise;
-    else 
-        X = Xs;
-    end 
-     
-    if export ==1
-        %create table with all this information
-        Ts = array2table(Xs);
-        Tnoise = array2table(Xnoise);
-        Tfinal = array2table(X);
-        info = table(["rank_mat"; "mu"; "sigma"; "noise"],[rank_mat; mu; sigma; noise], ["Sheet1";"Sheet2";"Sheet3";"Sheet4"], ["Info"; "Random matrix";"Noise matrix";"Noisy matrix"] );
-        %export it 
-        sheetname = append('Rank', num2str(rank_mat));
-        writetable(info,filename,'Sheet',1)
-        writetable(Ts,filename,'Sheet',2)
-        writetable(Tnoise,filename,'Sheet',3)
-        writetable(Tfinal,filename,'Sheet',4)
-        for i = 0.5:0.01:0.6
-            [Xsparse,missing_ind,filled_ind]=fill_matrix(X,i);
-            Tsparse = array2table(Xsparse);
-            writetable(Tsparse, filename, 'Sheet', num2str(i))
-        end 
-    end
-    
-        
-elseif import ==1
-    %import the data from the previously created random matrix 
-    filename = 'RandomMatrixNoise.xlsx'; % choose file here
-    % matrix with and without noise in sheets 2 and 4
-    if noise == 1
-        T2 = readtable(filename, 'Sheet', 4);
-    else
-        T2 = readtable(filename, 'Sheet', 2);
-    end 
-    X = table2array(T2);
-    T3 = readtable(filename, 'Sheet', 1); %info in sheet 1
-    rank_mat = T3(1,2);
-    
-elseif import ==2
-    % Import excess enthalpy data for one matrix 
-    T1 = readtable('TestSMALLHEMatrix13June298.15.xlsx', 'Sheet', '0.1'); 
-    X = table2array(T1);%only use T1, small enough to manage
-    
-else
-    disp('Please choose 0, 1, 2 to use data')
-end 
 %% Import .m file with 3-way array
 clc
 clear
@@ -154,7 +82,6 @@ concentrations=conc_interval;
 Xscale = log(sign(X).*(X)).*sign(X);
 Xsign = sign(X);
 Xs = Xscale;
-T = 298.15;
 % largest length of filled_linear_ind is for 0.3
 filled_ind = find(~isnan(Xs));
 
@@ -210,12 +137,11 @@ for c = 1:2:length(concentrations)
             X_b = Xs;
             X_b(filled_index) = nan;
             if find(~isnan(X_b(:,col(k)))) & find(~isnan(X_b(row(k),:))) & Xs(filled_index)~=0 %ensure at least one value in each column and row
-                LOOCV_removed_col(k,c) = col(k);
-                LOOCV_removed_row(k,c) = row(k);
+               
                 %perform iterative PCA on the slightly more empty matrix 
                 
                 [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX,T);
-                X_pred_LOOCV(:,:,k)=X_pred;
+               
                 error_LOOCV(fn,k) = Xs(filled_index)-X_pred(filled_index);
                 
                 Xm_boot(c, fnind, k) = X_pred(filled_index);
