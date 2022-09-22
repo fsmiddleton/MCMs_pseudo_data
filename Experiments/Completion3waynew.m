@@ -923,6 +923,7 @@ function [wmse]=find_wmse(X,X_pred,no_points)
 end 
 
 function [wmse]=find_wmse_error(errors, count)
+    errors = reshape(errors,prod(dim(errors),1);
     perc5=prctile(errors,5,'all');
     perc95=prctile(errors,95,'all');
     errors(errors<perc5)=perc5;
