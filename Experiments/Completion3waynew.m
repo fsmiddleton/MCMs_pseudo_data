@@ -126,7 +126,7 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
         disp(fn)
         fnind = fnind + 1; 
         
-        for k = 1:length(row) %filled_linear_ind must be a row vector for a for loop    
+        parfor k = 1:length(row) %filled_linear_ind must be a row vector for a for loop    
             
             % remove a point from Xs
             X_b = Xs;
@@ -136,7 +136,7 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
                 %perform iterative PCA on the slightly more empty matrix 
                 
                 [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX,T);
-                X_pred_LOOCV(:,:,k)=X_pred;
+                
                 error_LOOCV(fn,k, :) = Xs(row(k),col(k),:)-X_pred(row(k),col(k),:);
                 
                 Xm_boot(fnind, k,:) = X_pred(row(k),col(k),:);
