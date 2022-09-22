@@ -99,11 +99,7 @@ whichX = 'scale';
 mse_LOOCV = zeros(length(concentrations),length(fns));
 wmse_LOOCV = zeros(length(concentrations),length(fns));
 RAD_LOOCV = zeros(length(concentrations),length(fns)); % relative absolute deviation 
-min_mse_LOOCV = zeros(length(concentrations),1);
-min_wmse_LOOCV = zeros(length(concentrations),1);
-X_pred_LOOCV = zeros(dim1,dim2,length(filled_ind));
-LOOCV_removed_col = zeros(length(filled_ind),1);
-LOOCV_removed_row = zeros(length(filled_ind),1);
+
 Xm_boot=zeros(length(concentrations), length(fns), length(filled_ind));
 
 for c = 1:2:length(concentrations)
