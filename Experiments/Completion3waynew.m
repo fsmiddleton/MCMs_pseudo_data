@@ -152,7 +152,7 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
         %absolute average deviation
         RAD_LOOCV(fnind) = sum(sum(abs(RAD(fnind,:,:))))/length(RAD(fnind,:,:));
     end % END FN
-    filenamesave = strcat('3wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T),'-c=', num2str(c), '-fillmethod=',fillmethod,'-',  date, '.mat');
+    filenamesave = strcat('3wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T), '-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
     % find the optimal rank 
  
