@@ -20,8 +20,8 @@ dim = size(X);
 dim1 = dim(1);
 dim2 = dim(2);
 dim3 = dim(3);
-percmiss = length(find(isnan(X)))/(dim1*dim2)*100;
-percobs = length(find(~isnan(X)))/(dim1*dim2)*100;
+percmiss = length(find(isnan(X)))/(dim1*dim2*dim3)*100;
+percobs = length(find(~isnan(X)))/(dim1*dim2*dim3)*100;
 
 % define all the mixtures in the linear indices of the array, based on the
 % components in the 3-way array file 
@@ -82,7 +82,7 @@ for i =1:dim3
     Xtemp(1:1+size(Xtemp,1):end) = 0; % diagonals are zero
     Xscale(:,:,i) = Xtemp;
 end 
-T = 298.15;
+
 % largest length of filled_linear_ind is for 0.3
 filled_ind = find(~isnan(Xs));
 
@@ -96,9 +96,9 @@ orth = 1;
 whichX = 'scale';
     conc = concentrations;
 % declare vars for analysis 
-mse_LOOCV = zeros(length(fns),length(conc));
-wmse_LOOCV = zeros(length(fns),length(conc));
-RAD_LOOCV = zeros(length(fns),length(conc)); % relative absolute deviation 
+mse_LOOCV = zeros(length(fns),1);
+wmse_LOOCV = zeros(length(fns),1);
+RAD_LOOCV = zeros(length(fns),1); % relative absolute deviation 
 
 Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
 
@@ -137,20 +137,20 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
                 
                 [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX,T);
                 
-                error_LOOCV(fn,k, :) = Xs(row(k),col(k),:)-X_pred(row(k),col(k),:);
+                error_LOOCV(fnind,k, :) = Xs(row(k),col(k),:)-X_pred(row(k),col(k),:);
                 
                 Xm_boot(fnind, k,:) = X_pred(row(k),col(k),:);
                 if any(Xs(row(k),col(k),:)~=0)
-                    RAD(fn,k,:) = error_LOOCV(fn,k,:)./Xs(row(k),col(k),:);
+                    RAD(fnind,k,:) = error_LOOCV(fnind,k,:)./Xs(row(k),col(k),:);
                 end
                 
             end
         end
         % mse for this composition and rank 
-        mse_LOOCV(fn)= sum(sum(error_LOOCV(fn,:,:).^2))/length(error_LOOCV(fn,:,:));
-        wmse_LOOCV(fn) = find_wmse_error(error_LOOCV(fn,:,:), length(filled_ind'));
+        mse_LOOCV(fnind)= sum(sum(error_LOOCV(fnind,:,:).^2))/length(error_LOOCV(fnind,:,:));
+        wmse_LOOCV(fnind) = find_wmse_error(error_LOOCV(fnind,:,:), length(filled_ind'));
         %absolute average deviation
-        RAD_LOOCV(fn) = sum(sum(abs(RAD(fn,:,:))))/length(RAD(fn,:,:));
+        RAD_LOOCV(fnind) = sum(sum(abs(RAD(fnind,:,:))))/length(RAD(fnind,:,:));
     end % END FN
     filenamesave = strcat('3wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T),'-c=', num2str(c), '-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
