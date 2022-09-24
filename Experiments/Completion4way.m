@@ -109,20 +109,20 @@ for count = 1:length(Temps)
                 %perform iterative PCA on the slightly more empty matrix 
                 
                 [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX, Temps);
-                error_LOOCV(fn,count, k,:) = Xs(row(k),col(k),:,count)-X_pred(row(k),col(k),:,count);
+                error_LOOCV(fnind,count, k,:) = Xs(row(k),col(k),:,count)-X_pred(row(k),col(k),:,count);
                 
                 Xm_boot(count, fnind, k,:) = X_pred(row(k),col(k),:,count);
                 if Xs(filled_index)~=0
-                    RAD(fn,count,k,:) = error_LOOCV(fn,count,k,:)./reshape(Xs(row(k),col(k),:,count), error_LOOCV(fn,count,k,:));
+                    RAD(fnind,count,k,:) = error_LOOCV(fnind,count,k,:)./reshape(Xs(row(k),col(k),:,count), error_LOOCV(fnind,count,k,:));
                 end
                 
             end
         end
         % mse for this composition and rank 
-        mse_LOOCV(count,fnind)= sum(sum(error_LOOCV(fn,count,:,:).^2))/length(error_LOOCV(fn,count,:,:));
-        wmse_LOOCV(count, fnind) = find_wmse_error(error_LOOCV(fn,count,:,:), length(error_LOOCV(fn,count,:,:)));
+        mse_LOOCV(count,fnind)= sum(sum(error_LOOCV(fnind,count,:,:).^2))/length(error_LOOCV(fnind,count,:,:));
+        wmse_LOOCV(count, fnind) = find_wmse_error(error_LOOCV(fnind,count,:,:), length(error_LOOCV(fnind,count,:,:)));
         %absolute average deviation
-        RAD_LOOCV(count,fnind) = sum(sum(abs(RAD(fn,count,:,:))))/length(RAD(fn,count,:,:));
+        RAD_LOOCV(count,fnind) = sum(sum(abs(RAD(fnind,count,:,:))))/length(RAD(fnind,count,:,:));
     end % END FN
     filenamesave = strcat('4wayPARAFAC-All-LOOCV-X',whichX,'-c=', num2str(count), '-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
