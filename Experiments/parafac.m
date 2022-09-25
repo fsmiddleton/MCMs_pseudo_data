@@ -1107,10 +1107,7 @@ while (((f>crit) | (norm(connew-conold)/norm(conold)>MissConvCrit) | Constraints
         end
     end
     
-    % Make safety copy of loadings and initial parameters in temp.mat
-    if it/50-round(it/50)==0
-        save temp Factors
-    end
+    
     
     % JUDGE FIT
     if err>errold
