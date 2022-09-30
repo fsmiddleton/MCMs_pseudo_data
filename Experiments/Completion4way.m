@@ -89,7 +89,12 @@ for count = 1:length(Temps)
     Xfilled = Xs;
     [row,col] = find(~isnan(tril(Xs(:,:,1,count),-1)));
     filled_ind = find(~isnan(tril(Xs(:,:,1,count),-1)));
-    Xm_boot=zeros(length(Temps), length(fns),length(filled_ind), length(concentrations)*2);
+    Xm_boot=zeros(length(Temps), length(fns),length(filled_ind), length(concentrations));
+    Xm_boot2=zeros(length(Temps), length(fns),length(filled_ind), length(concentrations));
+    error_LOOCV = zeros(length(fns),length(Temps),length(row),length(conc));
+    RAD = zeros(length(fns),length(Temps),length(row),length(conc));
+    error_LOOCV2 = zeros(length(fns),length(Temps),length(row),length(conc));
+    RAD2 = zeros(length(fns),length(Temps),length(row),length(conc));
     disp('Temperature assessed')
     disp(count)
     %declare vars with size dependent on the array used 
@@ -99,8 +104,7 @@ for count = 1:length(Temps)
     for fn = fns 
         disp(fn)
         fnind = fnind + 1; 
-        error_LOOCV = zeros(length(fns),length(Temps),length(row),length(conc)*2);
-        RAD = zeros(length(fns),length(Temps),length(row),length(conc)*2);
+        
         parfor k = 1:length(row) %filled_linear_ind must be a row vector for a for loop    
             filled_index = filled_ind(k);
             % remove a point from Xs
@@ -112,23 +116,23 @@ for count = 1:length(Temps)
                 %perform iterative PCA on the slightly more empty matrix 
                 
                 [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX, Temps);
-                error_LOOCV(fnind,count, k,1:length(conc)/2) = Xs(row(k),col(k),:,count)-X_pred(row(k),col(k),:,count);
-                error_LOOCV(fnind,count, k,length(conc)/2+1:end) = Xs(col(k),row(k),:,count)-X_pred(col(k),row(k),:,count);
+                error_LOOCV(fnind,count, k,:) = Xs(row(k),col(k),:,count)-X_pred(row(k),col(k),:,count);
+                error_LOOCV2(fnind,count, k,:) = Xs(col(k),row(k),:,count)-X_pred(col(k),row(k),:,count);
                 
-                Xm_boot(count, fnind, k,1:length(conc)/2) = X_pred(row(k),col(k),:,count);
-                Xm_boot(count, fnind, k,length(conc)/2:end) = X_pred(col(k),row(k),:,count);
+                Xm_boot(count, fnind, k,:) = X_pred(row(k),col(k),:,count);
+                Xm_boot2(count, fnind, k,:) = X_pred(col(k),row(k),:,count);
                 if Xs(filled_index)~=0
-                    RAD(fnind,count,k,1:length(conc)/2) = error_LOOCV(fnind,count, k,1:length(conc)/2)./reshape(Xs(row(k),col(k),:,count), size(error_LOOCV(fnind,count,k,1:length(conc)/2)));
-                    RAD(fnind,count,k,length(conc)/2+1:end) = error_LOOCV(fnind,count, k,length(conc)/2+1:end)./reshape(Xs(col(k),row(k),:,count), size(error_LOOCV(fnind,count,k,1:length(conc)/2)));
+                    RAD(fnind,count,k,:) = error_LOOCV(fnind,count, k,:)./reshape(Xs(row(k),col(k),:,count), size(error_LOOCV(fnind,count,k,:)));
+                    RAD2(fnind,count,k,:) = error_LOOCV(fnind,count, k,:)./reshape(Xs(col(k),row(k),:,count), size(error_LOOCV(fnind,count,k,:)));
                 end
                 
             end
         end
         % mse for this composition and rank 
-        mse_LOOCV(count,fnind)= sum(sum(error_LOOCV(fnind,count,:,:).^2))/length(error_LOOCV(fnind,count,:,:));
-        wmse_LOOCV(count, fnind) = find_wmse_error(error_LOOCV(fnind,count,:,:), length(error_LOOCV(fnind,count,:,:)));
+        mse_LOOCV(count,fnind)= sum(sum(error_LOOCV(fnind,count,:,:).^2))/length(error_LOOCV(fnind,count,:,:))+sum(sum(error_LOOCV2(fnind,count,:,:).^2))/length(error_LOOCV(fnind,count,:,:));
+        wmse_LOOCV(count, fnind) = find_wmse_error([error_LOOCV(fnind,count,:,:) error_LOOCV2(fnind,count,:,:)], length(error_LOOCV(fnind,count,:,:)));
         %absolute average deviation
-        RAD_LOOCV(count,fnind) = sum(sum(abs(RAD(fnind,count,:,:))))/length(RAD(fnind,count,:,:));
+        RAD_LOOCV(count,fnind) = sum(sum(abs(RAD(fnind,count,:,:))))/length(RAD(fnind,count,:,:))+sum(sum(abs(RAD2(fnind,count,:,:))))/length(RAD(fnind,count,:,:));
     end % END FN
     filenamesave = strcat('4wayPARAFAC-All-LOOCV-X',whichX,'-T=', num2str(Temps(count)), '-orth=',num2str(orth),'-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
