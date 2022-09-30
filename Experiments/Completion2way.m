@@ -83,7 +83,7 @@ Xscale = log(sign(X).*(X)).*sign(X);
 Xsign = sign(X);
 Xs = Xscale;
 % largest length of filled_linear_ind is for 0.3
-filled_ind = find(~isnan(Xs));
+filled_ind = find(~isnan(tril(Xs(:,:,1)-1)));
 
 % vars for missing_parafac3
 maxiter = 20000;
@@ -93,15 +93,15 @@ conv = 1e-10;
 winsorized_mse = 0;
 fillmethod = 'uni';
 orth = 1;
-whichX = 'scale';
+whichX = 'sign';
 
 % declare vars for analysis 
 mse_LOOCV = zeros(length(concentrations),length(fns));
 wmse_LOOCV = zeros(length(concentrations),length(fns));
 RAD_LOOCV = zeros(length(concentrations),length(fns)); % relative absolute deviation 
 
-
-
+Xm_boot=zeros(length(concentrations), length(fns), length(filled_ind));
+Xm_boot2=zeros(length(concentrations), length(fns), length(filled_ind));
 for c = 1:2:length(concentrations)
     conc = concentrations(c);
     %Ts = readtable(filename, 'Sheet', num2str(conc));
@@ -116,9 +116,6 @@ for c = 1:2:length(concentrations)
     Xfilled = Xs;
     [row,col] = find(~isnan(tril(Xs,-1)));
     filled_ind = find(~isnan(tril(Xs,-1)));
-    Xm_boot=zeros(length(concentrations), length(fns), length(filled_ind),2);
-    error_LOOCV = zeros(length(fns),length(filled_ind),2);
-    RAD = zeros(length(fns),length(filled_ind),2);
     disp('Concentration of compound 1')
     disp(c)
     %declare vars with size dependent on the array used 
@@ -128,6 +125,10 @@ for c = 1:2:length(concentrations)
     for fn = fns 
         disp(fn)
         fnind = fnind + 1; 
+        error_LOOCV = zeros(length(filled_ind),1);
+        RAD = zeros(length(filled_ind),1);
+        error_LOOCV2 = zeros(length(filled_ind),1);
+        RAD2 = zeros(length(filled_ind),1);
         
         parfor k = 1:length(filled_ind') %filled_linear_ind must be a row vector for a for loop    
             filled_index = filled_ind(k);
@@ -141,22 +142,23 @@ for c = 1:2:length(concentrations)
                 
                 [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX,T);
                
-                error_LOOCV(fn,k,1) = Xs(row(k),col(k))-X_pred(row(k),col(k));
-                error_LOOCV(fn,k,2) = Xs(col(k),row(k))-X_pred(col(k),row(k));
-                Xm_boot(c, fnind, k,1) = X_pred(row(k),col(k));
-                Xm_boot(c, fnind, k,2) = X_pred(col(k),row(k));
+                error_LOOCV(fn,k) = Xs(filled_index)-X_pred(filled_index);
+                error_LOOCV2(fn,k) = Xs(col(k),row(k))-X_pred(filled_index);
+                
+                Xm_boot(c, fnind, k) = X_pred(filled_index);
+                Xm_boot2(c, fnind, k) = X_pred(col(k),row(k));
                 if Xs(filled_index)~=0
-                    RAD(fn,k,1) = error_LOOCV(fn,k,1)/Xs(row(k),col(k));
-                    RAD(fn,k,2) = error_LOOCV(fn,k,2)/Xs(col(k),row(k));
+                    RAD(fn,k) = error_LOOCV(fn,k)/Xs(filled_index);
+                    RAD2(fn,k) = error_LOOCV2(fn,k)/Xs(col(k),row(k));
                 end
                 
             end
         end
         % mse for this composition and rank 
-        mse_LOOCV(c,fnind)= sum(error_LOOCV(fn,:,:).^2)/length(error_LOOCV(fn,:,:));
-        wmse_LOOCV(c, fnind) = find_wmse_error(error_LOOCV(fn,:,:), length(filled_ind'));
+        mse_LOOCV(c,fnind)= sum(error_LOOCV(fn,:).^2)/length(error_LOOCV(fn,:))+sum(error_LOOCV2(fn,:).^2)/length(error_LOOCV(fn,:));
+        wmse_LOOCV(c, fnind) = find_wmse_error([error_LOOCV(fn,:) error_LOOCV2(fn,:)], length(filled_ind')*2);
         %absolute average deviation
-        RAD_LOOCV(c,fnind) = (sum(abs(RAD(fn,:,:))))/length(RAD(fn,:,:));
+        RAD_LOOCV(c,fnind) = (sum(abs(RAD(fn,:))))/length(RAD(fn,:))+(sum(abs(RAD2(fn,:))))/length(RAD(fn,:));
     end % END FN
     filenamesave = strcat('2wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T),'-c=', num2str(c), '-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
