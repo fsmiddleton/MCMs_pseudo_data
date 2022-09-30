@@ -71,7 +71,8 @@ whichX = 'sign';
 mse_LOOCV = zeros(length(Temps),length(fns));
 wmse_LOOCV = zeros(length(Temps),length(fns));
 RAD_LOOCV = zeros(length(Temps),length(fns)); % relative absolute deviation 
-Xm_boot=zeros(length(Temps), length(fns),length(filled_ind), length(concentrations));
+
+
 
 conc = concentrations;
 
@@ -86,8 +87,9 @@ for count = 1:length(Temps)
         Xs(:,:,:,j) = remove_nan3(Xs(:,:,:,j));
     end 
     Xfilled = Xs;
-    [row,col] = find(~isnan(Xs(:,:,1,count)));
-    filled_ind = find(~isnan(Xs(:,:,1,count)));
+    [row,col] = find(~isnan(tril(Xs(:,:,1,count),-1)));
+    filled_ind = find(~isnan(tril(Xs(:,:,1,count),-1)));
+    Xm_boot=zeros(length(Temps), length(fns),length(filled_ind), length(concentrations)*2);
     disp('Temperature assessed')
     disp(count)
     %declare vars with size dependent on the array used 
@@ -97,23 +99,27 @@ for count = 1:length(Temps)
     for fn = fns 
         disp(fn)
         fnind = fnind + 1; 
-        error_LOOCV = zeros(length(fns),length(Temps),length(row),length(conc));
-        RAD = zeros(length(fns),length(Temps),length(row),length(conc));
+        error_LOOCV = zeros(length(fns),length(Temps),length(row),length(conc)*2);
+        RAD = zeros(length(fns),length(Temps),length(row),length(conc)*2);
         parfor k = 1:length(row) %filled_linear_ind must be a row vector for a for loop    
             filled_index = filled_ind(k);
             % remove a point from Xs
             X_b = Xs;
             X_b(row(k),col(k),:,count) = nan;
+            X_b(col(k),row(k),:,count) = nan;
             if any(find(~isnan(X_b(:,col(k),:,:)))) & any(find(~isnan(X_b(row(k),:,:,:)))) & all(Xs(row(k),col(k),:,count)~=0) %ensure at least one value in each column and row
                 
                 %perform iterative PCA on the slightly more empty matrix 
                 
                 [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX, Temps);
-                error_LOOCV(fnind,count, k,:) = Xs(row(k),col(k),:,count)-X_pred(row(k),col(k),:,count);
+                error_LOOCV(fnind,count, k,1:length(conc)/2) = Xs(row(k),col(k),:,count)-X_pred(row(k),col(k),:,count);
+                error_LOOCV(fnind,count, k,length(conc)/2+1:end) = Xs(col(k),row(k),:,count)-X_pred(col(k),row(k),:,count);
                 
-                Xm_boot(count, fnind, k,:) = X_pred(row(k),col(k),:,count);
+                Xm_boot(count, fnind, k,1:length(conc)/2) = X_pred(row(k),col(k),:,count);
+                Xm_boot(count, fnind, k,length(conc)/2:end) = X_pred(col(k),row(k),:,count);
                 if Xs(filled_index)~=0
-                    RAD(fnind,count,k,:) = error_LOOCV(fnind,count,k,:)./reshape(Xs(row(k),col(k),:,count), size(error_LOOCV(fnind,count,k,:)));
+                    RAD(fnind,count,k,1:length(conc)/2) = error_LOOCV(fnind,count, k,1:length(conc)/2)./reshape(Xs(row(k),col(k),:,count), size(error_LOOCV(fnind,count,k,1:length(conc)/2)));
+                    RAD(fnind,count,k,length(conc)/2+1:end) = error_LOOCV(fnind,count, k,length(conc)/2+1:end)./reshape(Xs(col(k),row(k),:,count), size(error_LOOCV(fnind,count,k,1:length(conc)/2)));
                 end
                 
             end
