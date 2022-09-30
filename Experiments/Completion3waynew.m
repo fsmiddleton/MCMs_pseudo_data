@@ -115,14 +115,18 @@ RAD_LOOCV = zeros(length(fns),1); % relative absolute deviation
     Xfilled = Xs;
     [row,col] = find(~isnan(tril(Xs(:,:,1),-1)));
     filled_ind = find(~isnan(tril(Xs(:,:,1),-1)));
-    Xm_boot=zeros( length(fns), length(filled_ind),length(conc)*2);
-    error_LOOCV = zeros(length(fns),length(row),length(conc)*2);
-    RAD = zeros(length(fns),length(row),length(conc)*2);
-    %declare vars with size dependent on the array used 
+    error_LOOCV = zeros(length(fns),length(row),length(conc));
+    error_LOOCV2 = zeros(length(fns),length(row),length(conc));
+    RAD = zeros(length(fns),length(row),length(conc));
+    RAD2 = zeros(length(fns),length(row),length(conc));
+    Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
+    Xm_boot2=zeros( length(fns), length(filled_ind),length(conc));
+    
     %loop through ranks
-    disp('fn')
+    
     fnind=0;
     for fn = fns 
+    disp('fn')
         disp(fn)
         fnind = fnind + 1; 
         
@@ -138,22 +142,22 @@ RAD_LOOCV = zeros(length(fns),1); % relative absolute deviation
                 
                 [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX,T);
                 
-                error_LOOCV(fnind,k, 1:length(conc)/2) = Xs(row(k),col(k),:)-X_pred(row(k),col(k),:);
-                error_LOOCV(fnind,k,length(conc)/2+1:end) = Xs(col(k),row(k),:)-X_pred(col(k),row(k),:);
-                Xm_boot(fnind, k,1:length(conc)/2) = X_pred(row(k),col(k),:);
-                Xm_boot(fnind,k, length(conc)/2+1:end) = X_pred(col(k),row(k),:);
+                error_LOOCV(fnind,k, :) = Xs(row(k),col(k),:)-X_pred(row(k),col(k),:);
+                error_LOOCV2(fnind,k, :) = Xs(col(k),row(k),:)-X_pred(col(k),row(k),:);
+                Xm_boot(fnind, k,:) = X_pred(row(k),col(k),:);
+                Xm_boot2(fnind, k,:) = X_pred(col(k),row(k),:);
                 if any(Xs(row(k),col(k),:)~=0)
-                    RAD(fnind,k,1:length(conc)/2) = error_LOOCV(fnind,k,:)./Xs(row(k),col(k),:);
-                    RAD(fnind,k,1:length(conc)/2) = error_LOOCV(fnind,k,:)./Xs(row(k),col(k),:);
+                    RAD(fnind,k,:) = error_LOOCV(fnind,k,:)./Xs(row(k),col(k),:);
+                    RAD2(fnind,k,:) = error_LOOCV2(fnind,k,:)./Xs(col(k),row(k),:);
                 end
                 
             end
         end
         % mse for this composition and rank 
-        mse_LOOCV(fnind)= sum(sum(error_LOOCV(fnind,:,:).^2))/length(error_LOOCV(fnind,:,:));
-        wmse_LOOCV(fnind) = find_wmse_error(error_LOOCV(fnind,:,:), length(filled_ind'));
+        mse_LOOCV(fnind)= sum(sum(error_LOOCV(fnind,:,:).^2))/length(error_LOOCV(fnind,:,:))+sum(sum(error_LOOCV2(fnind,:,:).^2))/length(error_LOOCV(fnind,:,:));
+        wmse_LOOCV(fnind) = find_wmse_error([error_LOOCV(fnind,:,:) error_LOOCV2(fnind,:,:)], length(filled_ind')*2);
         %absolute average deviation
-        RAD_LOOCV(fnind) = sum(sum(abs(RAD(fnind,:,:))))/length(RAD(fnind,:,:));
+        RAD_LOOCV(fnind) = sum(sum(abs(RAD(fnind,:,:))))/length(RAD(fnind,:,:))+sum(sum(abs(RAD2(fnind,:,:))))/length(RAD(fnind,:,:));
     end % END FN
     filenamesave = strcat('3wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T), '-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
