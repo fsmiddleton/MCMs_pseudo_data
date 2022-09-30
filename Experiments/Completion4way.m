@@ -113,7 +113,7 @@ for count = 1:length(Temps)
                 
                 Xm_boot(count, fnind, k,:) = X_pred(row(k),col(k),:,count);
                 if Xs(filled_index)~=0
-                    RAD(fnind,count,k,:) = error_LOOCV(fnind,count,k,:)./reshape(Xs(row(k),col(k),:,count), error_LOOCV(fnind,count,k,:));
+                    RAD(fnind,count,k,:) = error_LOOCV(fnind,count,k,:)./reshape(Xs(row(k),col(k),:,count), size(error_LOOCV(fnind,count,k,:)));
                 end
                 
             end
@@ -124,7 +124,7 @@ for count = 1:length(Temps)
         %absolute average deviation
         RAD_LOOCV(count,fnind) = sum(sum(abs(RAD(fnind,count,:,:))))/length(RAD(fnind,count,:,:));
     end % END FN
-    filenamesave = strcat('4wayPARAFAC-All-LOOCV-X',whichX,'-c=', num2str(count), '-fillmethod=',fillmethod,'-',  date, '.mat');
+    filenamesave = strcat('4wayPARAFAC-All-LOOCV-X',whichX,'-T=', num2str(Temps(count)), '-orth=',num2str(orth),'-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
     
     % use the best rank to find error bars 
