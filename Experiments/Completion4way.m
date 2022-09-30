@@ -10,7 +10,7 @@ clc
 clear
 
 %% Import data 
-load('HEData4wayArraypolySmall.mat') %data is in HE_data_sparse
+load('HEData4wayArrayPolyAll-T=4-0.05.mat')%data is in HE_data_sparse
 %mixtures is in here, as well as temps and everything else 
 mix_original = mixture;
 dim = size(HE_data_sparse);
@@ -18,7 +18,7 @@ dim1=dim(1);
 dim2=dim(2);
 dim3=dim(3);
 dim4=dim(4);
-indicesimport = 1:5;
+indicesimport = 1:9;
 X = HE_data_sparse(:,:,indicesimport,:);
 mixtureT = mixture';
 [comps1,~,~]=unique(mixtureT(:,[1,2]), 'rows');
@@ -42,7 +42,7 @@ end
 %time the code 
 tic
 % declare ranks to be tested 
-fns =[1:2:6,7:1:10];
+fns =[1:1:5];
 Xscale = log(sign(X).*(X)).*sign(X);
 Xsign = sign(X);
 Xs = Xscale;
@@ -59,7 +59,7 @@ end
 filled_ind = find(~isnan(Xs));
 
 % vars for missing_parafac3
-maxiter = 20000;
+maxiter = 15000;
 scale = 1;
 center = 1;
 conv = 1e-10;
