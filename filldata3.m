@@ -1,148 +1,3 @@
-function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center, fillmethod, orth,mixtures,concinterval, whichX, Temp)
-   
-    % Fill a matrix of missing data using PCA with SVD and a given number of
-    % PCs. Can also handle non-missing data. Missing data is handled as NaN
-    % values 
-    %
-    % Input 
-    % X = matrix
-    % fn = number of factors/ PCs used to fill the matrix 
-    % center = 1 center data / = 0 do not center 
-    % scale = 1 scale data / = 0 do not scale
-    % conv = stopping criterion, absolute value of the relative change of the
-    % sum of squares of the values of the unobserved entries 
-    % max_iter = maximum number of iterations 
-    % fillmethod = method used to guess initial values of X
-    % orth = number of orthogonal modes
-    % mixtures = numeric respresentation of mixtures
-    % concinterval = row vector of concentrations
-    % whichX = indicates which form of data it is receiving, necessary for initial guesses: 'scale' or 'sign' or 'none'
-    %
-    % Output 
-    % X_pred = filled X with new values for the missing entries
-    % iter = number of iterations the algorithm used
-    % F = factors used to construct the final solution
-    % err = column vector of predictions
-    
-    dim=size(X);
-    missing_ind = find(isnan(X));
-    filled_ind = find(~isnan(X));
-    %choose indices to use for convergence 
-    indices=missing_ind;
-    const=zeros(1,length(dim)); % orthogonal factors
-    if orth ==1
-        const(1) = 1;
-    elseif orth ==2
-        const(1:2)=1;
-    end 
-     
-    if any(isnan(X)) % there is missing data
-        if size(dim,2)>3 % more than 3 -way data = 4-way data
-            Xfilledini = zeros(dim);
-            for i = 1:dim(4)
-                Xfilledini(:,:,:,i) = filldata3(X(:,:,:,i),fillmethod, mixtures,concinterval, whichX, Temp(i));
-            end 
-        else
-            Xfilledini = filldata3(X, fillmethod, mixtures,concinterval, whichX, Temp); 
-        end
-        f=2*conv;
-        iter = 1;
-        % PARAFAC options 
-         Options(1) = conv;
-         Options(2) = 1;
-         Options(3) = 0;
-         Options(4) = 0;
-         Options(5) = 1000;
-         Options(6) = 2000;
-         
-        %initialise the factors 
-        DimX = size(Xfilledini);
-        Xfilled = reshape(Xfilledini,DimX(1),prod(DimX(2:end)));
-        mx = mean(Xfilled);% you have to center, scaling is optional 
-        Xfilled = Xfilled-ones(size(Xfilled,1),1)*mx;
-        if scale ==1 
-            sj =sqrt(sum((Xfilled).^2,2)); % column vector 
-            Xfilled = Xfilled./(sj*(ones(1,size(Xfilled,2))));% scale across rows 
-        end 
-        if center ==1  
-            % recenter after scaling - optional, but should be done 
-            mx2 = mean(Xfilled);
-            Xc = Xfilled-ones(size(Xfilled,1),1)*mx2; 
-        end 
-        Xc = reshape(Xc,DimX);
-        
-        % initialises the factors 
-        [F,~]=parafac(Xc,fn, Options, const);
-        model = nmodel(F);
-        % fill predicted values into array
-        X_pred = model;
-
-        % uncenter and unscale and uncenter 
-        X_pred = reshape(X_pred, DimX(1), prod(DimX(2:end)));
-        if center ==1
-            X_pred = X_pred + ones(size(Xfilled,1),1)*mx2;
-        end 
-        if scale ==1
-            X_pred = X_pred.*(sj*(ones(1,size(Xfilled,2))));
-        end
-        X_pred = X_pred + ones(size(Xfilled,1),1)*mx; 
-        X_pred = reshape(X_pred, DimX);
-        Xfilledini(indices) = X_pred(indices);
-        %find sum of squares 
-        SS = sum(sum(sum(Xfilledini(indices).^2)));
-        
-        % filling algorithm repeating 
-        while iter<max_iter && f>conv
-            iter = iter+1;
-            SSold = SS; 
-            Fi = F;
-            % preprocess - scale + center unfolded array  
-            DimX = size(Xfilledini);
-            Xfilled = reshape(Xfilledini,DimX(1),prod(DimX(2:end)));
-            mx = mean(Xfilled);% you have to center, scaling is optional 
-            Xfilled = Xfilled-ones(size(Xfilled,1),1)*mx;
-            if scale ==1 
-                sj =sqrt(sum((Xfilled).^2,2)); % column vector 
-                Xfilled = Xfilled./(sj*(ones(1,size(Xfilled,2))));% scale across rows 
-            end 
-            if center ==1  
-                mx2 = mean(Xfilled);
-                Xc = Xfilled-ones(size(Xfilled,1),1)*mx2; 
-            end 
-            Xc = reshape(Xc,DimX);
-            
-            % Find the factors  
-            [F,~]=parafac(Xc,fn, Options, const, Fi);
-            model = nmodel(F);
-            X_pred = model;
-            
-            %postprocess 
-            % uncenter and unscale and uncenter 
-            X_pred = reshape(X_pred,DimX(1),prod(DimX(2:end)));
-            if center ==1
-                X_pred = X_pred + ones(size(Xfilled,1),1)*mx2;
-            end 
-            if scale ==1
-                X_pred = X_pred.*(sj*(ones(1,size(Xfilled,2))));
-            end
-            X_pred = X_pred + ones(size(Xfilled,1),1)*mx;
-            X_pred = reshape(X_pred,DimX);
-            Xfilled = X_pred;
-            % fill missing values with predictions 
-            Xfilledini(indices) = X_pred(indices);
-            % calculate sum of squares 
-            SS = sum(sum(sum(Xfilledini(indices).^2)));
-            % convergence criterion 
-            f = abs(SS-SSold)/(SSold);
-            
-        end
-        err = Xfilled(filled_ind) - X_pred(filled_ind);
-    else 
-        % no missing data 
-        disp('no missing data')
-    end %end if  else 
-end
-
 function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, whichX, T)
     % filldata3 fills a 3-way array with the arithmetic mean of the other
     % values in the array. Used for a 2-way array here
@@ -326,6 +181,80 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                 %fills remaining few Nan values with averages 
                 X_filled(:,:,:,count) = filldata3(X_filledtemp,'avg',mixtures,conc_interval);
             end 
+        elseif size(dim)==2
+                Xtemp = reshape(X(:,:),[dim(1)*dim(2),1]);
+                X1 = reshape(X(:,:,1),[dim(1)*dim(2),1]); % column vector used for checks and indices
+                Xtemp = reshape(X,[dim(1)*dim(2), dim(3)]); % reshaped to column vectors with each column containing a concentration interval
+
+                mixturesarray = mixtures; % each row contains the mixture of that X (if X were a 2-way array)
+                mix1 = mixtures(:,[1,2]);
+                mix2 = mixtures(:,[3,4]);
+                % load prediction data and mixtures  
+                load(strcat('heUNIFACforT=',num2str(T),'.mat'),'he') % he in J/mol for composition of 0.01 to 0.99 for 5151 components
+                load(strcat('heUNIFACforT=',num2str(T),'.mat'),'mixture') % mixtures for he data - 5151 components
+                load(strcat('heUNIFACforT=',num2str(T),'.mat'),'conc_interval')
+                %convert arrays of concentrations to strings to allow them to be
+                %compared 
+                conc_unifac = string(conc_interval);
+                conc_array =string(concintervalarray);
+                
+                mixture = mixture'; % rows can now be compared 
+
+                concindices2 = (intersect(conc_unifac,conc_array));
+                
+                [~,concindices2] = ismember(concindices2,conc_unifac);
+                
+                %components = possible components in this array, ordered 
+                
+                for ind = 1:length(X1)
+                    if isnan(X1(ind,1)) 
+                        % fill with UNIFAC prediction 
+                        %disp(ind)
+                        [~,indexpred] = ismember(mixturesarray(ind,:),mixture,'rows');
+
+                        if indexpred ==0
+                            %mixture could be swapped around ie the concentration
+                            %is 1-conc as well and is not in the UNIFAC data set 
+                            [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixture,'rows');
+                            if indexpred == 0
+                                Xtemp(ind,:) = 0;
+                                
+                            else 
+                                if indexpred> size(he,2)
+                                    [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixture,'rows');
+                                end 
+                                temp = he(concindices2, indexpred);
+
+                                if strcmp(whichX, 'scale')
+                                    Xtemp(ind,:)=sign(temp).*log(sign(temp).*temp);
+                                elseif strcmp(whichX, 'sign') 
+                                    Xtemp(ind,:)= sign(temp);
+                                else 
+                                    Xtemp(ind,:)=temp;
+                                end 
+                            end    
+                        else
+                        %indexpred = find(ismember(mixturestemp(ind),mixture, 'rows'));%find mixture that is missing in the unifac prediction mixtures                
+                            if indexpred> size(he,2)
+                                [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixture,'rows');
+                            end     
+
+                            temp = he(concindices2, indexpred);
+
+                            if strcmp(whichX, 'scale')
+                                Xtemp(ind,:)=(sign(temp).*log(sign(temp).*temp))';
+                            elseif strcmp(whichX, 'sign') 
+                                Xtemp(ind,:)= sign(temp);
+                            else
+                                Xtemp(ind,:)=temp;
+                            end 
+                        end 
+                    end 
+                end 
+                %reshape X to the 3-way array
+                X_filledtemp = reshape(Xtemp,[dim(1), dim(2)]);
+                %fills remaining few Nan values with averages 
+                X_filled = filldata3(X_filledtemp,'avg',mixtures,conc_interval);
         else 
             % linearise X to a column vector - entries match mixtures
                 X1 = reshape(X(:,:,1),[dim(1)*dim(2),1]); % column vector used for checks and indices

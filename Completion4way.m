@@ -18,7 +18,7 @@ dim1=dim(1);
 dim2=dim(2);
 dim3=dim(3);
 dim4=dim(4);
-indicesimport = 1:5;
+indicesimport = 1:9;
 X = HE_data_sparse(:,:,indicesimport,:);
 mixtureT = mixture';
 [comps1,~,~]=unique(mixtureT(:,[1,2]), 'rows');
@@ -73,12 +73,13 @@ wmse_LOOCV = zeros(length(Temps),length(fns));
 RAD_LOOCV = zeros(length(Temps),length(fns)); % relative absolute deviation 
 LOOCV_removed_col = zeros(length(filled_ind),1);
 LOOCV_removed_row = zeros(length(filled_ind),1);
-Xm_boot=zeros(length(Temps), length(fns),length(filled_ind));
+Xm_boot=zeros(length(Temps), length(fns),length(filled_ind), length(concentrations));
 
 conc = concentrations;
 
-for count = 1:length(Temps)
-    
+for count = 1
+    Temp = Temps(count);
+    count=1;
      if strcmp(whichX, 'scale') 
         Xs = Xscale;
     else 
@@ -88,8 +89,15 @@ for count = 1:length(Temps)
         Xs(:,:,:,j) = remove_nan3(Xs(:,:,:,j));
     end 
     Xfilled = Xs;
-    [row,col] = find(~isnan(Xs(:,:,1,count)));
-    filled_ind = find(~isnan(Xs(:,:,1,count)));
+    tempX = tril(Xs(:,:,1,count),-1)+triu(nan(size(Xs(:,:,1,count))));
+    [row,col] = find(~isnan(tempX));
+    filled_ind = find(~isnan(tempX));
+    Xm_boot=zeros(length(Temp), length(fns),length(filled_ind), length(concentrations));
+    Xm_boot2=zeros(length(Temp), length(fns),length(filled_ind), length(concentrations));
+    error_LOOCV = zeros(length(fns),length(Temp),length(row),length(conc));
+    RAD = zeros(length(fns),length(Temp),length(row),length(conc));
+    error_LOOCV2 = zeros(length(fns),length(Temp),length(row),length(conc));
+    RAD2 = zeros(length(fns),length(Temp),length(row),length(conc));
     disp('Temperature assessed')
     disp(count)
     %declare vars with size dependent on the array used 
@@ -99,40 +107,43 @@ for count = 1:length(Temps)
     for fn = fns 
         disp(fn)
         fnind = fnind + 1; 
-        error_LOOCV = zeros(length(fns),length(Temps),length(row),length(conc));
-        RAD = zeros(length(fns),length(Temps),length(row),length(conc));
+        
         parfor k = 1:length(row) %filled_linear_ind must be a row vector for a for loop    
             filled_index = filled_ind(k);
             % remove a point from Xs
             X_b = Xs;
             X_b(row(k),col(k),:,count) = nan;
+            X_b(col(k),row(k),:,count) = nan;
             if any(find(~isnan(X_b(:,col(k),:,:)))) & any(find(~isnan(X_b(row(k),:,:,:)))) & all(Xs(row(k),col(k),:,count)~=0) %ensure at least one value in each column and row
-                LOOCV_removed_col(k,count) = col(k);
-                LOOCV_removed_row(k,count) = row(k);
+                
                 %perform iterative PCA on the slightly more empty matrix 
                 
                 [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX, Temps);
-                error_LOOCV(fn,count, k,:) = Xs(row(k),col(k),:,count)-X_pred(row(k),col(k),:,count);
+                error_LOOCV(fnind,count, k,:) = Xs(row(k),col(k),:,count)-X_pred(row(k),col(k),:,count);
+                error_LOOCV2(fnind,count, k,:) = Xs(col(k),row(k),:,count)-X_pred(col(k),row(k),:,count);
                 
                 Xm_boot(count, fnind, k,:) = X_pred(row(k),col(k),:,count);
+                Xm_boot2(count, fnind, k,:) = X_pred(col(k),row(k),:,count);
                 if Xs(filled_index)~=0
-                    RAD(fn,count,k,:) = error_LOOCV(fn,count,k,:)/Xs(row(k),col(k),:,count);
+                    RAD(fnind,count,k,:) = error_LOOCV(fnind,count, k,:)./reshape(Xs(row(k),col(k),:,count), size(error_LOOCV(fnind,count,k,:)));
+                    RAD2(fnind,count,k,:) = error_LOOCV(fnind,count, k,:)./reshape(Xs(col(k),row(k),:,count), size(error_LOOCV(fnind,count,k,:)));
                 end
                 
             end
         end
         % mse for this composition and rank 
-        mse_LOOCV(count,fnind)= sum(sum(error_LOOCV(fn,count,:,:).^2))/length(error_LOOCV(fn,count,:,:));
-        wmse_LOOCV(count, fnind) = find_wmse_error(error_LOOCV(fn,count,:), length(error_LOOCV(fn,count,:)));
+        mse_LOOCV(count,fnind)= sum(sum(error_LOOCV(fnind,count,:,:).^2))/length(error_LOOCV(fnind,count,:,:))+sum(sum(error_LOOCV2(fnind,count,:,:).^2))/length(error_LOOCV(fnind,count,:,:));
+        wmse_LOOCV(count, fnind) = find_wmse_error([error_LOOCV(fnind,count,:,:) error_LOOCV2(fnind,count,:,:)], length(error_LOOCV(fnind,count,:,:)));
         %absolute average deviation
-        RAD_LOOCV(count,fnind) = sum(sum(abs(RAD(fn,count,:,:))))/length(RAD(fn,count,:,:));
+        RAD_LOOCV(count,fnind) = sum(sum(abs(RAD(fnind,count,:,:))))/length(RAD(fnind,count,:,:))+sum(sum(abs(RAD2(fnind,count,:,:))))/length(RAD(fnind,count,:,:));
     end % END FN
-    filenamesave = strcat('4wayPARAFAC-All-LOOCV-X',whichX,'-T=',num2str(T),'-c=', num2str(count), '-fillmethod=',fillmethod,'-',  date, '.mat');
+    filenamesave = strcat('4wayPARAFAC-All-LOOCV-X',whichX,'-T=', num2str(Temps(count)), '-orth=',num2str(orth),'-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
     
     % use the best rank to find error bars 
 end 
 toc 
+
 
 %% Plot errors 
 clf

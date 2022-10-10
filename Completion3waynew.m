@@ -9,8 +9,8 @@ interval = 0.05;
 T = 298.15;
 % comment out the small or all arrays (small contains only alkanes and
 % primary alcohols
+filename = strcat('HEData3wayPolySmall-',num2str(interval), '-', num2str(T), '.mat');
 %filename = strcat('HEData3wayPolyAll-',num2str(interval), '-', num2str(T), '.mat');
-filename = strcat('HEData3wayPolyAll-',num2str(interval), '-', num2str(T), '.mat');
 load(filename)
 conc_interval = interval:interval:(0.5-interval);
 X = HE_data_sparse(:,:,1:length(conc_interval));
@@ -34,7 +34,12 @@ for i = 1:length(comps)
     end
 end 
 
-
+clear temp_data
+clear R2 RAD P_loc rHE
+clear mxture2 ib interp_index it indices1 HE_original HE_data HEpred HE_data_sparse
+clear HE func1_loc func2 func2 func2_loc 
+clear errorpred error data 
+clear conc_original
 %% Rank determined from SVs
 % Import other data for most missing to allow variables to be declared
 concentrations = conc_interval;
@@ -71,7 +76,7 @@ save(filenamescree);
 %time the code 
 tic
 % declare ranks to be tested 
-fns =1;
+fns =8:11;
 concentrations=conc_interval;
 Xscale = log(sign(X).*(X)).*sign(X);
 Xsign = sign(X);
@@ -82,12 +87,12 @@ for i =1:dim3
     Xtemp(1:1+size(Xtemp,1):end) = 0; % diagonals are zero
     Xscale(:,:,i) = Xtemp;
 end 
-T = 298.15;
+
 % largest length of filled_linear_ind is for 0.3
 filled_ind = find(~isnan(Xs));
 
 % vars for missing_parafac3
-maxiter = 20000;
+maxiter = 10000;
 scale = 1;
 center = 1;
 conv = 1e-10;
@@ -96,9 +101,9 @@ orth = 1;
 whichX = 'scale';
     conc = concentrations;
 % declare vars for analysis 
-mse_LOOCV = zeros(length(fns),length(conc));
-wmse_LOOCV = zeros(length(fns),length(conc));
-RAD_LOOCV = zeros(length(fns),length(conc)); % relative absolute deviation 
+mse_LOOCV = zeros(length(fns),1);
+wmse_LOOCV = zeros(length(fns),1);
+RAD_LOOCV = zeros(length(fns),1); % relative absolute deviation 
 
 Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
 
@@ -114,8 +119,10 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
     
     Xs = remove_nan3(Xs);
     Xfilled = Xs;
-    [row,col] = find(~isnan(Xs(:,:,1)));
-    filled_ind = find(~isnan(Xs(:,:,1)));
+    tempX = tril(Xs(:,:,1),-1)+triu(nan(size(Xs(:,:,1))));
+    [row,col] = find(~isnan(tempX));
+    filled_ind = find(~isnan(tempX));
+    
     error_LOOCV = zeros(length(fns),length(row),length(conc));
     RAD = zeros(length(fns),length(row),length(conc));
     %declare vars with size dependent on the array used 
@@ -126,7 +133,7 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
         disp(fn)
         fnind = fnind + 1; 
         
-        for k = 1:length(row) %filled_linear_ind must be a row vector for a for loop    
+        parfor k = 1:length(row) %filled_linear_ind must be a row vector for a for loop    
             
             % remove a point from Xs
             X_b = Xs;
@@ -136,23 +143,22 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
                 %perform iterative PCA on the slightly more empty matrix 
                 
                 [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX,T);
-                X_pred_LOOCV(:,:,k)=X_pred;
-                error_LOOCV(fn,k, :) = Xs(row(k),col(k),:)-X_pred(row(k),col(k),:);
+                error_LOOCV(fnind,k, :) = Xs(row(k),col(k),:)-X_pred(row(k),col(k),:);
                 
                 Xm_boot(fnind, k,:) = X_pred(row(k),col(k),:);
                 if any(Xs(row(k),col(k),:)~=0)
-                    RAD(fn,k,:) = error_LOOCV(fn,k,:)/Xs(row(k),col(k),:);
+                    RAD(fnind,k,:) = error_LOOCV(fnind,k,:)./Xs(row(k),col(k),:);
                 end
                 
             end
         end
         % mse for this composition and rank 
-        mse_LOOCV(fn)= sum(sum(error_LOOCV(fn,:,:).^2))/length(error_LOOCV(fn,:,:));
-        wmse_LOOCV(fn) = find_wmse_error(error_LOOCV(fn,:,:), length(filled_ind'));
+        mse_LOOCV(fnind)= sum(sum(error_LOOCV(fn,:,:).^2))/length(error_LOOCV(fn,:,:));
+        wmse_LOOCV(fnind) = find_wmse_error(error_LOOCV(fn,:,:), length(filled_ind'));
         %absolute average deviation
-        RAD_LOOCV(fn) = sum(sum(abs(RAD(fn,:,:))))/length(RAD(fn,:,:));
+        RAD_LOOCV(fnind) = sum(sum(abs(RAD(fn,:,:))))/length(RAD(fn,:,:));
     end % END FN
-    filenamesave = strcat('3wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T),'-c=', num2str(c), '-fillmethod=',fillmethod,'-',  date, '.mat');
+    filenamesave = strcat('3wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T), '-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
     % find the optimal rank 
  
@@ -923,6 +929,7 @@ function [wmse]=find_wmse(X,X_pred,no_points)
 end 
 
 function [wmse]=find_wmse_error(errors, count)
+    errors = reshape(errors, prod(size(errors)),1);
     perc5=prctile(errors,5,'all');
     perc95=prctile(errors,95,'all');
     errors(errors<perc5)=perc5;
