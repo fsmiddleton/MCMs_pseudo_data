@@ -105,10 +105,6 @@ mse_LOOCV = zeros(length(fns),1);
 wmse_LOOCV = zeros(length(fns),1);
 RAD_LOOCV = zeros(length(fns),1); % relative absolute deviation 
 
-Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
-
-
-
     %Ts = readtable(filename, 'Sheet', num2str(conc));
     %Xs = table2array(Ts);
      if strcmp(whichX, 'scale') 
@@ -124,7 +120,11 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
     filled_ind = find(~isnan(tempX));
     
     error_LOOCV = zeros(length(fns),length(row),length(conc));
+    error_LOOCV2 = zeros(length(fns),length(row),length(conc));
     RAD = zeros(length(fns),length(row),length(conc));
+    RAD2 = zeros(length(fns),length(row),length(conc));
+    Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
+    Xm_boot2=zeros( length(fns), length(filled_ind),length(conc));
     %declare vars with size dependent on the array used 
     %loop through ranks
     disp('fn')
@@ -138,29 +138,32 @@ Xm_boot=zeros( length(fns), length(filled_ind),length(conc));
             % remove a point from Xs
             X_b = Xs;
             X_b(row(k),col(k),:) = nan;
+            X_b(col(k),row(k),:) = nan;
             if any(find(~isnan(X_b(:,col(k),:)))) & any(find(~isnan(X_b(row(k),:,:)))) & all(Xs(row(k),col(k),:)~=0) %ensure at least one value in each column and row
                 
                 %perform iterative PCA on the slightly more empty matrix 
                 
                 [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX,T);
-                error_LOOCV(fnind,k, :) = Xs(row(k),col(k),:)-X_pred(row(k),col(k),:);
                 
+                error_LOOCV(fnind,k, :) = Xs(row(k),col(k),:)-X_pred(row(k),col(k),:);
+                error_LOOCV2(fnind,k, :) = Xs(col(k),row(k),:)-X_pred(col(k),row(k),:);
                 Xm_boot(fnind, k,:) = X_pred(row(k),col(k),:);
+                Xm_boot2(fnind, k,:) = X_pred(col(k),row(k),:);
                 if any(Xs(row(k),col(k),:)~=0)
                     RAD(fnind,k,:) = error_LOOCV(fnind,k,:)./Xs(row(k),col(k),:);
+                    RAD2(fnind,k,:) = error_LOOCV2(fnind,k,:)./Xs(col(k),row(k),:);
                 end
                 
             end
         end
         % mse for this composition and rank 
-        mse_LOOCV(fnind)= sum(sum(error_LOOCV(fn,:,:).^2))/length(error_LOOCV(fn,:,:));
-        wmse_LOOCV(fnind) = find_wmse_error(error_LOOCV(fn,:,:), length(filled_ind'));
+        mse_LOOCV(fnind)= sum(sum(error_LOOCV(fnind,:,:).^2))/length(error_LOOCV(fnind,:,:))+sum(sum(error_LOOCV2(fnind,:,:).^2))/length(error_LOOCV(fnind,:,:));
+        wmse_LOOCV(fnind) = find_wmse_error([error_LOOCV(fnind,:,:) error_LOOCV2(fnind,:,:)], length(filled_ind')*2);
         %absolute average deviation
-        RAD_LOOCV(fnind) = sum(sum(abs(RAD(fn,:,:))))/length(RAD(fn,:,:));
+        RAD_LOOCV(fnind) = sum(sum(abs(RAD(fnind,:,:))))/length(RAD(fnind,:,:))+sum(sum(abs(RAD2(fnind,:,:))))/length(RAD(fnind,:,:));
     end % END FN
     filenamesave = strcat('3wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T), '-fillmethod=',fillmethod,'-',  date, '.mat');
-    save(filenamesave)
-    % find the optimal rank 
+    save(filenamesave) 
  
 toc 
 
