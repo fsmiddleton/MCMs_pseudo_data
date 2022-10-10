@@ -37,7 +37,7 @@ function [X_pred,iter,F,err] = missing_parafac3(X,fn,max_iter,conv,scale,center,
     end 
      
     if any(isnan(X)) % there is missing data
-        if size(dim)>3 % more than 3 -way data = 4-way data
+        if size(dim,2)>3 % more than 3 -way data = 4-way data
             Xfilledini = zeros(dim);
             for i = 1:dim(4)
                 Xfilledini(:,:,:,i) = filldata3(X(:,:,:,i),fillmethod, mixtures,concinterval, whichX, Temp(i));
