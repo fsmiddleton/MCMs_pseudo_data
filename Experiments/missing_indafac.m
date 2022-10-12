@@ -65,12 +65,12 @@ function [X_pred,iter,F,err] = missing_indafac(X,fn,max_iter,conv,scale,center, 
         if center ==1  
             % recenter after scaling - optional, but should be done 
             mx2 = mean(Xfilled);
-            Xc = Xfilled-ones(size(Xfilled,1),1)*mx2; 
+            Xfilled = Xfilled-ones(size(Xfilled,1),1)*mx2; 
         end 
-        Xc = reshape(Xc,DimX);
+        Xfilled = reshape(Xfilled,DimX);
         
         % initialises the factors 
-        [Fi,~]=parafac(Xc,fn, Options, const);
+        [Fi,~]=parafac(Xfilled,fn, Options, const);
         
         % fill predicted values into array
         %complete the array using indafac

@@ -7,11 +7,11 @@ clc
 clear
 % decide on which interval and temperature to evaluate 
 interval = 0.05;
-T = 288.15;
+T = 298.15;
 % comment out the small or all arrays (small contains only alkanes and
 % primary alcohols
+filename = strcat('HEData3wayPolySmall-',num2str(interval), '-', num2str(T), '.mat');
 %filename = strcat('HEData3wayPolyAll-',num2str(interval), '-', num2str(T), '.mat');
-filename = strcat('HEData3wayPolyAll-',num2str(interval), '-', num2str(T), '.mat');
 load(filename)
 conc_interval = interval:interval:(0.5-interval);
 X = HE_data_sparse(:,:,1:length(conc_interval));
@@ -21,8 +21,8 @@ dim = size(X);
 dim1 = dim(1);
 dim2 = dim(2);
 dim3 = dim(3);
-percmiss = length(find(isnan(X)))/(dim1*dim2)*100;
-percobs = length(find(~isnan(X)))/(dim1*dim2)*100;
+percmiss = length(find(isnan(X)))/(dim1*dim2*dim3)*100;
+percobs = length(find(~isnan(X)))/(dim1*dim2*dim3)*100;
 
 % define all the mixtures in the linear indices of the array, based on the
 % components in the 3-way array file 
@@ -77,18 +77,20 @@ save(filenamescree);
 %time the code 
 tic
 % declare ranks to be tested 
-fns =[6];
+fns =1:5;
 concentrations=conc_interval;
 Xscale = log(sign(X).*(X)).*sign(X);
 Xsign = sign(X);
 Xs = Xscale;
-% largest length of filled_linear_ind is for 0.3
-filled_ind = find(~isnan(tril(Xs(:,:,1)-1)));
+
+tempX = tril(Xs(:,:,1),-1)+triu(nan(size(Xs(:,:,1))));
+[row,col] = find(~isnan(tempX));
+filled_ind = find(~isnan(tempX));
 
 % vars for missing_parafac3
 maxiter = 20000;
-scale = 1;
-center = 1;
+scale = 0;
+center = 0;
 conv = 1e-10;
 winsorized_mse = 0;
 fillmethod = 'uni';
@@ -99,10 +101,14 @@ whichX = 'sign';
 mse_LOOCV = zeros(length(concentrations),length(fns));
 wmse_LOOCV = zeros(length(concentrations),length(fns));
 RAD_LOOCV = zeros(length(concentrations),length(fns)); % relative absolute deviation 
-
+min_mse_LOOCV = zeros(length(concentrations),1);
+min_wmse_LOOCV = zeros(length(concentrations),1);
+X_pred_LOOCV = zeros(dim1,dim2,length(filled_ind));
+LOOCV_removed_col = zeros(length(filled_ind),1);
+LOOCV_removed_row = zeros(length(filled_ind),1);
 Xm_boot=zeros(length(concentrations), length(fns), length(filled_ind));
-Xm_boot2=zeros(length(concentrations), length(fns), length(filled_ind));
-for c = 1:2:length(concentrations)
+
+for c = 1:length(concentrations)
     conc = concentrations(c);
     %Ts = readtable(filename, 'Sheet', num2str(conc));
     %Xs = table2array(Ts);
@@ -114,8 +120,7 @@ for c = 1:2:length(concentrations)
     
     Xs = remove_nan2(Xs);
     Xfilled = Xs;
-    [row,col] = find(~isnan(tril(Xs,-1)));
-    filled_ind = find(~isnan(tril(Xs,-1)));
+    
     disp('Concentration of compound 1')
     disp(c)
     %declare vars with size dependent on the array used 
@@ -129,40 +134,40 @@ for c = 1:2:length(concentrations)
         RAD = zeros(length(filled_ind),1);
         error_LOOCV2 = zeros(length(filled_ind),1);
         RAD2 = zeros(length(filled_ind),1);
-        
         parfor k = 1:length(filled_ind') %filled_linear_ind must be a row vector for a for loop    
             filled_index = filled_ind(k);
             % remove a point from Xs
             X_b = Xs;
-            X_b(row(k),col(k)) = nan;
-            X_b(col(k),row(k)) = nan;
+            X_b(filled_index) = nan;
+            X_b(col(k),row(k))=nan;
             if find(~isnan(X_b(:,col(k)))) & find(~isnan(X_b(row(k),:))) & Xs(filled_index)~=0 %ensure at least one value in each column and row
-               
+                LOOCV_removed_col(k,c) = col(k);
+                LOOCV_removed_row(k,c) = row(k);
                 %perform iterative PCA on the slightly more empty matrix 
                 
-                [X_pred,iters,F,err] = missing_parafac3(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX,T);
-               
-                error_LOOCV(fn,k) = Xs(filled_index)-X_pred(filled_index);
-                error_LOOCV2(fn,k) = Xs(col(k),row(k))-X_pred(filled_index);
+                [X_pred,iters,F,err] = missing_indafac(X_b,fn,maxiter,conv,scale,center,fillmethod,orth, mixtures,conc, whichX,T);
                 
+                error_LOOCV(k) = Xs(filled_index)-X_pred(filled_index);
+                error_LOOCV2(k) = Xs(col(k),row(k))-X_pred(col(k),row(k));
                 Xm_boot(c, fnind, k) = X_pred(filled_index);
                 Xm_boot2(c, fnind, k) = X_pred(col(k),row(k));
                 if Xs(filled_index)~=0
-                    RAD(fn,k) = error_LOOCV(fn,k)/Xs(filled_index);
-                    RAD2(fn,k) = error_LOOCV2(fn,k)/Xs(col(k),row(k));
+                    RAD(k) = error_LOOCV(k)/Xs(filled_index);
+                    RAD2(k) = error_LOOCV2(k)/Xs(col(k),row(k));
                 end
                 
             end
         end
         % mse for this composition and rank 
-        mse_LOOCV(c,fnind)= sum(error_LOOCV(fn,:).^2)/length(error_LOOCV(fn,:))+sum(error_LOOCV2(fn,:).^2)/length(error_LOOCV(fn,:));
-        wmse_LOOCV(c, fnind) = find_wmse_error([error_LOOCV(fn,:) error_LOOCV2(fn,:)], length(filled_ind')*2);
+        mse_LOOCV(c,fnind)= sum(error_LOOCV(fnind,:).^2)/length(error_LOOCV(fnind,:));
+        wmse_LOOCV(c, fnind) = find_wmse_error([error_LOOCV; error_LOOCV2], length(filled_ind')*2);
         %absolute average deviation
-        RAD_LOOCV(c,fnind) = (sum(abs(RAD(fn,:))))/length(RAD(fn,:))+(sum(abs(RAD2(fn,:))))/length(RAD(fn,:));
+        RAD_LOOCV(c,fnind) = (sum(abs(RAD(fnind,:))))/length(RAD(fnind,:));
     end % END FN
-    filenamesave = strcat('2wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T),'-c=', num2str(c), '-fillmethod=',fillmethod,'-',  date, '.mat');
+    filenamesave = strcat('2wayPARAFAC-All-LOOCV-X',whichX,'-maxiter=20000-T=',num2str(T),'-fn=', num2str(fn), '-fillmethod=',fillmethod,'-',  date, '.mat');
     save(filenamesave)
-     
+    
+    % use the best rank to find error bars 
 end 
 toc 
 
