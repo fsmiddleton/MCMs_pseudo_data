@@ -168,6 +168,7 @@ if nargin == 1 % Check options.
                     switch lower(InOp{j})
                         case 'method'
                             if ~any(strcmp({'random','orth','svd','dtld','swatld','best'},lower(U)))
+                        
                                 error('Invalid property assignment for ''Init_Method''. Value must be either ''random'',''orth'',''svd'',''dtld'' or ''swatld''')
                             end
                             
@@ -252,7 +253,7 @@ if nargin == 1 % Check options.
     
 else
     
-    CC      = struct('fit',10 * eps,'grad',1e-9,'maxiter',2500,'par',1e-8,'relfit',1e-6);   % Convergence criteria
+    CC      = struct('fit',10 * eps,'grad',1e-9,'maxiter',10000,'par',1e-8,'relfit',1e-6);   % Convergence criteria
     Comp    = struct('refmaxiter',10000,'tuckerextra',2,'tuckeriter',3);                    % Compression options
     Init    = struct('maxiter',5,'method','random','tol',1e-5);                             % Initialisation options
     Reg     = struct('gamma',1,'gammaupdate',5,'iter',3,'n_updates',5);                     % Regularisation options for pmf3
