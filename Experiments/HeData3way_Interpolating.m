@@ -29,7 +29,7 @@ end
 % Import the data of composition, component, temperature, and excess enthalpy
 clc
 clear
-data = readtable('HEData3August.xlsx','Sheet', 'All','ReadVariableNames',true); % change sheet to include certain functional groups as the main site of data collection 
+data = readtable('HEData23August.xlsx','Sheet', 'All','ReadVariableNames',true); % change sheet to include certain functional groups as the main site of data collection 
 
 comp = table2array(data(:,7));
 temp = table2array(data(:,6));
@@ -50,8 +50,8 @@ f2 = table2cell(data(:,2));
 ch1 = table2array(data(:,3));
 ch2 = table2array(data(:,4));
 
-func_groups.one = {'Alkane', 'Primaryalcohol'};%, 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
-func_groups.two = {'Alkane', 'Primaryalcohol'};%, 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
+func_groups.one = {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
+func_groups.two = {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
 max_chain_length = 12; 
 f1_num= zeros(length(HE),1);
 f2_num= zeros(length(HE),1);
@@ -89,21 +89,21 @@ interp_index = zeros(length(data.FunctionalGroup1),1);%variable to save the inde
 
 % Specify the mixtures wanted in the matrix. The algorithm will find all
 % combinations of functional group 1 and 2.  
-func_groups.one = {'Alkane', 'Primaryalcohol'};%, 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
-func_groups.two = {'Alkane', 'Primaryalcohol'};% , 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
+func_groups.one = {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
+func_groups.two = {'Alkane', 'Primaryalcohol' , 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
 max_chain_length = 12; 
 P = 15000; % pressure in kPa 
 % pressure is ignored due to very small variation with pressure of HE and
 % non-critical behaviour 
-for interval = [0.01, 0.02, 0.04, 0.05, 0.1]
+for interval = 0.05
     conc_interval = interval:interval:(1-interval);
     disp('Interval')
     disp(interval)
-    Temps = 298.15;%[307.5, 309.5,318.15];%[283.15, 288.15,293.15,298.15,303.15, 308.15,313.15,318, 323.15,363.15]; % ;243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15];
+    Temps = 298.15;%[283.15, 288.15,293.15,298.15,303.15, 308.15,313.15,318, 323.15,363.15]; % ;243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15];
     for T = Temps
         disp('Temperature')
         disp(T)
-        data = readtable('HEData3August.xlsx','ReadVariableNames',true); % change sheet to include certain functional groups as the main site of data collection 
+        data = readtable('HEData23August.xlsx','ReadVariableNames',true); % change sheet to include certain functional groups as the main site of data collection 
 
         comp = table2array(data(:,7));
         temp = table2array(data(:,6));
@@ -192,7 +192,7 @@ for interval = [0.01, 0.02, 0.04, 0.05, 0.1]
         end
         % Exporting the data 
         disp('Exporting')
-        prefixfilename = strcat('HEData3wayPolySmall-', num2str(interval), '-');
+        prefixfilename = strcat('HEData3wayPolyAll-', num2str(interval), '-',num2str(T));
         %remove nan columns or rows 
         mixture = mixture(:, 1:ind);
         HE_data = HE_data(:, 1:ind);
@@ -273,7 +273,7 @@ for interval = [0.01, 0.02, 0.04, 0.05, 0.1]
     %     writetable(TableHE, filename, 'Sheet', 'HEInterpolated')
     %     disp(filename)
         disp('Exported')
-        save(strcat(prefixfilename,num2str(T),'.mat'))
+        save(strcat(prefixfilename,'.mat'))
     end 
 end 
 %% Check the interpolation worked nicely for select mixtures
@@ -290,16 +290,28 @@ ylabel('Excess enthalpy (kJ/mol)')
 title(['Order of the fit ', num2str(orderPolyfit(mix))])
 %% Plt the missing data structure 
 % these must have the same sizes as x
-v=HE_data_sparse;
 
+load('HEData4wayArrayPolySmall-T=4-0.05.mat')
+v = reshape(HE_data_sparse(1:20,1:20,1,:),20,20,4);
 xslice = 1:1:20;    % location of y-z planes
 yslice = 1:1:20;     % location of x-z plane
-zslice = 1:3:9;         % location of x-y planes
+zslice = 1:1:4;         % location of x-y planes
 clf
 slice(v,xslice,yslice,zslice)
-xlabel('Component 1')
-ylabel('Component 2')
-zlabel('Composition')
+xlabel('Compound 1')
+ylabel('Compound 2')
+zlabel('Temperature (K)')
+zticks(1:4)
+zticklabels(num2str(Temps))
+compounds = {'Ethane', 'Propane', 'Butane', 'Pentane', 'Hexane', 'Heptane', 'Octane', 'Nonane', 'Decane', 'Dodecane', 'Methanol', 'Ethanol', 'Propanol', 'Butanol', 'Pentanol', 'Hexanol', 'Heptanol', 'Octanol', 'Nonanol', 'Decanol'};
+indices = 1:2:20;
+xticks(indices)
+yticks(indices)
+xticklabels(compounds(indices))
+yticklabels(compounds(indices))
+c = colorbar; %('Ticks', -1:1:1);
+ c.Label.String = 'Excess enthalpy (J/mol)';
+ c.Label.FontSize = 12;
 % hm = HeatMap(HE_matrix);
 % addXLabel(hm,'Component 1','FontSize',12);
 % addYLabel(hm,'Component 2','FontSize',12);
@@ -313,34 +325,59 @@ zlabel('Composition')
 clc 
 clear
 T = 298.15;
-filename = strcat('HEData3wayPolyAll-0.05-',num2str(T),'.mat');
+filename = strcat('HEData3wayPolySmall-0.05-',num2str(T),'.mat');
 load(filename)
 v=HE_data_sparse(:,:,1:10);
-
+compounds = {'Ethane', 'Propane', 'Butane', 'Pentane', 'Hexane', 'Heptane', 'Octane', 'Nonane', 'Decane', 'Dodecane', 'Methanol', 'Ethanol', 'Propanol', 'Butanol', 'Pentanol', 'Hexanol', 'Heptanol', 'Octanol', 'Nonanol', 'Decanol'};
 vsign = sign(v);
 vscale = vsign.*log(vsign.*v);
+for i =1:size(vscale,3)
+    Xtemp = vsign(:,:,i);
+    Xtemp(1:1+size(Xtemp,1):end) = 0; % diagonals are zero
+    vsign(:,:,i) = Xtemp;
+end 
 % define axes
 [X,Y,Z] = meshgrid(1:size(v,1), 1:size(v,1), 5:5:50);
 xslice = 1:1:size(v,1);    % location of y-z planes
 yslice = 1:1:size(v,1);     % location of x-z plane
 zslice = 5:5:50;         % location of x-y planes
 clf
-slice(X,Y,Z,v,xslice,yslice,zslice)
+slice(X,Y,Z,vsign,xslice,yslice,zslice)
 xlabel('Compound 1', 'FontSize',12)
 ylabel('Compound 2', 'FontSize',12)
 zlabel('Composition of compound 1 (%)', 'FontSize',12)
+indices = 1:2:20;
+xticks(indices)
+yticks(indices)
+xticklabels(compounds(indices))
+yticklabels(compounds(indices))
 % Label stuff:
- %colormap([1 1 0;0 0 0; 0 0 1])
+ colormap([1 1 0;0 0 0; 0 0 1])
+ c = colorbar; %('Ticks', -1:1:1);
+ c.Ticks = -1:1:1;
+ c.Label.String = 'Sign';
+ c.Label.FontSize = 12;
+%% 2-way plot of data 
+compounds = {'Ethane', 'Propane', 'Butane', 'Pentane', 'Hexane', 'Heptane', 'Octane', 'Nonane', 'Decane', 'Dodecane', 'Methanol', 'Ethanol', 'Propanol', 'Butanol', 'Pentanol', 'Hexanol', 'Heptanol', 'Octanol', 'Nonanol', 'Decanol'};
+[X,Y] = meshgrid(1:size(HE_data_sparse,3), 1:size(HE_data_sparse,2));
+pcolor(X,Y,reshape(HE_data_sparse(1,:,:),20,19))
+xlabel('Compound 1', 'FontSize',12)
+ylabel('Composition of compound 1 (%)', 'FontSize',12)
+indices = 1:2:20;
+xticks(indices)
+yticks(1:2:19)
+ylabel('Composition of compound 1 (%)', 'FontSize',12)
+xticklabels(compounds(indices))
+yticklabels((conc_interval(indices)*100))
  c = colorbar; %('Ticks', -1:1:1);
  c.Label.String = 'Excess enthalpy (J/mol)';
  c.Label.FontSize = 12;
 
-%% Import data and form 4-way array  
 %% Import data already interpolated and assign to groups  
 clc
 for interval = 0.05 %[0.01, 0.02, 0.04,0.05]
-    for T = [243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15]'
-        filename = strcat('HEData3wayPolyAll-',num2str(interval),'-',num2str(T),'.mat');
+    for T = 298.15%[243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15]'
+        filename = strcat('HEData3wayPolySmall-',num2str(interval),'-',num2str(T),'.mat');
         load(filename)
         % define types of mixtures d
         dim = size(HE_data);
@@ -377,6 +414,8 @@ for interval = 0.05 %[0.01, 0.02, 0.04,0.05]
     end
 end 
 %% rearrange type into an array 
+clf
+load('HEData3wayPolySmall-0.05-298.15.mat')
 X = HE_data_sparse;
 Xtemp = X(:,:,1);
 upperTri = triu(Xtemp,1);
@@ -391,10 +430,11 @@ missing_ind = find(isnan(Xtemp));
 typeArray = zeros(size(Xtemp));
 typeArray(filled_indU) = type(1:length(filled_indU));
 Z=typeArray+triu(typeArray,-1)';
-[X,Y] = meshgrid(1:size(X,1), 1:size(X,1));
+[X,Y] = meshgrid(1:size(Z,1), 1:size(Z,1));
 Z(Z==0)=nan;
 %imagesc(Z)
 pcolor(X,Y,Z')
+
 % Change colors: 
 colormap([0 1 0;1 0 0; 1 0 1; 0 0 1; 0 1 1])
 % Label stuff: 
@@ -402,8 +442,13 @@ colormap([0 1 0;1 0 0; 1 0 1; 0 0 1; 0 1 1])
 
  cb = colorbar('Ticks', 1:5);
  cb.Label.String = 'Type of system';
-%set(cb,'yticklabel',{'1','2', '3', '4','5'})
-
+set(cb,'yticklabel',{'1','2', '3', '4','5'})
+compounds = {'Ethane', 'Propane', 'Butane', 'Pentane', 'Hexane', 'Heptane', 'Octane', 'Nonane', 'Decane', 'Dodecane', 'Methanol', 'Ethanol', 'Propanol', 'Butanol', 'Pentanol', 'Hexanol', 'Heptanol', 'Octanol', 'Nonanol', 'Decanol'};
+indices = 1:2:20;
+xticks(indices)
+yticks(indices)
+xticklabels(compounds(indices))
+yticklabels(compounds(indices))
 
 xlabel('Compound 2')
 ylabel('Compound 1')

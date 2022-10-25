@@ -4,7 +4,7 @@
 % Import the data of composition, component, temperature, and excess enthalpy
 clc
 clear
-data = readtable('HEData18July.xlsx','Sheet', 'All','ReadVariableNames',true); % change sheet to include certain functional groups as the main site of data collection 
+data = readtable('HEData23August.xlsx','Sheet', 'All','ReadVariableNames',true); % change sheet to include certain functional groups as the main site of data collection 
 
 comp = table2array(data(:,7));
 temp = table2array(data(:,6));
@@ -62,19 +62,19 @@ interp_index = zeros(length(data.FunctionalGroup1),1);%variable to save the inde
 
 % Specify the mixtures wanted in the matrix. The algorithm will find all
 % combinations of functional group 1 and 2.  
-%func_groups.one = {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
-%func_groups.two = {'Alkane', 'Primaryalcohol' , 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
+func_groups.one = {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
+func_groups.two = {'Alkane', 'Primaryalcohol' , 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
 max_chain_length = 12; 
 P = 15000; % pressure in kPa 
 % pressure is ignored due to very small variation with pressure of HE and
 % non-critical behaviour 
-interval = 0.02;
-conc_interval = interval:interval:(0.5-interval);
-Temps = [283.15; 288.15; 293.15;298.15; 303.15; 318.15]; % [283.15; 288.15;293.15;298.15;303.15; 307.5; 309.5;313.15;318.15; 323.15;363.15]; % ;243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15];
+interval = 0.05;
+conc_interval = interval:interval:(1-interval);
+Temps = [298.15; 303.15;308.15; 318.15]; % [283.15; 288.15;293.15;298.15;303.15; 307.5; 309.5;313.15;318.15; 323.15;363.15]; % ;243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15];
 Tind = 0;
 
 
-data = eadtable('HEData3August.xlsx','Sheet', 'All','ReadVariableNames',true); % change sheet to include certain functional groups as the main site of data collection 
+data = readtable('HEData23August.xlsx','Sheet', 'All','ReadVariableNames',true); % change sheet to include certain functional groups as the main site of data collection 
 
 comp = table2array(data(:,7));
 temp = table2array(data(:,6));
@@ -181,7 +181,7 @@ end
 
 % Create 4-way array 
     disp('Exporting')
-    filename = strcat('HEData4wayArrayPolySmall-', num2str(interval), '.mat');
+    filename = strcat('HEData4wayArrayPolyAll-T=',num2str(length(Temps)),'-', num2str(interval), '.mat');
     %remove nan columns or rows 
     mixture = mixture(:, 1:ind);
     HE_data = HE_data(:, 1:ind,:);
