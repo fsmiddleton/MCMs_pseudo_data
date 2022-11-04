@@ -1,10 +1,8 @@
-% Import and form 4-way arrays 
-%FS Middleton 13 September 2022
 %% Import all collected data 
 % Import the data of composition, component, temperature, and excess enthalpy
 clc
 clear
-data = readtable('HEData23August.xlsx','Sheet', 'All','ReadVariableNames',true); % change sheet to include certain functional groups as the main site of data collection 
+data = readtable('HEData2023.xlsx','Sheet', 'All','ReadVariableNames',true); % change sheet to include certain functional groups as the main site of data collection 
 
 comp = table2array(data(:,7));
 temp = table2array(data(:,6));
@@ -25,8 +23,8 @@ f2 = table2cell(data(:,2));
 ch1 = table2array(data(:,3));
 ch2 = table2array(data(:,4));
 
-func_groups.one = {'Alkane', 'Primaryalcohol'};%, 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
-func_groups.two = {'Alkane', 'Primaryalcohol'};%, 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
+func_groups.one = {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5'};%,'Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
+func_groups.two = {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5'};%,'Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
 max_chain_length = 12; 
 f1_num= zeros(length(HE),1);
 f2_num= zeros(length(HE),1);
@@ -60,21 +58,16 @@ allcomps = [allcomps1; allcomps2(include2,:)];
 poly = 1; %1 for interpolation using polynomials, 2 for the RK equation, done with reduced HE data 
 interp_index = zeros(length(data.FunctionalGroup1),1);%variable to save the indexes that have been interpolated
 
-% Specify the mixtures wanted in the matrix. The algorithm will find all
-% combinations of functional group 1 and 2.  
-func_groups.one = {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
-func_groups.two = {'Alkane', 'Primaryalcohol' , 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
+
 max_chain_length = 12; 
 P = 15000; % pressure in kPa 
 % pressure is ignored due to very small variation with pressure of HE and
 % non-critical behaviour 
-interval = 0.05;
-conc_interval = interval:interval:(1-interval);
-Temps = [298.15; 303.15;308.15; 318.15]; % [283.15; 288.15;293.15;298.15;303.15; 307.5; 309.5;313.15;318.15; 323.15;363.15]; % ;243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15];
+
+conc_interval = 0.05:0.05:0.95;
+Temps = [288.15; 298.15; 313.15; 318.15]; %[288.15; 298.15; 303.15; 307.5; 309.5;313.15;318.15; 323.15]; % ;243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15];
 Tind = 0;
 
-
-data = readtable('HEData23August.xlsx','Sheet', 'All','ReadVariableNames',true); % change sheet to include certain functional groups as the main site of data collection 
 
 comp = table2array(data(:,7));
 temp = table2array(data(:,6));
@@ -181,7 +174,7 @@ end
 
 % Create 4-way array 
     disp('Exporting')
-    filename = strcat('HEData4wayArrayPolyAll-T=',num2str(length(Temps)),'-', num2str(interval), '.mat');
+    prefixfilename = 'HE4wayArrayPolyMed4';
     %remove nan columns or rows 
     mixture = mixture(:, 1:ind);
     HE_data = HE_data(:, 1:ind,:);
@@ -244,44 +237,23 @@ end
         observed3(indexobs) = length(find(~isnan(HE_data_sparse(:,:,:,indexobs))));
         percobs3(indexobs) = observed3(indexobs)/total3*100;
     end 
-% Save array 
-save(filename)
-%%
-Temps = [283.15; 288.15;293.15;298.15;303.15; 307.5; 309.5;313.15;318.15; 323.15;363.15];
-total3 = zeros(length(Temps),1);
-observed3 = zeros(length(Temps),1);
-percobs3 = zeros(length(Temps),1);
-compounds3 = zeros(length(Temps),1);
-indexobs = 0;
-for T = Temps'
-    disp(T)
-    indexobs=indexobs+1;
-    %load(strcat('HEData3wayPolyAll', num2str(T),'.mat'))
-    missing.ind = find(isnan(HE_data_sparse));
-    % check for nan rows and column 
-    [missing.i, missing.j] = find(isnan(HE_data_sparse(:,:,1,indexobs)));
-    observed = find(~isnan(HE_data_sparse));
-    total = length(missing.ind)+length(observed);
-    totalpercobserved = length(observed)/total;
-    dim = size(HE_data_sparse);
-    total3(indexobs,1) = (dim(1)*dim(2)-dim(1))/2;
-    compounds3(indexobs,1) = dim(1);
-    disp(indexobs)
-    
-    observed3(indexobs,1) = (length(find(~isnan(HE_data_sparse(:,:,1,indexobs))))-dim(1))/2;
-    percobs3(indexobs,1) = observed3(indexobs)/total3(indexobs)*100;   
-end 
+    filename = strcat(prefixfilename,'.mat');
+    save(filename)
+    disp('Exported')
+%% Save array 
+save HEData4waySmallPoly 
+
 %% Export 4-way array 
     % Export 4-way array to excel spreadsheet 
     filename = strcat(prefixfilename,'.xlsx');
     %create table with all this information
     for T = 1:length(Temps)
         for i = 1:length(conc_interval)
-            Table = array2table(HE_data_sparse(:,:,i,T));
+            Table = array2table(HE_data_sparse(:,:,i));
             writetable(Table,filename,'Sheet',strcat(num2str(Temps(T)),'-',num2str(conc_interval(i))))
         end 
     end 
-    %TableHE = array2table(HE_data);
+    TableHE = array2table(HE_data);
     Table2= array2table(mixture);
     Table4 = array2table(uncertainty);
     Table5 = array2table(orderPolyfit);
