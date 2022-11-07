@@ -23,8 +23,8 @@ f2 = table2cell(data(:,2));
 ch1 = table2array(data(:,3));
 ch2 = table2array(data(:,4));
 
-func_groups.one = {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5'};%,'Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
-func_groups.two = {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5'};%,'Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
+func_groups.one = {'Alkane', 'Primaryalcohol'}%, 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
+func_groups.two = {'Alkane', 'Primaryalcohol'}%, 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
 max_chain_length = 12; 
 f1_num= zeros(length(HE),1);
 f2_num= zeros(length(HE),1);
@@ -65,7 +65,7 @@ P = 15000; % pressure in kPa
 % non-critical behaviour 
 
 conc_interval = 0.05:0.05:0.95;
-Temps = [288.15; 298.15; 313.15; 318.15]; %[288.15; 298.15; 303.15; 307.5; 309.5;313.15;318.15; 323.15]; % ;243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15];
+Temps = [288.15; 298.15; 313.15; 318.15;323.15]; %[288.15; 298.15; 303.15; 307.5; 309.5;313.15;318.15; 323.15]; % ;243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15];
 Tind = 0;
 
 
@@ -154,7 +154,7 @@ for func1= func_groups.one
                                 TempsMix(Tind,ind) = 1; % a 1 is shown in the array for every existing temperature of a mixture 
                                 if poly == 1
                                     [HE_data(:,ind, Tind), uncertainty(:,ind,Tind), orderPolyfit(ind,Tind),HEpred(:,ind,Tind), errorpred(:,ind,Tind)]=interp_data(temp5, conc_interval);
-                                    HE_original(1:size(temp5,1),ind) = temp5.Excessenthalpy;
+                                    HE_original(1:size(temp5,1),ind,Tind) = temp5.Excessenthalpy;
                                 else
                                     %used for reduced HE data 
                                     [HE_data(:,ind, Tind), uncertainty(:,ind,Tind), orderPolyfit(ind,Tind),HEpred(:,ind,Tind), errorpred(:,ind,Tind)]=RK_interp_data(temp5, conc_interval);
@@ -174,11 +174,12 @@ end
 
 % Create 4-way array 
     disp('Exporting')
-    prefixfilename = 'HE4wayArrayPolyMed4';
+    prefixfilename = 'HE4wayArrayPolySmall5';
     %remove nan columns or rows 
     mixture = mixture(:, 1:ind);
     HE_data = HE_data(:, 1:ind,:);
     conc_original = conc_original(:, 1:ind,:);
+    HE_original = HE_original(:, 1:ind,:);
     uncertainty = uncertainty(:, 1:ind,:);
     %orderPolyfit = orderPolyfit(1:ind, :)';
     RAD = abs(errorpred./HEpred);
