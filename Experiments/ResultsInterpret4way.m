@@ -13,85 +13,7 @@ parafac = 'INDAFAC';
 whichside =1:2;
 postprocess = 0;
 
-%% Xsign
-%load('2wayINDAFAC-LOOCV-Xsign-maxiter=20000-T=298.15-c=19-fillmethod=dia-21-Oct-2022.mat')
-
-%load('2wayINDAFACthresholded-LOOCV-Xsign-maxiter=20000-T=298.15-c=19-fillmethod=dia-21-Oct-2022.mat')
-%load the sign results
-%load('2wayINDAFAC-25comps-LOOCV-Xsign-maxiter=20000-T=298.15-c=19-fillmethod=dia-18-Oct-2022.mat')
-%load('2wayINDAFAC-All-LOOCV-Xsign-maxiter=20000-T=298.15-c=19-fillmethod=dia-17-Oct-2022.mat')
-%change the date manually 
-%filenameimport = strcat(num2str(ways),'way',(parafac),'-All-LOOCV-Xsign-maxiter=20000-T=',num2str(Temperature),'-c=',num2str(concen),'-fillmethod=',fillmethod,'-',date,'-2022.mat');
-%load(filenameimport)
-%Tablesign = {filenameimport; filename; fillmethod; num2str(orth)};
-%writetable(cell2table(Tablesign),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'U2', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% signPrediction = sign(Xm_boot);
-% signPrediction(signPrediction ==0)=nan;
-% indicesSign = find(~isnan(signPrediction(1,1,:)));
-% signPrediction = signPrediction(:,:,indicesSign);
-% Xtemp = Xsign;
-% Xtemp(X==0)=nan;
-% filled_ind = find(~isnan(Xtemp(:,:,1))); % not equal to zero and not nan
-% filled_indices = find(~isnan(X(:,:,1)));
-% [row,col] = find(~isnan(Xtemp(:,:,1)));
-% 
-% errors = zeros(length(fns),length(concentrations),length(filled_ind)/2,2);
-% signPreds = zeros(length(fns),length(concentrations),length(filled_ind)/2,2);
-% correct = zeros(length(fns),length(concentrations));
-% %find errors and how many were correctly predicted 
-% 
-% Preds = [Xm_boot(1,1,1:length(filled_ind))];%; Xm_boot2(1,1,:)];
-% %Preds = reshape(Preds,2,[]);
-% indiceskeep = find(Preds(1,:)); % not equal to zero 
-% for fn = 1:length(fns)
-%     for c = 1:length(concentrations)
-% 
-%         if length(whichside)>1
-%             Preds(1,:) = Xm_boot(c,fn,1:length(filled_ind));
-%             Preds(2,:) = Xm_boot2(c,fn,1:length(filled_ind));
-%         elseif whichside ==1
-%             Preds(1,:) = Xm_boot(c,fn,1:length(filled_ind));
-%         else 
-%             Preds(1,:) = Xm_boot2(c,fn,1:length(filled_ind));
-%         end 
-%         
-%         Preds = sign(Preds(:, indiceskeep));
-%         signPreds(fn,c,:,whichside) =reshape(Preds,size(signPreds(1,1,:,whichside))); 
-%         
-%         if length(whichside)>1
-%             %Truth: lower half (preds1)
-%             tempX = tril(Xscale(:,:,c),-1)+triu(nan(size(Xscale(:,:,c))));
-%             filled_ind = find(~isnan(tempX));
-%             Truthtemp = Xsign(:,:,c);
-% 
-%             Truthsign(c,1,:) = Truthtemp(filled_ind);
-%             %top half truth
-%             tempX = (triu(Xsign(:,:,c),1)+tril(nan(size(Xsign(:,:,c)))))';
-%             filled_ind = find(~isnan(tempX));
-%             Truthsign(c,2,:) = (tempX(filled_ind));
-%         elseif whichside==1
-%             %Truth: lower half (preds1)
-%             tempX = tril(Xscale(:,:,c),-1)+triu(nan(size(Xscale(:,:,c))));
-%             filled_ind = find(~isnan(tempX));
-%             Truthtemp = Xsign(:,:,c);
-% 
-%             Truthsign(c,1,:) = Truthtemp(filled_ind);
-%         elseif whichside==2
-%             %top half truth
-%             tempX = (triu(Xsign(:,:,c),1)+tril(nan(size(Xsign(:,:,c)))))';
-%             filled_ind = find(~isnan(tempX));
-%             Truthsign(c,2,:) = (tempX(filled_ind));
-%         end 
-%         
-%         errors(fn,c,:,whichside) =reshape(reshape(Truthsign(c,whichside,:),size(Preds))-Preds, size(errors(1,1,:,whichside)));
-%         correct(fn,c)= sum(sum(errors(fn,c,:,whichside)==0))/length(Preds)/(length(whichside))*100;
-%         
-%     end 
-% end 
-%export the results 
-%writetable(array2table(fns'),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'T11', 'WriteVariableNames',false, 'AutoFitWidth', false)
-%writetable(array2table(correct),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'U11', 'WriteVariableNames',false, 'AutoFitWidth', false)
-%% If no sign predictions exist 
+%% No sign predictions exist 
 load('3waPARAFAC-Small-concslices-LOOCV-Xscale-maxiter=20000-Temp=298.15-fillmethod=reg-04-Nov-2022.mat')
 %load('2waySVD-50comps-scale1-threshold60par-moreiter-huberloss1-LOOCV-Xscale-T=298.15-fillmethod=rec-02-Nov-2022.mat')
 %load('2waySVD-50comps-scale0-threshold60par-moreiter-huberloss1-LOOCV-Xscale-T=298.15-fillmethod=reb-01-Nov-2022.mat')
@@ -247,7 +169,7 @@ load(strcat('heUNIFACforT=',num2str(Temperature),'.mat'), 'mixture', 'conc_inter
 [~,mixunind] = find(ismember(mixture',mixtures(filled_ind,:), 'rows')); % hopefully this extracts what we want 
 heunifacpred = he(5:5:96, mixunind);
 mixtureuni = mixture;
-for fnind =6%1:length(fns)
+for fnind =4%1:length(fns)
 
     rSign = 1;
     rScale = fnind;
@@ -352,7 +274,7 @@ xlabel('Number of factors')
 figure(2)
 clf
 
-p = 0;
+p = 1;
 
 
 %info we might want later 
