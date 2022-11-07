@@ -1,4 +1,4 @@
-function [U,S,V,St,X_pred, AllSVs, iterations]=missing_svd(X,fn,center,scale,conv,max_iter, use_missing,fillmethod,mixtures,whichX,conc,T)
+function [S,V,D,St,X_pred, AllSVs, iterations]=missing_svd(X,fn,center,scale,conv,max_iter, use_missing,fillmethod,mixtures,whichX,conc,T)
     % Fill a matrix of missing data using PCA with SVD and a given number of
     % PCs. Can also handle non-missing data. Missing data is handled as NaN
     % values 
@@ -39,8 +39,8 @@ function [U,S,V,St,X_pred, AllSVs, iterations]=missing_svd(X,fn,center,scale,con
             % preprocess = scale and then center 
             mx = mean(Xfilled);
             if scale ==1 
-                sj = sqrt(sum(sum((Xfilled).^2)));
-                Xfilled = Xfilled/sj;
+                sj =sqrt(sum((Xfilled).^2,2));
+                Xfilled = Xfilled./(sj*(ones(1,size(Xfilled,2))));
             end 
             if center ==1
                 mx = mean(Xfilled); %columnwise mean 
@@ -49,21 +49,21 @@ function [U,S,V,St,X_pred, AllSVs, iterations]=missing_svd(X,fn,center,scale,con
                 Xc=Xfilled;
             end 
             %perform SVD
-            [U,S,V] = svd(Xc);
-            AllSVs = S;
-            St=U*S;
+            [S,V,D]=svd(Xc);
+            AllSVs = V;
+            St=S*V;
              St = St(:,1:fn);
-             S=S(:,1:fn);
-             U=U(:,1:fn);
              V=V(:,1:fn);
+             S=S(:,1:fn);
+             D=D(:,1:fn);
             % post process = uncenter, unscale  
             if center ==1
-                X_pred = St*V'+ones(m,1)*mx;
+                X_pred = St*D'+ones(m,1)*mx;
             else 
-                X_pred = St*V';
+                X_pred = St*D';
             end 
             if scale ==1
-                X_pred = X_pred*sj;
+                X_pred = X_pred.*(sj*(ones(1,size(Xfilled,2))));
             end
             
             % fill misssing values 
@@ -93,21 +93,22 @@ function [U,S,V,St,X_pred, AllSVs, iterations]=missing_svd(X,fn,center,scale,con
         else 
             Xc=X;
         end 
-        [U,S,V]=svd(Xc);
-        St=U*S;
-        AllSVs=S;
+        [S,V,D]=svd(Xc);
+        St=S*V;
+        AllSVs=V;
         St = St(:,1:fn);
-        S=S(:,1:fn);
-        U=U(:,1:fn);
         V=V(:,1:fn);
+        S=S(:,1:fn);
+        D=D(:,1:fn);
          
         if center ==1
-            X_pred = St*V'+ones(m,1)*mx;
+            X_pred = St*D'+ones(m,1)*mx;
+            
         else 
-            X_pred = St*V';
+            X_pred = St*D';
         end 
         if scale ==1
                 X_pred = X_pred*sj;
         end
     end %end if  else 
-end % end function 
+end % end fu

@@ -7,6 +7,10 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
     %          'dia' - triangular filling
     %          'avc' - column averages
     %          'avr' - row averages
+    %          'reg' - nearest values in the row
+    %          'rec' - nearest values in the column 
+    %          'reb' - nearest values in the column and row 
+    %          'mix' - nearest values of the same type of mixture 
     %       or 'uni' - unifac predictions 
     % mixtures = components ordered according to their place in the linear array (2D) 
     % concinterval = concentration interval over which to fill data 
@@ -24,7 +28,8 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
     if (size(dim,2))==2
         dim(3)=1;
     end 
-    missing = isnan(X); %linear indices 
+    missing = find(isnan(X(:,:,1))); %linear indices 
+    
 
     X_filled = X;
      
@@ -36,7 +41,72 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
         for i = 1:dim(3)
             X_filled(:,:,i) = fill_data(X(:,:,i)); 
         end 
+    elseif strcmp(method,'reb')
+        X_filled = zeros(dim);
+        for i = 1:dim(3)
+            X_filled1 = fillmissing(X(:,:,i), 'Linear', 2, 'EndValues','nearest'); 
+            X_filled2 = fillmissing(X(:,:,i), 'Linear', 1, 'EndValues','nearest'); 
+            X_filled(:,:,i) = (X_filled1 + X_filled2)./2;
+        end
+    elseif strcmp(method, 'reg')
+        X_filledtemp = zeros(dim);
+        for ind =1:dim(3)            
+            % for all NaN elements that exist, loop through them to replace with means 
+            X_filled = X(:,:,ind); 
+            X_filled=fillmissing(X_filled, 'linear',2,'EndValues','nearest');
+             
+           X_filledtemp(:,:,ind)=X_filled;
+        end 
+        X_filled = X_filledtemp;
+     elseif strcmp(method, 'rec')
+        X_filledtemp = zeros(dim);
+        for ind =1:dim(3)            
+            % for all NaN elements that exist, loop through them to replace with means 
+            X_filled = X(:,:,ind); 
+            X_filled=fillmissing(X_filled, 'linear',1,'EndValues','nearest');
+             
+           X_filledtemp(:,:,ind)=X_filled;
+        end 
+        X_filled = X_filledtemp;
         
+    elseif strcmp(method,'mix') %same mixture type used in the 2-way arrays 
+        K=3;
+        [row, col] = find(isnan(X(:,:,1)));
+        Xtemp = X;
+        Xtemp(Xtemp==0) = nan;
+        filled_indlogical = (~isnan(Xtemp(:,:,1))); % 2-way array - 1 = not NaN
+        
+        f1 = mixtures(:,1);
+        f2 = mixtures(:,3);
+        funcgroups = [f1 f2];
+        X_filled = X;
+        for ind =1%:dim(3)            
+            % for all NaN elements that exist, loop through them to replace with means
+            Xtemp = X(:,:,ind);
+            for j = 1:length(missing)
+                %disp('j')
+                missing_ind = missing(j);
+                mixture = mixtures(missing_ind,:);
+                func1 = mixture(1);
+                func2 = mixture(3);
+                func = [func1 func2];
+                index = (ismember(funcgroups, func,'rows')); %where the same type of mixtures are found in all the mixtures
+                index = reshape(index,dim(1),dim(2));
+                %indices where there are filled values and the same type of
+                %mixture
+                index2 = (index.*filled_indlogical);
+                [row2,col2] = find(index2); %row and column indices of all ones in index2
+                %find those  indices nearest the index of the missing data
+                %point                 
+                idx = knnsearch([row2 col2], [row(j) col(j)], 'K', K);
+
+                for k = 1:K
+                    Xtempk(k) = Xtemp(row2(idx(k)),col2(idx(k)));
+                end 
+                Xtempj = mean(Xtempk);
+                X_filled(row(j),col(j),ind) = Xtempj;
+            end 
+        end 
     elseif strcmp(method, 'avc')
         % column averages are used only 
         X_filledtemp = zeros(dim);
@@ -270,20 +340,20 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                 %convert arrays of concentrations to strings to allow them to be
                 %compared 
                 conc_unifac = string(conc_interval);
+                %disp(concintervalarray)
                 conc_array =string(concintervalarray);
                 conc_unifac2 = (1-conc_interval);
                 mixture = mixture'; % rows can now be compared 
-
+                
                 concindices2 = (intersect(conc_unifac,conc_array));
-                
+                %disp(concindices2);
                 [~,concindices2] = ismember(concindices2,conc_unifac);
-                
+                %disp(concindices2);
                 %components = possible components in this array, ordered 
                 
                 for ind = 1:length(X1)
                     if isnan(X1(ind,1)) 
                         % fill with UNIFAC prediction 
-                        %disp(ind)
                         [~,indexpred] = ismember(mixturesarray(ind,:),mixture,'rows');
 
                         if indexpred ==0
