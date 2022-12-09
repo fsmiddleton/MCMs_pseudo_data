@@ -6,14 +6,14 @@
 clc
 clear
 
-Temps = 298.15; %[243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15;307.5;
-    %309.5; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15];
+Temps =[293.15]%; 298.15; 303.15;308.15; 313.15; 318.15; 323.15];
 func_group_no= {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
 %import compound data 
 compounds = readtable("UNIFACParams.xlsx", 'Sheet', "compounds");
 functionalgroup = table2cell(compounds(:,1));
 chainlength = table2array(compounds(:,2));
 compounds = table2array(compounds(:,3));
+compounds{84} = 'tertbutylalchol';
 conc_interval = 0:0.01:1;
 
 for T = Temps' % for each excel file 
@@ -45,17 +45,17 @@ for T = Temps' % for each excel file
 end 
 %% Find errors of all UNIFAC (Do) predictions 
 clc
-clear
+
 %initiate necessary vars 
-Temps = 298.15; %[ 283.15, 288.15, 293.15, 298.15, 303.15, 307.5,309.5, 313.15, 318.15, 323.15, 363.15];
+Temps =[293.15]%; 298.15; 303.15;308.15; 313.15; 318.15; 323.15];
 smse_overall = zeros(length(Temps),1);
 nopreds = zeros(length(Temps),1);
 AARD_overall = zeros(length(Temps),1);
 counter=0;% temperature counter 
-for T = Temps% for each excel file
+for T = Temps'% for each excel file
     counter=counter+1;
     %import experimental data 
-    filename = strcat('HEData3wayPolyAll-0.05-',num2str(T),'.mat');
+    filename = strcat('HE3wayPolyAll',num2str(T),'.mat');
     load(filename)
     %columns = mixtures throughout
     mixture_exp = mixture;
@@ -117,52 +117,82 @@ end
 AARD = sum(AARD_overall.*nopreds)/sum(nopreds);
 smse = sum(smse_overall.*nopreds)/sum(nopreds);
 
+%% Parity plot and error distribution plots 
+%Import all the UNIFAC predictions 
+Temperature = 293.15;%[288.15; 298.15; 303.15;307.5;309.5; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15];
+load('colorblind_colormap.mat')
+
+load(strcat('UNIFACerrors',num2str(Temperature),'.mat')) %change the temperature here
+ 
+%parity plot 
+f4 = figure(4);
+f4.Position=[10 10 350 250];
+clf
+%choose between plot and loglog 
+plot(he_exp(:), he_pred(:),'.','Color', 'k', 'MarkerSize',6)
+hold on
+plot([min(he_exp(:)),max(he_exp(:))], [min(he_exp(:)),max(he_exp(:))],'-', 'Color',colorblind(4,:), 'LineWidth', 1.2)
+hold off
+xlabel('Experimental (J/mol)','FontSize',11, 'Color', 'k')
+ylabel('UNIFAC prediction (J/mol)','FontSize',11, 'Color', 'k')
+
+%error distribution 
+f5 = figure(5);
+f5.Position = [10 20 350 250];
+clf
+%choose the number of bins 
+%ploterrhist(errorHE(:), 'bins', 20)
+histogram(err(:), 20, 'FaceColor', colorblind(6,:), 'BinLimits', [-1000 1000])
+ylabel('Instances','FontSize',11, 'Color', 'k')
+xlabel('UNIFAC error (J/mol)', 'FontSize',11, 'Color', 'k')
 %% Errors by type of mixture 
 clc
 clear
-for interval = 0.1 %[0.01, 0.02, 0.04,0.05]
-    he_predtype = cell(11,5);
-    he_exptype = cell(11,5);
-    counter = 0; % temperature counter
-    for T = [283.15; 288.15; 293.15; 298.15; 303.15; 307.5;309.5; 313.15; 318.15; 323.15; 363.15]'
-        counter = counter+1;
-        filename = strcat('UNIFACerrors',num2str(T),'.mat');
-        load(filename)
-        % define types of mixtures 
-        dim = size(he_exp);
-        type = zeros(1,dim(2));
-        for i = 1:dim(2)
-            %extract data set 
-            
-            temp = he_exp(:,i);
-            maxVal = max(temp);
-            minVal = min(temp);
-            if maxVal<0 || minVal<0 
-                % passes through the origin or is negative 
-                if sign(maxVal)~=sign(minVal) %passes through origin, only one is negative 
-                    type(i) = 1;
-                else 
-                    type(i) = 2;
-                end 
+
+he_predtype = cell(14,5);
+he_exptype = cell(14,5);
+count = zeros(14,5);
+counter= 0; % temperature counter;%
+for T =[293.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15]'
+    counter = counter+1;
+    filename = strcat('UNIFACerrors',num2str(T),'.mat');
+    load(filename)
+    % define types of mixtures 
+    dim = size(he_exp);
+    type = zeros(1,dim(2));
+    for i = 1:dim(2)
+        %extract data set 
+
+        temp = he_exp(:,i);
+        maxVal = max(temp);
+        minVal = min(temp);
+        if maxVal<0 || minVal<0 
+            % passes through the origin or is negative 
+            if sign(maxVal)~=sign(minVal) %passes through origin, only one is negative 
+                type(i) = 1;
             else 
-                %positive curve 
-                if maxVal > 1000 % adjustable ceilings for this classification
-                    type(i) = 3; % very positive 
-                elseif maxVal >200
-                    type(i) = 4; % moderately positive 
-                else 
-                    type(i) = 5; % less than 200 at the maximum 
-                end 
+                type(i) = 2;
             end 
-        end
-        for i = 1:5
-            he_predtype{counter,i} = he_pred(:,find(type==i));
-            he_exptype{counter,i} = he_exp(:,find(type==i));
+        else 
+            %positive curve 
+            if maxVal > 1000 % adjustable ceilings for this classification
+                type(i) = 3; % very positive 
+            elseif maxVal >200
+                type(i) = 4; % moderately positive 
+            else 
+                type(i) = 5; % less than 200 at the maximum 
+            end 
         end 
-        save(filename)
+    end
+    for i = 1:5
+        he_predtype{counter,i} = he_pred(:,find(type==i));
+        he_exptype{counter,i} = he_exp(:,find(type==i));
+        countofType(counter,i) = length(find(type==i));
     end 
-    save('UNIFACPredsPerType.mat')
+    save(filename)
 end 
+save('UNIFACPredsPerType.mat')
+
 %%
 load('UNIFACPredsPerType.mat')
 he_exppertype = cell(5,1);
@@ -170,13 +200,39 @@ he_predpertype = cell(5,1);
 for i =1:5
     he_exps = [];
     he_preds = [];
-    for j = 1:11
+    for j = 1:7 %number of temperatures 
         he_exps = [he_exps he_exptype{j,i}];
         he_preds = [he_preds he_predtype{j,i}];
     end 
     he_exppertype{i,1} = he_exps;
     he_predpertype{i,1} = he_preds;
 end
+save('UNIFACPredsPerType.mat')
+%% Tables per type of mixture 
+load('UNIFACPredsPerType.mat')
+Temps = [293.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15]';
+%choose the temperature 
+T = 293.15; 
+indexT = find(Temps==T);
+for i =1:5 
+    numberofMix(i) = countofType(indexT,i);
+    heexp = he_exptype{indexT,i};
+    hepred = he_predtype{indexT,i};
+    hepred(heexp==0)=[];
+    heexp(heexp==0) = [];
+    
+    err = heexp(:)-hepred(:);
+    err(isnan(err))=[];
+    heexp = heexp(:);
+    heexp(isnan(heexp))=[];
+    
+    mse(i) = sqrt(sum(err(:).^2)/length(err(:)));
+    wmse(i) = sqrt(find_wmse_error(err(:), length(err(:))));
+    ard(i) = mean(abs(err(:)./heexp(:)))*100;
+end 
+
+tbl = table(["1","2","3","4","5"]',numberofMix',ard',mse',wmse', 'VariableNames', ["Type of mixture", "Number of mixtures","AARD (%)","SMSE (J/mol)","wSMSE (J/mol)" ]);
+summary(tbl)
 
 %% Errors per type
 load('UNIFACPredsPerType.mat')
@@ -197,10 +253,12 @@ for i = 1:5
 end 
 save('UNIFACPredsPerType.mat')
 
+
 %% Errors by functional groups 
 clc
 clear
-Temps = 298.15;%[283.15; 288.15; 293.15;  298.15; 303.15;307.5;309.5;  313.15; 318.15; 323.15;363.15];
+Temps =298.15%[288.15; 298.15; 303.15;307.5;309.5; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15];
+%Temps = 298.15;%[288.15; 298.15; 303.15;307.5;309.5; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15];
 %func_group= {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
 func_group_no = {1,2,3:5, [6,7,11], 8:9, 10, 12:17,18:20, 21, 22};
 label_func = {'Alkane', 'Primary alcohol', 'Other alcohol','Cycloalkanes', 'Ketone', 'Alkene', 'Ester', 'Amine','Acid','Aldehyde'};
@@ -209,62 +267,44 @@ label_func = {'Alkane', 'Primary alcohol', 'Other alcohol','Cycloalkanes', 'Keto
 err_funcgroup = cell(length(label_func ),length(label_func ),length(Temps));
 ARD_funcgroup = cell(length(label_func ),length(label_func ),length(Temps));
 
-counter = 0;
+
 for T = Temps'
-    counter = counter+1;
     filename = strcat('UNIFACerrors',num2str(T),'.mat');
     load(filename)
-    for func = 1:length(label_func)
-        for func2 = 1:length(label_func)
+    for funcind1 = 1:length(label_func)
+        for funcind2 = 1:length(label_func)
             %extract arrays of groups 
-            funcgroup1 = func_group_no{func};
-            funcgroup2 = func_group_no{func};
+            funcgroup1 = func_group_no{funcind1};
+            funcgroup2 = func_group_no{funcind1};
             %find mixtures with this combination
-            index = find(mixture_exp(1,:)==func);
-            index2 = find(mixture_exp(3,:)==func2);
+            index = find(mixture_exp(1,:)==funcind1);
+            index2 = find(mixture_exp(3,:)==funcind2);
             indices = intersect(index,index2);
             %export errors and ARDs
-            err_funcgroup{func,func2,counter} = err(:,indices); 
-            ARD_funcgroup{func,func2,counter} = ARD(:,indices);
+            errtemp = err(:,indices);
+            err_funcgroup{funcind1,funcind2} = errtemp; 
+            smse_funcgroup(funcind1,funcind2) = sqrt(sum(errtemp(:).^2)/length(errtemp(:)));
+            wsmse_funcgroup(funcind1,funcind2) = find_wmse_error(errtemp(:),length(errtemp(:)));
+            ardtemp = ARD(:,indices);
+            ARD_funcgroup{funcind1,funcind2} = ardtemp;
+            AARD_funcgroup(funcind1,funcind2) = sum(ardtemp(:))/length(ardtemp(:)); 
+            nomix(funcind1,funcind2) = size(errtemp,2);
         end 
     end 
+    save(filename)
 end 
-
-% combine temperature data 
-smse_funcgroup = zeros(length(func_group_no),length(func_group_no));
-wsmse_funcgroup = zeros(length(func_group_no),length(func_group_no));
-AARD_funcgroup = zeros(length(func_group_no),length(func_group_no));
-err_group = cell(length(func_group_no),length(func_group_no));
-ARD_group = cell(length(func_group_no),length(func_group_no));
-no_mix = zeros(length(func_group_no),length(func_group_no));
-
-for func = 1:length(func_group_no)
-    for func2 = 1:length(func_group_no)
-        errtemp =[];
-        ardtemp = [];
-        for i =1:counter 
-            errtemp = [errtemp reshape(err_funcgroup{func,func2,i}, [19],[])]; 
-            ardtemp = [ardtemp reshape(ARD_funcgroup{func,func2,i}, [19],[])];
-        end 
-        err_group{func,func2}=errtemp;
-        ARD_group{func,func2}=ardtemp;
-        smse_funcgroup(func,func2) = sqrt(sum(errtemp(:).^2)/length(errtemp(:)));
-        ardtemp = ardtemp(find(~isinf(ardtemp)));
-        ardtemp = ardtemp(find(~isnan(ardtemp)));
-        AARD_funcgroup(func,func2) = sum(ardtemp(:))/length(ardtemp(:)); 
-        no_mix(func,func2) = length(ardtemp(:)/9);
-        wsmse_funcgroup(func,func2) = find_wmse_error(errtemp(:),length(errtemp(:)));
-    end 
-end 
-%save('UNIFACErrorsPerFuncgroup.mat')
 
 %% heatmap of errors by functional group 
-
+clc 
+clear
+T=298.15;
+filename = strcat('heUNIFACforT=',num2str(T),'.mat');
+load(filename)
 [X,Y] = meshgrid(1:size(AARD_funcgroup,1), 1:size(AARD_funcgroup,1));
 SMSEplot = smse_funcgroup;
 AARDplot=AARD_funcgroup.*100; 
 %create a table 
-[row,col] = find((AARDplot));
+[row,col] = find(~isnan(AARDplot));
 for i = 1:length(row)
     funcgroup1tbl{i} = label_func{row(i)};
     funcgroup2tbl{i} = label_func{col(i)};
@@ -274,7 +314,23 @@ for i = 1:length(row)
 end 
 tbl = table(funcgroup1tbl', funcgroup2tbl',wsmse_tbl',smse_tbl',aard_tbl', 'VariableNames', ["Functional group 1", "Functional group 2", "wSMSE (J/mol)", "SMSE (J/mol)","AARD (%)" ]);
 % heatmap 
+f1 = figure(1);
+f1.Position=[10 10 1000 400];
+clf
+h = heatmap(tbl, 'Functional group 1', 'Functional group 2','ColorVariable', "AARD (%)" , 'ColorMethod', 'none');
+h.Colormap=winter;
+h.FontSize = 14;
 
+f2 = figure(2);
+f2.Position=[10 10 1000 400];
+clf
+h = heatmap(tbl, 'Functional group 1', 'Functional group 2','ColorVariable', 'SMSE (J/mol)', 'ColorMethod', 'none');
+h.Colormap=winter;
+h.FontSize = 14;
+
+f3 = figure(3);
+f3.Position=[10 10 1000 400];
+clf
 h = heatmap(tbl, 'Functional group 1', 'Functional group 2','ColorVariable', 'wSMSE (J/mol)', 'ColorMethod', 'none');
 h.Colormap=winter;
 h.FontSize = 14;
