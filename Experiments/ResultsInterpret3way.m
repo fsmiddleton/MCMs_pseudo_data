@@ -4,169 +4,157 @@
 
 clc
 clear
+load('colorblind_colormap.mat')
 Temperature=298.15;
 concen = 1;
 ways = 2;
-fillmethod = 'dia';
-parafac = 'INDAFAC';
 %if only one side of the 2-way array is considered or both (1:2)
 whichside =1:2;
 postprocess = 0;
-
+load("2waySVD-20comps-addingfrom20-threshold60par-LOOCV-Xnone-T=298.15-fillmethod=avr-24-Nov-2022.mat")
+%load("2waySVD-71comps-threshold60par-LOOCV-Xscale-T=298.15-fillmethod=reg-19-Nov-2022.mat")
+%load("2waySVD-27comps-addingfrom20-threshold60par-LOOCV-Xscale-T=298.15-fillmethod=reg-22-Nov-2022.mat")
+%load('2waySVD-27comps-noadding-threshold60par-LOOCV-Xscale-T=298.15-fillmethod=reg-16-Nov-2022.mat')
 %% Xsign
-%load('2wayINDAFAC-LOOCV-Xsign-maxiter=20000-T=298.15-c=19-fillmethod=dia-21-Oct-2022.mat')
+load("2waySVD-27comps-addingfrom27-threshold60par-LOOCV-Xsign-T=298.15-fillmethod=reg-23-Nov-2022.mat")
 
-%load('2wayINDAFACthresholded-LOOCV-Xsign-maxiter=20000-T=298.15-c=19-fillmethod=dia-21-Oct-2022.mat')
-%load the sign results
-%load('2wayINDAFAC-25comps-LOOCV-Xsign-maxiter=20000-T=298.15-c=19-fillmethod=dia-18-Oct-2022.mat')
-%load('2wayINDAFAC-All-LOOCV-Xsign-maxiter=20000-T=298.15-c=19-fillmethod=dia-17-Oct-2022.mat')
-%change the date manually 
-%filenameimport = strcat(num2str(ways),'way',(parafac),'-All-LOOCV-Xsign-maxiter=20000-T=',num2str(Temperature),'-c=',num2str(concen),'-fillmethod=',fillmethod,'-',date,'-2022.mat');
-%load(filenameimport)
-%Tablesign = {filenameimport; filename; fillmethod; num2str(orth)};
-%writetable(cell2table(Tablesign),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'U2', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% signPrediction = sign(Xm_boot);
-% signPrediction(signPrediction ==0)=nan;
-% indicesSign = find(~isnan(signPrediction(1,1,:)));
-% signPrediction = signPrediction(:,:,indicesSign);
-% Xtemp = Xsign;
-% Xtemp(X==0)=nan;
-% filled_ind = find(~isnan(Xtemp(:,:,1))); % not equal to zero and not nan
-% filled_indices = find(~isnan(X(:,:,1)));
-% [row,col] = find(~isnan(Xtemp(:,:,1)));
-% 
-% errors = zeros(length(fns),length(concentrations),length(filled_ind)/2,2);
-% signPreds = zeros(length(fns),length(concentrations),length(filled_ind)/2,2);
-% correct = zeros(length(fns),length(concentrations));
-% %find errors and how many were correctly predicted 
-% 
-% Preds = [Xm_boot(1,1,1:length(filled_ind))];%; Xm_boot2(1,1,:)];
-% %Preds = reshape(Preds,2,[]);
-% indiceskeep = find(Preds(1,:)); % not equal to zero 
-% for fn = 1:length(fns)
-%     for c = 1:length(concentrations)
-% 
-%         if length(whichside)>1
-%             Preds(1,:) = Xm_boot(c,fn,1:length(filled_ind));
-%             Preds(2,:) = Xm_boot2(c,fn,1:length(filled_ind));
-%         elseif whichside ==1
-%             Preds(1,:) = Xm_boot(c,fn,1:length(filled_ind));
-%         else 
-%             Preds(1,:) = Xm_boot2(c,fn,1:length(filled_ind));
-%         end 
-%         
-%         Preds = sign(Preds(:, indiceskeep));
-%         signPreds(fn,c,:,whichside) =reshape(Preds,size(signPreds(1,1,:,whichside))); 
-%         
-%         if length(whichside)>1
-%             %Truth: lower half (preds1)
-%             tempX = tril(Xscale(:,:,c),-1)+triu(nan(size(Xscale(:,:,c))));
-%             filled_ind = find(~isnan(tempX));
-%             Truthtemp = Xsign(:,:,c);
-% 
-%             Truthsign(c,1,:) = Truthtemp(filled_ind);
-%             %top half truth
-%             tempX = (triu(Xsign(:,:,c),1)+tril(nan(size(Xsign(:,:,c)))))';
-%             filled_ind = find(~isnan(tempX));
-%             Truthsign(c,2,:) = (tempX(filled_ind));
-%         elseif whichside==1
-%             %Truth: lower half (preds1)
-%             tempX = tril(Xscale(:,:,c),-1)+triu(nan(size(Xscale(:,:,c))));
-%             filled_ind = find(~isnan(tempX));
-%             Truthtemp = Xsign(:,:,c);
-% 
-%             Truthsign(c,1,:) = Truthtemp(filled_ind);
-%         elseif whichside==2
-%             %top half truth
-%             tempX = (triu(Xsign(:,:,c),1)+tril(nan(size(Xsign(:,:,c)))))';
-%             filled_ind = find(~isnan(tempX));
-%             Truthsign(c,2,:) = (tempX(filled_ind));
-%         end 
-%         
-%         errors(fn,c,:,whichside) =reshape(reshape(Truthsign(c,whichside,:),size(Preds))-Preds, size(errors(1,1,:,whichside)));
-%         correct(fn,c)= sum(sum(errors(fn,c,:,whichside)==0))/length(Preds)/(length(whichside))*100;
-%         
-%     end 
-% end 
-%export the results 
-%writetable(array2table(fns'),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'T11', 'WriteVariableNames',false, 'AutoFitWidth', false)
-%writetable(array2table(correct),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'U11', 'WriteVariableNames',false, 'AutoFitWidth', false)
-%% If no sign predictions exist 
-load("2waySVD-20comps-scaled-threshold50parallel-LOOCV-Xscale-T=298.15-fillmethod=mix-07-Nov-2022.mat")
-%load("2waySVD-27comps-scaled-threshold50parallel-LOOCV-Xscale-T=298.15-fillmethod=reg-03-Nov-2022.mat")
-%load("2waySVD-27comps-notscaled-threshold50parallel-LOOCV-Xscale-T=298.15-fillmethod=avr-02-Nov-2022.mat")
-%load('2wayINDAFAC-Small-threshold50parallel-LOOCV-Xscale-T=298.15-fillmethod=avr-01-Nov-2022.mat')
-%load('2wayPARAFAC-LOOCV-50comps-Xscale-maxiter=20000-T=298.15-c=11-fillmethod=avr-01-Nov-2022.mat')
-%load('2wayINDAFAC-Small-threshold50parallel-LOOCV-Xscale-T=298.15-fillmethod=avg-31-Oct-2022.mat')
-%load('2wayPARAFAC-LOOCV-50comps-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=uni-27-Oct-2022.mat')
-%load('2waySVD-26comps-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=avg-26-Oct-2022.mat')
-%load('2waySVD-Half-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-25-Oct-2022.mat')
-%load('2waySVD-26comps-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=dia-25-Oct-2022.mat')
-%load('2waySVD-Half-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-25-Oct-2022.mat')
-%load('2wayPARAFAC-LOOCV-Half-Xscale-maxiter=20000-T=298.15-c=6-fillmethod=uni-25-Oct-2022.mat')
- %load('2waySVD-Alll-LOOCV-Xscale-maxiter=20000-T=298.15-c=1-fillmethod=dia-23-Oct-2022.mat')
-%insert scale results filename here 
-%load('2wayINDAFACcentred-All-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-17-Oct-2022.mat')
-%load('2wayINDAFACcentred-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-18-Oct-2022.mat')
-%load('2wayPARAFACthresholded-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-24-Oct-2022.mat')
-%load('2waySVDscaled+centred+thresholdZ-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-23-Oct-2022.mat')
-%load('2waySVDscaled+centred-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-20-Oct-2022.mat')
-%load('2wayINDAFAC-All-LOOCV-Xscale-maxiter=2500-T=298.15-c=19-fillmethod=uni-20-Oct-2022.mat')
-%load('2wayINDAFAC-All-LOOCV-Xorig-maxiter=20000-T=298.15-c=9-fillmethod=uni-13-Oct-2022.mat')
+Xtemp = Xs;
+Xtemp(X==0)=nan;
+tempX = Xtemp(:,:,1);
+indend = 00; %this is valid for when compounds were added
+tempX(1:indend,1:indend) = nan;
+tempX = tril(tempX,-1)+triu(nan(size(tempX)));
+[row,col] = find(~isnan(tempX));
+filled_ind = find(~isnan(tempX));
+
+signPrediction = sign(Xm_boot);
+signPrediction(signPrediction ==0)=nan;
+indicesSign = find(~isnan(signPrediction(1,1,:)));
+signPrediction = signPrediction(:,:,indicesSign);
+
+
+
+errors = zeros(length(fns),size(X,3),length(filled_ind),2);
+signPreds = zeros(length(fns),size(X,3),length(filled_ind),2);
+correct = zeros(length(fns),size(X,3));
+%find errors and how many were correctly predicted 
+
+Preds = [Xm_boot(1,1,1:length(filled_ind))];%; Xm_boot2(1,1,:)];
+%Preds = reshape(Preds,2,[]);
+indiceskeep = find(Preds(1,:)); % not equal to zero 
+fnind = 0;
+for fn = 1:length(fns)
+    fnind = fnind+1;
+    for c = 1:size(X,3)
+
+        if length(whichside)>1
+            Preds(1,:) = Xm_boot(c,fn,1:length(filled_ind));
+            Preds(2,:) = Xm_boot2(c,fn,1:length(filled_ind));
+        elseif whichside ==1
+            Preds(1,:) = Xm_boot(c,fn,1:length(filled_ind));
+        else 
+            Preds(1,:) = Xm_boot2(c,fn,1:length(filled_ind));
+        end 
+        
+        Preds = sign(Preds(:, indiceskeep));
+        signPreds(fn,c,:,whichside) =reshape(Preds,size(signPreds(1,1,:,whichside))); 
+        
+        if length(whichside)>1
+            %Truth: lower half (preds1)
+            
+            Truthtemp = Xs(:,:,c);
+
+            Truthsign(fnind,c,:,1) = Truthtemp(filled_ind);
+            %top half truth
+            tempX = (triu(Xs(:,:,c),1)+tril(nan(size(Xs(:,:,c)))))';
+            filled_ind = find(~isnan(tempX));
+            Truthsign(fnind,c,:,2) = (tempX(filled_ind));
+        elseif whichside==1
+            %Truth: lower half (preds1)
+            tempX = tril(Xs(:,:,c),-1)+triu(nan(size(Xs(:,:,c))));
+            filled_ind = find(~isnan(tempX));
+            Truthtemp = Xs(:,:,c);
+
+            Truthsign(fnind,c,:,1) = Truthtemp(filled_ind);
+        elseif whichside==2
+            %top half truth
+            tempX = (triu(Xs(:,:,c),1)+tril(nan(size(Xs(:,:,c)))))';
+            filled_ind = find(~isnan(tempX));
+            Truthsign(fnind,c,:,2) = (tempX(filled_ind));
+        end 
+        
+        errors(fn,c,:,whichside) =reshape(reshape(Truthsign(fnind,c,:,whichside),size(Preds))-Preds, size(errors(1,1,:,whichside)));
+        correct(fn,c)= sum(sum(errors(fn,c,:,whichside)==0))/length(Preds)/(length(whichside))*100;
+        
+    end 
+end 
+
+%% If no sign predictions exist
+
 %finds the true sign values
 X(X==0)=nan;
 for counter =1:size(X,3)
     Xnew(:,:,counter) = remove_nan2(X(:,:,counter));
 end 
-
+dim = size(Xs);
 X = Xnew;
 Xsign = sign(X);
 concentrations = conc_interval;
-tempX = tril(Xs(:,:,1),-1)+triu(nan(size(Xs(:,:,1))));
+
+for j = 1:dim(3)
+    Xtemp = Xs(:,:,j);
+    Xtemp(1:1+size(Xtemp,1):end) = nan; % diagonals are nan
+    Xs(:,:,j) = Xtemp;
+end 
+tempX = Xs(:,:,1);
+
+indend = 20; %this is valid for when compounds were added
+tempX(1:indend,1:indend) = nan;
+tempX = tril(tempX,-1)+triu(nan(size(tempX)));
 [row,col] = find(~isnan(tempX));
-filled_ind =  find(~isnan(tempX));
+filled_ind = find(~isnan(tempX));
          
 
 for index = 1:length(filled_ind)
-    Truthsign(:,index,1) = Xsign(row(index),col(index),:);
-    Truthsign(:,index,2) = (Xsign(col(index),row(index),:)); 
+    Truthsign(1,:,index,1) = Xsign(row(index),col(index),:);
+    Truthsign(1,:,index,2) = (Xsign(col(index),row(index),:)); 
 end 
-
+load(filename)
+mixtures = zeros(size(comps,1)^2,4);
+    index = 0;
+    for i = 1:length(comps)
+        for j = 1:length(comps)
+            index = index+1;
+            mixtures(index,:) = [comps(i,:) comps(j,:)];
+        end
+    end 
 
 
 %% Xscale
-date ='13-Oct';
+%load('2waySVD-27comps-noadding-threshold60par-LOOCV-Xscale-T=298.15-fillmethod=reg-16-Nov-2022.mat', 'Xm_boot', 'Xs', 'Xm_boot2','fns', 'filename')
+load(filename)
+mixtures = zeros(size(comps,1)^2,4);
+    index = 0;
+    for i = 1:length(comps)
+        for j = 1:length(comps)
+            index = index+1;
+            mixtures(index,:) = [comps(i,:) comps(j,:)];
+        end
+    end 
 
-%load('2waySVD-Half-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-25-Oct-2022.mat')
-%load('2waySVD-26comps-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=dia-13-Oct.mat')
-%clear Truth Truthtemp scalePreds hepred scalePrediction mse wmse smse wsmse smse
-%load('2waySVD-Half-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-25-Oct-2022.mat')
-%load('2wayINDAFACthreshold-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-21-Oct-2022.mat')
-%load('2wayPARAFAC-LOOCV-Half-Xscale-maxiter=20000-T=298.15-c=6-fillmethod=uni-25-Oct-2022.mat')
-%load('2waySVD-Half-LOOCV-Xscale-maxiter=25000-T=298.15-c=18-fillmethod=dia-13-Oct-2022.mat')
-%load('2wayPARAFACthresholded-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-24-Oct-2022.mat')
-%load('2waySVDscaled+centred+thresholdZ-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-23-Oct-2022.mat')
-%load('2waySVDscaled+centred-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-20-Oct-2022.mat')
-%load('2wayINDAFAC-25CompsMoreFns-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-19-Oct-2022.mat')
-%load('2waySVD-Alll-LOOCV-Xscale-maxiter=20000-T=298.15-c=9-fillmethod=dia-17-Oct-2022.mat')
-%load('2waySVD-Alll-LOOCV-Xscale-maxiter=20000-T=298.15-c=14-fillmethod=dia-17-Oct-2022.mat')
-%load('2wayINDAFAC-All-LOOCV-Xscale-maxiter=2500-T=298.15-c=19-fillmethod=uni-20-Oct-2022.mat')
-%load('2wayINDAFACthresholded-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-21-Oct-2022.mat')
-%load('2wayINDAFACcentred-All-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-17-Oct-2022.mat')
-%load('2wayINDAFACcentred-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-18-Oct-2022.mat')
-%load('2wayINDAFAC-25comps-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-18-Oct-2022.mat')
-% filenameimport = strcat(num2str(ways),'way',(parafac),'centre-All-LOOCV-Xscale-maxiter=20000-T=',num2str(Temperature),'-c=',num2str(concen),'-fillmethod=',fillmethod,'-',date,'-2022.mat');
-% load(filenameimport)
-%Tablescale = {filenameimport; filename; fillmethod; num2str(orth)};
-%writetable(cell2table(Tablescale),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'B2', 'WriteVariableNames',false, 'AutoFitWidth', false)
+concentrations = 0.05:0.05:0.95;
+clear Preds
 scalePrediction = Xm_boot;
 scalePrediction(scalePrediction ==0)=nan;
 indicesScale = find(~isnan(scalePrediction(1,1,:)));
-%indicesInt = intersect(indicesSign,indicesScale); % k that you can use to judge He predictions 
-Xtemp = Xs(:,:,1);
-tempX = tril(Xtemp,-1)+triu(nan(size(Xtemp)));
-filled_ind = find(~isnan(tempX));
+
+Xtemp = Xs;
+Xtemp(X==0)=nan;
+tempX = Xtemp(:,:,1);
+tempX(1:indend,1:indend) = nan;
+tempX = tril(tempX,-1)+triu(nan(size(tempX)));
 [row,col] = find(~isnan(tempX));
+filled_ind = find(~isnan(tempX));
 
 X(X==0)=nan;
 for counter =1:size(X,3)
@@ -202,9 +190,7 @@ for fn = 1:length(fns)
         for index = 1:length(filled_ind)
             if length(whichside)>1
                 %Truth: lower half (preds1)
-                tempX = tril(Xs(:,:,1),-1)+triu(nan(size(Xs(:,:,1))));
-                filled_ind = find(~isnan(tempX));
-                [row,col]= find(~isnan(tempX));
+                
                 Truthscale(:,index,1) = Xscale(row(index),col(index),:);
                 Truthscale(:,index,2) = Xscale(col(index),row(index),:);
 
@@ -236,27 +222,27 @@ for fn = 1:length(fns)
     end  
 end 
 
-%export 
-% writetable(array2table(fns'),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'A10', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(fns'),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'A25', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(fns'),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'A40', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(mse),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'B10', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(wmse),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'B25', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(aard),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'B40', 'WriteVariableNames',false, 'AutoFitWidth', false)
-%% He preds
-fnind=0;
-for fn =3%1:length(fns)
 
-    fnind = fnind+1;
-    rSign = 1;
-    rScale = fn;
+%%
+load(strcat('heUNIFACforT=',num2str(Temperature),'.mat'), 'mixture', 'conc_interval', 'he') %change the temperature here
+mixunind = find(ismember(mixture',mixtures(filled_ind,:), 'rows')); % hopefully this extracts what we want 
+mixturepred = mixtures(filled_ind,:);
+mixtureuni = mixture(:,mixunind)';
+[La,Locb]=ismember(mixtureuni,mixturepred, 'rows');
+%mixture
+%mixunind = mixunind(Locb,:);
+heunifacpred = he(5:5:96, mixunind);
+ rSign = 1;
+for fnind =1:length(fns)
+
+   
+    rScale = fnind;
     
     
     %hepred = signPreds(rSign,:,:,:).*exp(signPreds(rSign,:,:,:).*scalePreds(rScale,:,:,:));
     
-    hepred = Truthsign(:,:,whichside).*exp(reshape(scalePreds(rScale,:,:,whichside),size(Truthsign(:,:,whichside))).*Truthsign(:,:,whichside));
-        
-    
+    hepred = Truthsign(rSign,:,:,whichside).*exp(reshape(scalePreds(rScale,:,:,whichside),size(Truthsign(rSign,:,:,whichside))).*Truthsign(rSign,:,:,whichside));
+    hepred = reshape(hepred, size(Truthsign,2), size(Truthsign,3), size(Truthsign,4));
     %hepred = reshape(hepred,size(X,3),[],length(whichside));
     %hepred(:,:,2) = flip(hepred(:,:,2));
     %postprocess the predictions 
@@ -268,7 +254,8 @@ for fn =3%1:length(fns)
     Truth = zeros(size(hepred));
     Xtemp = tril(Xs(:,:,1),-1)+triu(nan(size(Xs(:,:,1))));
     Xtemp(Xtemp==0)=nan;
-   [row,col,elements]=find(~isnan(Xtemp));
+    
+   %[row,col,elements]=find(~isnan(Xtemp));
    
     for counter = 1:size(row,1)
         
@@ -284,14 +271,18 @@ for fn =3%1:length(fns)
         end 
         
     end 
-    
+    Truth(isnan(Truth)) =0;
     indicespred = find(~isnan(hepred(concen,:,1)));
     if whichside ==2
         errorHE(:,:,whichside) = abs(Truth(:,indicespred,whichside)) - abs(hepred(:,indicespred));
     else 
         errorHE(:,:,whichside) = abs(Truth(:,indicespred,whichside)) - abs(hepred(:,indicespred,whichside));
     end 
-
+    errorHE(isnan(errorHE)) = 0;
+    errorHEsystem{fnind} = mean(errorHE,1);
+    errorHEcomp{fnind} = mean(errorHE,2);
+    errorUNI(:,:) = Truth(:,1:size(heunifacpred,2),1) - heunifacpred; 
+    errorUNIsystem = mean(errorUNI,1);
     hepred = hepred(:,indicespred,:);
     aardHE(:,:,whichside) = abs(errorHE(:,:,whichside))./abs(reshape(Truth(:,indicespred,whichside),size(errorHE(:,:,whichside))));
     %aardHE(:,:,2) = abs(errorHE(:,:,2))./abs(reshape(Truth(:,indicespred,2),size(errorHE(:,:,2))));
@@ -310,52 +301,131 @@ for fn =3%1:length(fns)
     smse(fnind) = sqrt(sum(sum(sum(errorHE.^2)))/prod(size(errorHE)));
 end
 wsmse
-%find the minimum for each concentration
-% for c =1:length(concentrations)
-%     ind = find(min(wsmsec(:,c))==wsmsec(:,c));
-%     if isempty(ind)
-%         ind = fns(fnind);
-%     end 
-%     tableout(:,c) = [rSign; fns(ind); smsec(ind,c); aardc(ind,c); wsmsec(ind,c); reshape(percless(ind,c,:),5,1)];
-% end 
-%overall errors 
-% writetable(array2table(fns(fn)'),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'AL6', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(wsmse),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'AM6', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(wsmsec),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'AN6', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(tableout),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'AM24', 'WriteVariableNames',false, 'AutoFitWidth', false)
 %%
+f1=figure(1);
+f1.Position = [10,10,400, 300];
+load('colorblind_colormap.mat')
 clf
 index1plot=1;
-semilogy(fns(index1plot:end),smse(index1plot:end),'.', 'MarkerSize',14)
+semilogy(fns(index1plot:end),smse(index1plot:end),'.','Color', colorblind(1,:), 'MarkerSize',14)
 hold on 
-semilogy(fns(index1plot:end),wsmse(index1plot:end),'.', 'MarkerSize',14)
-
+semilogy(fns(index1plot:end),wsmse(index1plot:end),'o','Color', colorblind(2,:), 'MarkerSize',6)
+hold off
 ylabel('Error (J/mol)')
 xlabel('Number of factors')
 legend('SMSE','wSMSE')
 %%
 clf
-index1plot=1;
+index1plot=5;
 %choose mse or wmse
-semilogy(fns(index1plot:end),smse(index1plot:end),'.','MarkerSize',12)
+plot(fns(index1plot:end),smse(index1plot:end),'.','Color', colorblind(1,:),'MarkerSize',14)
+ylabel('SMSE (J/mol)')
 
-semilogy(fns(index1plot:end),wsmse(index1plot:end),'.','MarkerSize',12)
-
+xlabel('Number of factors')
+%%
+clf
+indexplot=5;
+plot(fns(index1plot:end),wsmse(index1plot:end),'o','Color', colorblind(2,:),'MarkerSize',6)
 ylabel('wSMSE (J/mol)')
 
 xlabel('Number of factors')
+%% Pure he predictions 
+clc 
+clear
+Temperature = 298.15; 
+whichside = 1:2;
+concen = 1;
+postprocess = 0;
+load('2waySVD-27comps-addingfrom27-threshold60par-LOOCV-Xnone-T=298.15-fillmethod=uni-24-Nov-2022.mat')
+%load("2waySVD-20comps-addingfrom20-threshold60par-LOOCV-Xnone-T=298.15-fillmethod=avr-24-Nov-2022.mat")
+load(filename, 'comps')
+    mixtures = zeros(size(comps,1)^2,4);
+    index = 0;
+    for i = 1:length(comps)
+        for j = 1:length(comps)
+            index = index+1;
+            mixtures(index,:) = [comps(i,:) comps(j,:)];
+        end
+    end 
+Xtemp = tril(Xs(:,:,1),-1)+triu(nan(size(Xs(:,:,1))));
+Xtemp(Xtemp==0)=nan;
+filled_ind = find(~isnan(Xtemp));
+[row,col] =  find(~isnan(Xtemp));
+
+load(strcat('heUNIFACforT=',num2str(Temperature),'.mat'), 'mixture', 'conc_interval', 'he') %change the temperature here
+mixunind = find(ismember(mixture',mixtures(filled_ind,:), 'rows')); % hopefully this extracts what we want 
+mixturepred = mixtures(filled_ind,:);
+mixtureuni = mixture(:,mixunind)';
+[La,Locb]=ismember(mixtureuni,mixturepred, 'rows');
+%mixture
+%mixunind = mixunind(Locb,:);
+heunifacpred = he(5:5:96, mixunind);
+
+
+
+for fnind =length(fns)% 1:length(fns)
+    hepred = [Xm_boot(:,fnind,:) Xm_boot2(:,fnind,:)]; 
+    hepred = permute(hepred, [1 3 2]);
+    Truth = zeros(size(hepred));
+    Xtemp = tril(Xs(:,:,1),-1)+triu(nan(size(Xs(:,:,1))));
+    Xtemp(Xtemp==0)=nan;
+
+    %[row,col,elements]=find(~isnan(Xtemp));
+
+    for counter = 1:size(row,1)
+
+        if length(whichside)>1
+            Truth(:,counter,1) = X(row(counter),col(counter),:);
+            Truth(:,counter,2) = X(col(counter),row(counter),:);
+            %Truth(:,i,2) = flip(Truth(:,i,2));
+        elseif whichside ==1
+            Truth(:,counter,1) = X(row(counter),col(counter),:);
+        elseif whichside ==2
+            Truth(:,counter,2) = X(col(counter),row(counter),:);
+            %Truth(:,i,2) = flip(Truth(:,i,2));
+        end 
+
+    end 
+    Truth(isnan(Truth)) =0;
+    indicespred = find(~isnan(hepred(concen,:,1)));
+    if whichside ==2
+        errorHE(:,:,whichside) = abs(Truth(:,indicespred,whichside)) - abs(hepred(:,indicespred));
+    else 
+        errorHE(:,:,whichside) = abs(Truth(:,indicespred,whichside)) - abs(hepred(:,indicespred,whichside));
+    end 
+    errorHE(isnan(errorHE)) = 0;
+    errorHEsystem{fnind} = mean(errorHE,1);
+    errorHEcomp{fnind} = mean(errorHE,2);
+    errorUNI(:,:) = Truth(:,1:size(heunifacpred,2),1) - heunifacpred; 
+    errorUNIsystem = mean(errorUNI,1);
+    hepred = hepred(:,indicespred,:);
+    aardHE(:,:,whichside) = abs(errorHE(:,:,whichside))./abs(reshape(Truth(:,indicespred,whichside),size(errorHE(:,:,whichside))));
+    %aardHE(:,:,2) = abs(errorHE(:,:,2))./abs(reshape(Truth(:,indicespred,2),size(errorHE(:,:,2))));
+
+    for c = 1:size(X,3)
+        smsec(fnind,c) = sqrt(sum(sum(errorHE(c,:,whichside).^2))/length(indicespred));
+        wsmsec(fnind,c) = sqrt(find_wmse_error(errorHE(c,:,whichside),length(indicespred)*2));
+        aardc(fnind,c) = sum(sum(abs(aardHE(c,:,whichside))))/length(aardHE(c,:,1));
+        percless(fnind,c,1) = sum(sum((abs(aardHE(c,:,whichside))<0.05)))/length(indicespred)/2*100;
+        percless(fnind,c,2) = sum(sum((abs(aardHE(c,:,whichside))<0.15)))/length(indicespred)/2*100;
+        percless(fnind,c,3) = sum(sum((abs(aardHE(c,:,whichside))<0.25)))/length(indicespred)/2*100;
+        percless(fnind,c,4) = sum(sum((abs(aardHE(c,:,whichside))<0.50)))/length(indicespred)/2*100;
+        percless(fnind,c,5) = sum(sum((abs(aardHE(c,:,whichside))<0.75)))/length(indicespred)/2*100;
+    end 
+    wsmse(fnind) = sqrt(find_wmse_error(errorHE,length(indicespred)));
+    smse(fnind) = sqrt(sum(sum(sum(errorHE.^2)))/prod(size(errorHE)));
+end 
 
 %% Define mixture you wish to predict
 figure(2)
 clf
-
 p = 0;
 
 
 %info we might want later 
 func_group = {1,2,3:5, [6,7,11], 8:9, 10, 12:17,18:20, 21, 22};
 label_func = {'Alkane', 'Primary alcohol', 'Other alcohol','Cycloalkanes', 'Ketone', 'Alkene', 'Ester', 'Amine','Acid','Aldehyde'};
-
+load('colorblind_colormap.mat')
 %functional groups
 %filename might not be correct here
 %load experimental data from the array used in the data - should work if the array has been extended as well   
@@ -365,35 +435,44 @@ mixture_exp = mixtureT;
 concentrations = 0.05:0.05:0.95;
 
 for counter =1:16
-    
+
     index = counter+p*16;
+    mixpred = mixtureT(size(mixtureT,1)-length(filled_ind)+1*p+(counter),:);
     mixpredind = filled_ind(index);%change the mixture number here
     mixpred = mixtures(mixpredind,:); % might need to change this depending on the results 
     %match mixpred to mixture_exp 
     [~,indexpred] = ismember(mixpred,mixture_exp,'rows');
+    if indexpred==0
+        [~,indexpred] = ismember([mixpred(3:4) mixpred(1:2)], mixture_exp,'rows');
+        if indexpred == 0
+            indexpred = 1;
+            disp('Mixture does not exist in experimental data')
+            disp(mixpred)
+        end 
+    end 
     
-    conc_exp = conc_original(:,indexpred, Tempind);
-    heexp = HE_original(:,indexpred, Tempind);
+    conc_exp = conc_original(:,indexpred);
+    heexp = HE_original(:,indexpred);
     
     disp(mixpred)
     
     subplot(4,4,counter)
-    plot(conc_exp*100, heexp,'r.', 'MarkerSize',12)
+    plot(conc_exp*100, heexp,'^','Color', colorblind(6,:), 'MarkerSize',4,'MarkerFaceColor',colorblind(6,:))
     hold on
     
     %predictions made by the model 
     if length(whichside)>1
         heplot1 = (hepred(:,counter+p*16,1));
         heplot2 = (hepred(:,counter+p*16,2));
-        plot(concentrations*100, flip(heplot1),'b.', 'MarkerSize',12)      
+        plot(concentrations*100, (heplot1),'.', 'Color',colorblind(8,:), 'MarkerSize',12)      
         hold on
         if postprocess == 0
-            plot(concentrations*100, (heplot2) ,'c.', 'MarkerSize',12)
+            plot(concentrations*100, (heplot2) ,'.', 'Color',colorblind(1,:), 'MarkerSize',12)
             hold on
         end 
     else
         heplot1 = (hepred(:,counter+p*16));
-        plot(concentrations*100, heplot1,'b.', 'MarkerSize',12)
+        plot(concentrations*100, heplot1,'.', 'Color',colorblind(8,:), 'MarkerSize',12)
         hold on 
     end 
     
@@ -404,8 +483,17 @@ for counter =1:16
     load(strcat('heUNIFACforT=',num2str(Temperature),'.mat'), 'mixture', 'conc_interval', 'he') %change the temperature here
     [~,mixunind] = ismember(mixpred,mixture', 'rows');
     if mixunind ~=0
-        heuni = he(:,mixunind);
-        plot(conc_interval*100, (heuni),'k--')
+        heuniplot = he(:,mixunind);
+        plot(conc_interval*100, (heuniplot),'k--')
+    else 
+        [~, mixunind] = ismember([mixpred(3:4) mixpred(1:2)],mixture','rows');
+        if mixunind ~=0
+            heuniplot = he(:,mixunind);
+            plot(conc_interval*100, (heuniplot),'k--')
+        else
+            disp(mixpred)
+            disp('Not found')
+        end 
     end 
     
     title(num2str(mixpred))% work on making this words - dictionary of compounds and mixture numeric? 
@@ -416,7 +504,7 @@ end
 xlabel('Composition of compound 1 (%)')
 ylabel('Excess enthalpy (J/mol)')
 if length(whichside)>1 && postprocess ==0
-    legend('Experimental','Predictions left', 'Predictions right','UNIFAC (Do)')
+    legend('Experimental','Predictions left', 'Predictions right','UNIFAC (Do)', 'Location', 'southeast')
 else
     legend('Experimental','Predictions',  'UNIFAC (Do)')
 end 
@@ -466,77 +554,190 @@ end
 tabletypes = [1:5; nomix;smsetype; wsmsetype; aardtype];
 
 %% Errors per type of functional groups in the mixture 
-filename = 'HEMatrixPolyMid298.15.mat';
-load(filename, 'comps')
-comps = comps(1:27,:);
-mixtures = zeros(size(comps,1)^2,4);
-index = 0;
-for i = 1:length(comps)
-    for j = 1:length(comps)
-        index = index+1;
-        mixtures(index,:) = [comps(i,:) comps(j,:)];
-    end
-end 
+%
+load(filename, 'comps', 'mixtureT')
+
+% mixtures = zeros(size(comps,1)^2,4);
+% index = 0;
+% for i = 1:length(comps)
+%     for j = 1:length(comps)
+%         index = index+1;
+%         mixtures(index,:) = [comps(i,:) comps(j,:)];
+%     end
+% end 
 func_group = {1,2,3:5, [6,7,11], 8:9, 10, 12:17,18:20, 21, 22};
 label_func = {'Alkane', 'Primary alcohol', 'Other alcohol','Cycloalkanes', 'Ketone', 'Alkene', 'Ester', 'Amine','Acid','Aldehyde'};
 
 err_funcgroup = cell(length(func_group),length(func_group));
 ard_funcgroup = cell(length(func_group),length(func_group));
 smse_funcgroup = zeros(length(func_group),length(func_group));
+
 wsmse_funcgroup = zeros(length(func_group),length(func_group));
 AARD_funcgroup = zeros(length(func_group),length(func_group));
 no_mix = zeros(length(func_group),length(func_group));
 
 %extracting the correct mixtures, if necessary 
 
-mixtureT = intersect(mixtures,mixtureT,'rows');
-mixtureT = mixtureT(1:length(filled_ind),:);
+mixtureT = mixtures(filled_ind,:);
+f1 = figure(1);
 clf
+
 for func = 1:length(func_group)
     for func2 = 1:length(func_group)
         %extract arrays of groups 
         funcgroup1 = func_group{func};
-        funcgroup2 = func_group{func};
+        funcgroup2 = func_group{func2};
         %find mixtures with this combination
-        index = find(mixtureT(:,1)==func);
-        index2 = find(mixtureT(:,3)==func2);
+        indexloop = 1;
+        index=[];
+        for i =1:length(funcgroup1)
+            indextemp = find(mixtureT(:,1)==funcgroup1(i));
+            if ~isempty(indextemp) %&& index~=0
+                index(indexloop:length(indextemp)+indexloop-1,1) = indextemp;
+                indexloop = length(index)+indexloop;
+            end
+%             clear indextemp 
+%             indextemp = find(mixture(:,3) == funcgroup1(i));
+%             if ~isempty(indextemp) %&& index2~=0
+%                 index(indexloop:length(indextemp)+indexloop-1,1) = indextemp;
+%                 indexloop = length(index)+indexloop;
+%             end
+        end 
+        %index = (index1,index2);
+        indexloop = 1;
+        index2=[];
+        for i =1:length(funcgroup2)
+            indextemp = find(mixtureT(:,3)==funcgroup2(i));
+            if ~isempty(indextemp) %&& index2~=0
+                index2(indexloop:length(indextemp)+indexloop-1,1) = indextemp;
+                indexloop = length(index2)+indexloop;
+            end
+%             clear indextemp 
+%             indextemp = find(mixture(:,1) == funcgroup2(i));
+%             if ~isempty(indextemp) %&& index2~=0
+%                 index2(indexloop:length(indextemp)+indexloop-1,1) = indextemp;
+%                 indexloop = length(index2)+indexloop;
+%             end
+        end 
+
         indices = intersect(index,index2);
+        indices(indices==0) =[];
         %export errors and AARDs
-        err_funcgroup{func,func2} = errorHE(:,indices,:); 
-        errtemp = errorHE(:,indices,:);
-        smse_funcgroup(func,func2) = sqrt(sum(errtemp(:).^2)/length(errtemp(:)));
-        wsmse_funcgroup(func,func2) = find_wmse_error(errtemp(:),length(errtemp(:)));
-        ard_funcgroup{func,func2} = aardHE(:,indices,:);
-        ardtemp = aardHE(:,indices,:);
-        AARD_funcgroup(func,func2) = sum(ardtemp(:))/length(ardtemp(:));  
-        no_mix(func,func2) = length(ardtemp(:)/9);
+        if length(indices)>1
+            err_funcgroup{func,func2} = errorHE(:,indices,:); 
+            errtemp = errorHE(:,indices,:);
+            smse_funcgroup(func,func2) = sqrt(sum(errtemp(:).^2)/length(errtemp(:)));
+            wsmse_funcgroup(func,func2) = find_wmse_error(errtemp(:),length(errtemp(:)));
+            ard_funcgroup{func,func2} = aardHE(:,indices,:);
+            ardtemp = aardHE(:,indices,:);
+            AARD_funcgroup(func,func2) = sum(ardtemp(:))/length(ardtemp(:));  
+            no_mix(func,func2) = length(ardtemp(:)/9);
+        end 
     end 
 end 
 
 % Heatmap of the errors per functional group 
 
 SMSEplot = smse_funcgroup;
-AARDplot=AARD_funcgroup.*100; 
+AARDplot=AARD_funcgroup.*100;
+tempvar = triu(SMSEplot);
+tempvar(tempvar==0)=nan;
 %create a table 
-[row,col] = find(~isnan(AARDplot));
+[row,col] = find(~isnan(tempvar));
+clear smse_tbl aard_tbl wsmsetbl funcgroup1tbl funcgroup2tbl
 for counter = 1:length(row)
     funcgroup1tbl{counter} = label_func{row(counter)};
     funcgroup2tbl{counter} = label_func{col(counter)};
-    smse_tbl(counter) = SMSEplot(row(counter), col(counter));
-    aard_tbl(counter) = AARDplot(row(counter),col(counter));
-    wsmsetbl(counter) = wsmse_funcgroup(row(counter),col(counter));
+    smse_tbl(counter) = SMSEplot(row(counter), col(counter))+SMSEplot(col(counter),row(counter));
+    aard_tbl(counter) = AARDplot(row(counter),col(counter))+AARDplot(col(counter),row(counter));
+    wsmsetbl(counter) = wsmse_funcgroup(row(counter),col(counter)) + wsmse_funcgroup(col(counter),row(counter));
 end 
 
 % heatmap 
 tbl = table(funcgroup1tbl', funcgroup2tbl',smse_tbl',aard_tbl',wsmsetbl', 'VariableNames', ["Functional group 1", "Functional group 2", "SMSE (J/mol)","AARD (%)","wSMSE (J/mol)" ]);
 % heatmap 
 h = heatmap(tbl, 'Functional group 1', 'Functional group 2','ColorVariable', 'SMSE (J/mol)', 'ColorMethod', 'none');
+% h.YDisplayData = flip(label_func);
+% h.XDisplayData = label_func;
 h.Colormap=winter;
 h.FontSize = 14;
 
+%% Parity plot and error distribution plots 
+%Import all the UNIFAC predictions 
+plotuni = 1;
 
+load(strcat('heUNIFACforT=',num2str(Temperature),'.mat'), 'mixture', 'conc_interval', 'he') %change the temperature here
+for i = 1:length(filled_ind)
+    mixpred = mixtureT(i,:);
+    [~,mixunind] = ismember(mixpred,mixture', 'rows');
+    if mixunind ~=0
+        heuni(:,i) = he(5:5:96,mixunind); % check these indices 
+        indexuni(i)=1;
+    else
+        [~,mixunind] = ismember([mixpred(3:4) mixpred(1:2)],mixture', 'rows');
+        if mixunind ~=0
+            heuni(:,i) = he(5:5:96,mixunind); % check these indices 
+            indexuni(i)=1;
+        else 
+            indexuni(i) = 0;
+        end 
         
+    end 
+    
+end 
+ 
 
+%parity plot 
+f4 = figure(4);
+f4.Position=[10 10 500 400];
+clf
+%choose between plot and loglog 
+plotx =Truth(:,indicespred,whichside);
+ploty = hepred(:,indicespred,whichside);
+plot(plotx(:),ploty(:),'.','Color', 'b', 'MarkerSize',6)
+hold on 
+if plotuni
+    plot(plotx(:), [heuni(:); heuni(:)],'.','Color', 'k', 'MarkerSize',6)
+end 
+plot([min(plotx(:)),max(plotx(:))], [min(plotx(:)),max(plotx(:))],'-', 'Color',colorblind(4,:), 'LineWidth', 1.2)
+
+hold off 
+xlabel('Experimental (J/mol)','FontSize',13, 'Color', 'k')
+ylabel('Prediction (J/mol)','FontSize',13, 'Color', 'k')
+if plotuni
+    legend('MCM', 'UNIFAC','FontSize',8,'Location', 'northwest');
+else 
+    legend('MCM', 'FontSize',8,'Location', 'northwest');
+end 
+
+%error distribution 
+f5 = figure(5);
+f5.Position = [10 20 400 300];
+clf
+%choose the number of bins 
+%ploterrhist(errorHE(:), 'bins', 20)
+histogram(errorHE(:), 20, 'FaceColor', colorblind(6,:), 'BinLimits', [-1000 1000])
+ylabel('Instances','FontSize',13, 'Color', 'k')
+xlabel('MCM error (J/mol)', 'FontSize',13, 'Color', 'k')
+%% Classification of correct predictions per system 
+% colours of data points will show which one is better 
+%started 04/11/2022 - check if it works 
+%scatter(x,y,pointsize,color)
+fnind = fn; %can change this here 
+errorHEsystem = reshape(errorHEsystem{fnind}, length(filled_ind),2);
+%errorUNIsystem = reshape(errorUNIsystem, length(filled_ind),2);
+leftcorrect = (errorHEsystem(:,1)<errorHEsystem(:,2));% logical output 
+errorHEbest = errorHEsystem(:,1).*(leftcorrect) + errorHEsystem(:,2).*(1-leftcorrect);
+
+unifaccorrect = (errorHEbest>errorUNIsystem'); %logical output 
+numleftcorrect = sum(find(leftcorrect));
+numunicorrect = sum(find(unifaccorrect));
+%figure out x and y later 
+figure(6)
+clf
+scatter(1:length(filled_ind),1:length(filled_ind),[],leftcorrect, 'filled')
+figure(7)
+scatter(1:length(filled_ind),1:length(filled_ind),[],unifaccorrect, 'filled')
 
 
 %% functions 
@@ -579,7 +780,7 @@ function [heprednew,uncertainty] = postprocesshe(hepred,concentrations)
         %disp(xvar)
         %disp(temppred)
         %fit a polynomial 
-        [p,S,mu] = polyfit(xvar, temppred,3);
+        [p,S,mu] = polyfit(xvar, temppred,6);
         % create polynomial predictions 
         [temp,uncertainty(index,:)] = polyval(p,concentrations,S,mu);
         heprednew(:,index) = temp;

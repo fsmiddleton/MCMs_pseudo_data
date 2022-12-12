@@ -4,17 +4,35 @@
 
 clc
 clear
+load('colorblind_colormap.mat')
+
+%% No sign predictions exist
+load("2waySVDUnfoldingMode1-21comps-threshold60par-LOOCV-Xscale-T=298.15-fillmethod=reg-21-Nov-2022.mat")
+%load('3wayHOSVDThreshold-centre+scale-Fillchanged-A1-Small-concslices-LOOCV-Xscale-maxiter=20000-Temp=298.15-fillmethod=reg-17-Nov-2022.mat')
+%load('3wayHOSVDThreshold-Nocentre+scale-Fillchanged-A3-Small-concslices-LOOCV-Xscale-maxiter=20000-Temp=298.15-fillmethod=reg-17-Nov-2022.mat')
+%load('3wayHOSVDThresholdsmallercentre+scaleFillchangedA3-Small-concslices-LOOCV-Xscale-maxiter=20000-Temp=298.15-fillmethod=reg-16-Nov-2022.mat')
+%load('3wayHOSVDThresholdCentre+ScaleA1-Small-concslices-LOOCV-Xscale-maxiter=20000-Temp=298.15-fillmethod=avr-16-Nov-2022.mat')
+%load('3wayHOSVDThresholdCentreA1-Small-concslices-LOOCV-Xscale-maxiter=20000-Temp=298.15-fillmethod=avr-15-Nov-2022.mat');
+
+%Options
 Temperature=298.15;
-concen = 1;
-ways = 2;
-fillmethod = 'dia';
-parafac = 'INDAFAC';
 %if only one side of the 2-way array is considered or both (1:2)
 whichside =1:2;
 postprocess = 0;
+Tempind =2;
 
-%% No sign predictions exist 
-load('3waPARAFAC-Small-concslices-LOOCV-Xscale-maxiter=20000-Temp=298.15-fillmethod=reg-04-Nov-2022.mat')
+
+load(filename)
+mixtures = zeros(size(comps,1)^2,4);
+    index = 0;
+    for i = 1:length(comps)
+        for j = 1:length(comps)
+            index = index+1;
+            mixtures(index,:) = [comps(i,:) comps(j,:)];
+        end
+    end 
+%load('3wayPARAFACThreshold-Small-concslices-LOOCV-Xscale-maxiter=20000-Temp=288.15-fillmethod=reg-09-Nov-2022.mat')
+%load('3waPARAFAC-Small-concslices-LOOCV-Xscale-maxiter=20000-Temp=298.15-fillmethod=reg-04-Nov-2022.mat')
 %load('2waySVD-50comps-scale1-threshold60par-moreiter-huberloss1-LOOCV-Xscale-T=298.15-fillmethod=rec-02-Nov-2022.mat')
 %load('2waySVD-50comps-scale0-threshold60par-moreiter-huberloss1-LOOCV-Xscale-T=298.15-fillmethod=reb-01-Nov-2022.mat')
 %load('2waySVD-Small-threshold60par-moreiter-huberloss1-LOOCV-Xscale-T=298.15-fillmethod=reg-01-Nov-2022.mat')
@@ -42,15 +60,15 @@ X(X==0)=nan;
 % for counter =1:size(X,3)
 %     Xnew(:,:,counter,Tempind) = remove_nan2(X(:,:,counter,Tempind));
 % end 
-
 %X = Xnew;
 Xsign = sign(X);
+Xscale = Xsign.*log(Xsign.*X);
 concentrations = conc_interval;
 tempX = tril(X(:,:,1,Tempind),-1)+triu(nan(size(X(:,:,1,Tempind))));
 [row,col] = find(~isnan(tempX));
 filled_ind =  find(~isnan(tempX));
          
-
+clear Truthsign
 for index = 1:length(filled_ind)
     Truthsign(:,index,1) = Xsign(row(index),col(index),:,Tempind);
     Truthsign(:,index,2) = (Xsign(col(index),row(index),:,Tempind)); 
@@ -89,7 +107,7 @@ indicesScale = find(~isnan(scalePrediction(1,1,:)));
 %indicesInt = intersect(indicesSign,indicesScale); % k that you can use to judge He predictions 
 Xtemp = Xs(:,:,1,Tempind);
 tempX = tril(Xtemp,-1)+triu(nan(size(Xtemp)));
-
+clear Truthscale
 
 X(X==0)=nan;
 % for counter =1:size(X,3)
@@ -127,19 +145,19 @@ for fn= fns
             if length(whichside)>1
                 %Truth: lower half (preds1)
                 
-                Truthscale(:,index,1) = Xscale(row(index),col(index),:);
-                Truthscale(:,index,2) = Xscale(col(index),row(index),:);
+                Truthscale(:,index,1) = Xscale(row(index),col(index),:,Tempind);
+                Truthscale(:,index,2) = Xscale(col(index),row(index),:,Tempind);
 
             elseif whichside==1
                 %Truth: lower half (preds1)
                 tempX = tril(Xs(:,:,1),-1)+triu(nan(size(Xs(:,:,1))));
                 filled_ind = find(~isnan(tempX));
                 [row,col]= find(~isnan(tempX));
-                Truthscale(:,index,1) = Xscale(row(index),col(index),:);
+                Truthscale(:,index,1) = Xscale(row(index),col(index),:,Tempind);
             elseif whichside==2
                 %top half truth
                 
-                Truthscale(:,index,2) = Xscale(col(index),row(index),:);
+                Truthscale(:,index,2) = Xscale(col(index),row(index),:,Tempind);
             end 
         end 
      for c =1:size(X,3) 
@@ -169,7 +187,9 @@ load(strcat('heUNIFACforT=',num2str(Temperature),'.mat'), 'mixture', 'conc_inter
 [~,mixunind] = find(ismember(mixture',mixtures(filled_ind,:), 'rows')); % hopefully this extracts what we want 
 heunifacpred = he(5:5:96, mixunind);
 mixtureuni = mixture;
-for fnind =4%1:length(fns)
+clear errorUNI
+clear errorHE aardHE
+for fnind =1:length(fns)
 
     rSign = 1;
     rScale = fnind;
@@ -179,7 +199,7 @@ for fnind =4%1:length(fns)
     
     hepred = Truthsign(:,:,whichside).*exp(reshape(scalePreds(rScale,:,:,whichside),size(Truthsign(:,:,whichside))).*Truthsign(:,:,whichside));
     errorUNI(:,:,whichside) = hepred - heunifacpred; 
-    errorUNIsystem = mean(errorUNI,2);
+    errorUNIsystem = mean(errorUNI,1);
     %hepred = reshape(hepred,size(X,3),[],length(whichside));
     %hepred(:,:,2) = flip(hepred(:,:,2));
     %postprocess the predictions 
@@ -189,7 +209,7 @@ for fnind =4%1:length(fns)
     end 
     
     Truth = zeros(size(hepred));
-    Xtemp = tril(Xs(:,:,1),-1)+triu(nan(size(Xs(:,:,1))));
+    Xtemp = tril(Xs(:,:,1,Tempind),-1)+triu(nan(size(Xs(:,:,1,Tempind))));
     Xtemp(Xtemp==0)=nan;
    [row,col,elements]=find(~isnan(Xtemp));
    
@@ -208,14 +228,14 @@ for fnind =4%1:length(fns)
         
     end 
     Truth(isnan(Truth)) =0;
-    indicespred = find(~isnan(hepred(concen,:,1)));
+    indicespred = find(~isnan(hepred(1,:,1)));
     if whichside ==2
         errorHE(:,:,whichside) = abs(Truth(:,indicespred,whichside)) - abs(hepred(:,indicespred));
     else 
         errorHE(:,:,whichside) = abs(Truth(:,indicespred,whichside)) - abs(hepred(:,indicespred,whichside));
     end 
     errorHE(isnan(errorHE)) = 0;
-    errorHEsystem = mean(errorHE,2);
+    errorHEsystem = mean(errorHE,1);
     hepred = hepred(:,indicespred,:);
     aardHE(:,:,whichside) = abs(errorHE(:,:,whichside))./abs(reshape(Truth(:,indicespred,whichside),size(errorHE(:,:,whichside))));
     %aardHE(:,:,2) = abs(errorHE(:,:,2))./abs(reshape(Truth(:,indicespred,2),size(errorHE(:,:,2))));
@@ -248,25 +268,29 @@ wsmse
 % writetable(array2table(wsmsec),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'AN6', 'WriteVariableNames',false, 'AutoFitWidth', false)
 % writetable(array2table(tableout),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'AM24', 'WriteVariableNames',false, 'AutoFitWidth', false)
 %%
-figure(1)
+f1=figure(1);
+f1.Position = [10,10,400, 300];
+load('colorblind_colormap.mat')
 clf
-index1plot=1;
-semilogy(fns(index1plot:end),smse(index1plot:end),'.', 'MarkerSize',14)
+index1plot=5;
+semilogy(fns(index1plot:end),smse(index1plot:end),'.','Color', colorblind(1,:), 'MarkerSize',14)
 hold on 
-semilogy(fns(index1plot:end),wsmse(index1plot:end),'.', 'MarkerSize',14)
+semilogy(fns(index1plot:end),wsmse(index1plot:end),'o','Color', colorblind(2,:), 'MarkerSize',6)
 
 ylabel('Error (J/mol)')
 xlabel('Number of factors')
 legend('SMSE','wSMSE')
 %%
 clf
-index1plot=1;
+index1plot=8;
 %choose mse or wmse
-semilogy(fns(index1plot:end),smse(index1plot:end),'.','MarkerSize',12)
-
-%semilogy(fns(index1plot:end),wsmse(index1plot:end),'.','MarkerSize',12)
-
+plot(fns(index1plot:end),smse(index1plot:end),'.','Color', colorblind(1,:),'MarkerSize',14)
 ylabel('SMSE (J/mol)')
+
+xlabel('Number of factors')
+%%
+plot(fns(index1plot:end),wsmse(index1plot:end),'o','Color', colorblind(2,:),'MarkerSize',6)
+ylabel('wSMSE (J/mol)')
 
 xlabel('Number of factors')
 
@@ -302,23 +326,23 @@ for counter =1:16
     
     disp(mixpred)
     
-    subplot(4,4,counter)
-    plot(conc_exp*100, heexp,'r.', 'MarkerSize',12)
+     subplot(4,4,counter)
+    plot(conc_exp*100, heexp,'^','Color', colorblind(6,:), 'MarkerSize',4,'MarkerFaceColor',colorblind(6,:))
     hold on
     
     %predictions made by the model 
     if length(whichside)>1
         heplot1 = (hepred(:,counter+p*16,1));
         heplot2 = (hepred(:,counter+p*16,2));
-        plot(concentrations*100, flip(heplot1),'b.', 'MarkerSize',12)      
+        plot(concentrations*100, flip(heplot1),'.','Color', colorblind(8,:), 'MarkerSize',12)      
         hold on
         if postprocess == 0
-            plot(concentrations*100, (heplot2) ,'c.', 'MarkerSize',12)
+            plot(concentrations*100, (heplot2) ,'.', 'Color',colorblind(1,:), 'MarkerSize',12)
             hold on
         end 
     else
         heplot1 = (hepred(:,counter+p*16));
-        plot(concentrations*100, heplot1,'b.', 'MarkerSize',12)
+        plot(concentrations*100, heplot1,'.', 'Color',colorblind(8,:), 'MarkerSize',12)
         hold on 
     end 
     
@@ -446,7 +470,7 @@ end
 % heatmap 
 tbl = table(funcgroup1tbl', funcgroup2tbl',smse_tbl',aard_tbl',wsmsetbl', 'VariableNames', ["Functional group 1", "Functional group 2", "SMSE (J/mol)","AARD (%)","wSMSE (J/mol)" ]);
 % heatmap 
-h = heatmap(tbl, 'Functional group 1', 'Functional group 2','ColorVariable', 'wSMSE (J/mol)', 'ColorMethod', 'none');
+h = heatmap(tbl, 'Functional group 1', 'Functional group 2','ColorVariable', 'SMSE (J/mol)', 'ColorMethod', 'none');
 h.Colormap=winter;
 h.FontSize = 14;
 
@@ -457,37 +481,50 @@ for i = 1:length(filled_ind)
     mixpred = mixtureT(i,:);
     [~,mixunind] = ismember(mixpred,mixture', 'rows');
     if mixunind ~=0
-        heuni(:,i) = he(5:5:96,mixunind); % check these indices 
+        heuniplot(:,i) = he(5:5:96,mixunind); % check these indices 
+        indexuni(i)=1;
+    else 
+        indexuni(i)=0;
     end 
 end 
-figure(4) 
+f4 = figure(4);
+f4.Position=[10 10 400 300];
 clf 
 
-%parity plot 
-subplot(2,1,1)
+
 %choose between plot and loglog 
-loglog(Truth(:,indicespred,whichside),hepred(:,indicespred,whichside), 'bo', 'MarkerSize',12)
+plotx =Truth(:,indicespred,whichside);
+ploty = hepred(:,indicespred,whichside);
+plot(plotx(:),ploty(:),'.','Color', colorblind(1,:), 'MarkerSize',8)
 hold on 
-loglog(Truth(:,indicespred,1), heuni, 'ko', 'MarkerSize',12)
-loglog([0,max(max(max(Truth)))], [0, max(max(max(Truth)))], 'Color',[.7 .7 .7])
+plot(plotx(:,logical(indexuni),1), heuniplot,'.','Color', 'k', 'MarkerSize',8)
+plot([min(plotx(:)),max(plotx(:))], [min(plotx(:)),max(plotx(:))],'-', 'Color',colorblind(4,:), 'LineWidth', 1.2)
+
 
 hold off 
-xlabel('Predictions (J/mol)')
-ylabel('Experimental (J/mol)')
+xlabel('Experimental (J/mol)','FontSize',13, 'Color', 'k')
+ylabel('MCM / UNIFAC (J/mol)','FontSize',13, 'Color', 'k')
+legend('MCM', 'UNIFAC','FontSize',8,'Location', 'northwest');
 
 %error distribution 
-subplot(2,1,2)
+f5 = figure(5);
+f5.Position = [10 20 400 300];
+clf
 %choose the number of bins 
-ploterrhist(errorHE, 'bins', 20)
+%ploterrhist(errorHE(:), 'bins', 20)
+histogram(errorHE(:), 20, 'FaceColor', colorblind(6,:), 'BinLimits', [-1000 1000])
+ylabel('Instances','FontSize',13, 'Color', 'k')
+xlabel('MCM error (J/mol)', 'FontSize',13, 'Color', 'k')
+
 
 %% Classification of correct predictions per system 
 % colours of data points will show which one is better 
 %started 04/11/2022 - check if it works 
 %scatter(x,y,pointsize,color)
 
-leftcorrect = errorHEsystem(:,1)<errorHEsystem(:,2);% logical output 
-errorHEbest = errorHEsystem(leftcorrect,1) + errorHEsystem(1-leftcorrect,2);
-unifaccorrect = errorHEbest>errorUNIsystem; %logical output 
+leftcorrect = errorHEsystem(1,:,1)<errorHEsystem(1,:,2);% logical output 
+errorHEbest = errorHEsystem(1,:,1).*leftcorrect + errorHEsystem(1,:,2).*(1-leftcorrect);
+unifaccorrect = errorHEbest>(errorUNIsystem(1,:,1).*leftcorrect+ errorUNIsystem(1,:,2).*(1-leftcorrect)); %logical output 
 numleftcorrect = sum(find(leftcorrect));
 numunicorrect = sum(find(unifaccorrect));
 %figure out x and y later 
@@ -545,7 +582,7 @@ function [heprednew,uncertainty] = postprocesshe(hepred,concentrations)
     heprednew = zeros(size(hepred,1),size(hepred,2));
     
     uncertainty = zeros(length(size(hepred,2)),length(concentrations));
-    threshold = 0.6*(size(hepred,1)*2-1)/sqrt(size(hepred,1)*2);
+    threshold = 0.5*(size(hepred,1)*2-1)/sqrt(size(hepred,1)*2);
 
     for index = 1:(size(hepred,2))
         temppred = hepred(:,index,:);
