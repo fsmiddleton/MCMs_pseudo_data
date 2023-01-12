@@ -5,7 +5,8 @@
 clc
 clear
 load('colorblind_colormap.mat')
-
+load('3wayHOSVD-threshold60-fn3=1-Small-concslices-LOOCV-Xnone-maxiter=20000-Temp=318.15-fillmethod=row-21-Dec-2022.mat')
+%load('3wayHOSVD-threshold60-centre+scale-Small-concslices-LOOCV-Xnone-maxiter=20000-Temp=318.15-fillmethod=avr-09-Dec-2022.mat')
 %% No sign predictions exist
 load("2waySVDUnfoldingMode1-21comps-threshold60par-LOOCV-Xscale-T=298.15-fillmethod=reg-21-Nov-2022.mat")
 %load('3wayHOSVDThreshold-centre+scale-Fillchanged-A1-Small-concslices-LOOCV-Xscale-maxiter=20000-Temp=298.15-fillmethod=reg-17-Nov-2022.mat')
@@ -31,30 +32,7 @@ mixtures = zeros(size(comps,1)^2,4);
             mixtures(index,:) = [comps(i,:) comps(j,:)];
         end
     end 
-%load('3wayPARAFACThreshold-Small-concslices-LOOCV-Xscale-maxiter=20000-Temp=288.15-fillmethod=reg-09-Nov-2022.mat')
-%load('3waPARAFAC-Small-concslices-LOOCV-Xscale-maxiter=20000-Temp=298.15-fillmethod=reg-04-Nov-2022.mat')
-%load('2waySVD-50comps-scale1-threshold60par-moreiter-huberloss1-LOOCV-Xscale-T=298.15-fillmethod=rec-02-Nov-2022.mat')
-%load('2waySVD-50comps-scale0-threshold60par-moreiter-huberloss1-LOOCV-Xscale-T=298.15-fillmethod=reb-01-Nov-2022.mat')
-%load('2waySVD-Small-threshold60par-moreiter-huberloss1-LOOCV-Xscale-T=298.15-fillmethod=reg-01-Nov-2022.mat')
-%load('2waySVD-Small-threshold60par-moreiter-huberloss1-LOOCV-Xscale-T=298.15-fillmethod=avr-01-Nov-2022.mat')
-%load('2waySVD-Small-threshold40par-huberloss1-LOOCV-Xscale-T=298.15-fillmethod=avr-01-Nov-2022.mat')
-%load('2waySVD-Small-thresholdpar-huberloss1-LOOCV-Xscale-T=298.15-fillmethod=avg-31-Oct-2022.mat')
-%load('2wayINDAFAC-Small-threshold50parallel-LOOCV-Xscale-T=298.15-fillmethod=dia-28-Oct-2022.mat')
-%load('2wayINDAFAC-Small-threshold50parallel-LOOCV-Xscale-T=298.15-fillmethod=uni-27-Oct-2022.mat')
-%load('2waySVD-26comps-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=avg-26-Oct-2022.mat')
-%load('2waySVD-Half-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-25-Oct-2022.mat')
-%load('2waySVD-26comps-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=dia-25-Oct-2022.mat')
-%load('2waySVD-Half-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-25-Oct-2022.mat')
-%load('2wayPARAFAC-LOOCV-Half-Xscale-maxiter=20000-T=298.15-c=6-fillmethod=uni-25-Oct-2022.mat')
- %load('2waySVD-Alll-LOOCV-Xscale-maxiter=20000-T=298.15-c=1-fillmethod=dia-23-Oct-2022.mat')
-%insert scale results filename here 
-%load('2wayINDAFACcentred-All-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-17-Oct-2022.mat')
-%load('2wayINDAFACcentred-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-18-Oct-2022.mat')
-%load('2wayPARAFACthresholded-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-24-Oct-2022.mat')
-%load('2waySVDscaled+centred+thresholdZ-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-23-Oct-2022.mat')
-%load('2waySVDscaled+centred-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-20-Oct-2022.mat')
-%load('2wayINDAFAC-All-LOOCV-Xscale-maxiter=2500-T=298.15-c=19-fillmethod=uni-20-Oct-2022.mat')
-%load('2wayINDAFAC-All-LOOCV-Xorig-maxiter=20000-T=298.15-c=9-fillmethod=uni-13-Oct-2022.mat')
+
 %finds the true sign values
 X(X==0)=nan;
 % for counter =1:size(X,3)
@@ -79,28 +57,6 @@ end
 %% Xscale
 date ='13-Oct';
 
-%load('2waySVD-Half-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-25-Oct-2022.mat')
-%load('2waySVD-26comps-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=dia-13-Oct.mat')
-%clear Truth Truthtemp scalePreds hepred scalePrediction mse wmse smse wsmse smse
-%load('2waySVD-Half-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-25-Oct-2022.mat')
-%load('2wayINDAFACthreshold-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-21-Oct-2022.mat')
-%load('2wayPARAFAC-LOOCV-Half-Xscale-maxiter=20000-T=298.15-c=6-fillmethod=uni-25-Oct-2022.mat')
-%load('2waySVD-Half-LOOCV-Xscale-maxiter=25000-T=298.15-c=18-fillmethod=dia-13-Oct-2022.mat')
-%load('2wayPARAFACthresholded-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-24-Oct-2022.mat')
-%load('2waySVDscaled+centred+thresholdZ-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-23-Oct-2022.mat')
-%load('2waySVDscaled+centred-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-20-Oct-2022.mat')
-%load('2wayINDAFAC-25CompsMoreFns-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-19-Oct-2022.mat')
-%load('2waySVD-Alll-LOOCV-Xscale-maxiter=20000-T=298.15-c=9-fillmethod=dia-17-Oct-2022.mat')
-%load('2waySVD-Alll-LOOCV-Xscale-maxiter=20000-T=298.15-c=14-fillmethod=dia-17-Oct-2022.mat')
-%load('2wayINDAFAC-All-LOOCV-Xscale-maxiter=2500-T=298.15-c=19-fillmethod=uni-20-Oct-2022.mat')
-%load('2wayINDAFACthresholded-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-21-Oct-2022.mat')
-%load('2wayINDAFACcentred-All-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-17-Oct-2022.mat')
-%load('2wayINDAFACcentred-All-LOOCV-Xscale-maxiter=25000-T=298.15-c=19-fillmethod=uni-18-Oct-2022.mat')
-%load('2wayINDAFAC-25comps-LOOCV-Xscale-maxiter=20000-T=298.15-c=19-fillmethod=dia-18-Oct-2022.mat')
-% filenameimport = strcat(num2str(ways),'way',(parafac),'centre-All-LOOCV-Xscale-maxiter=20000-T=',num2str(Temperature),'-c=',num2str(concen),'-fillmethod=',fillmethod,'-',date,'-2022.mat');
-% load(filenameimport)
-%Tablescale = {filenameimport; filename; fillmethod; num2str(orth)};
-%writetable(cell2table(Tablescale),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'B2', 'WriteVariableNames',false, 'AutoFitWidth', false)
 scalePrediction = Xm_boot;
 scalePrediction(scalePrediction ==0)=nan;
 indicesScale = find(~isnan(scalePrediction(1,1,:)));
@@ -174,14 +130,18 @@ for fn= fns
     end  
 end 
 
-%export 
-% writetable(array2table(fns'),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'A10', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(fns'),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'A25', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(fns'),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'A40', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(mse),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'B10', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(wmse),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'B25', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(aard),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'B40', 'WriteVariableNames',false, 'AutoFitWidth', false)
-%% He preds
+%%  He preds
+load(filename)
+%
+mixtures = zeros(size(comps,1)^2,4);
+    index = 0;
+    for i = 1:length(comps)
+        for j = 1:length(comps)
+            index = index+1;
+            mixtures(index,:) = [comps(i,:) comps(j,:)];
+        end
+    end 
+Temperature = Temps(Tind);
 fnind=0;
 load(strcat('heUNIFACforT=',num2str(Temperature),'.mat'), 'mixture', 'conc_interval', 'he') %change the temperature here
 [~,mixunind] = find(ismember(mixture',mixtures(filled_ind,:), 'rows')); % hopefully this extracts what we want 
@@ -254,25 +214,106 @@ for fnind =1:length(fns)
     smse(fnind) = sqrt(sum(sum(sum(errorHE.^2)))/prod(size(errorHE)));
 end
 wsmse
-%find the minimum for each concentration
-% for c =1:length(concentrations)
-%     ind = find(min(wsmsec(:,c))==wsmsec(:,c));
-%     if isempty(ind)
-%         ind = fns(fnind);
-%     end 
-%     tableout(:,c) = [rSign; fns(ind); smsec(ind,c); aardc(ind,c); wsmsec(ind,c); reshape(percless(ind,c,:),5,1)];
-% end 
-%overall errors 
-% writetable(array2table(fns(fn)'),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'AL6', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(wsmse),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'AM6', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(wsmsec),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'AN6', 'WriteVariableNames',false, 'AutoFitWidth', false)
-% writetable(array2table(tableout),'2waycompletionScaled.xlsx', 'Sheet', num2str(Temperature),'Range', 'AM24', 'WriteVariableNames',false, 'AutoFitWidth', false)
+
+%% Pure he preds
+clc
+clear
+load('3wayHOSVD-threshold60-fn3=4-Small-concslices-LOOCV-Xnone-maxiter=20000-Temp=318.15-fillmethod=avr-20-Dec-2022.mat')
+load(filename)
+Tempind =4;
+Temperature = Temps(Tempind); 
+whichside = 1:2;
+concen = 1;
+postprocess = 0;
+concentrations = conc_interval;
+%load('3wayHOSVD-threshold60-centre+scale-Small-concslices-LOOCV-Xnone-maxiter=20000-Temp=318.15-fillmethod=avr-09-Dec-2022.mat')
+tempX = tril(Xs(:,:,1,Tempind),-1)+triu(nan(size(Xs(:,:,1,Tempind))));
+[row,col] = find(~isnan(tempX));
+filled_ind =  find(~isnan(tempX));
+mixtures = zeros(size(comps,1)^2,4);
+index = 0;
+for i = 1:length(comps)
+    for j = 1:length(comps)
+        index = index+1;
+        mixtures(index,:) = [comps(i,:) comps(j,:)];
+    end
+end
+
+load(strcat('heUNIFACforT=',num2str(Temperature),'.mat'), 'mixture', 'conc_interval', 'he') %change the temperature here
+[mixunind,~] = (ismember(mixture',mixtures(filled_ind,:), 'rows')); % hopefully this extracts what we want 
+heunifacpred = he(5:5:96, mixunind);
+mixtureuni = mixture;
+clear errorUNI
+clear errorHE aardHE
+% need to find which fns were not used 
+for fnind =1:length(fns)
+    hepred = [Xm_boot(fnind,:,:); Xm_boot2(fnind,:,:)]; 
+    hepred = permute(hepred, [3 2 1]);
+    Truth = zeros(size(hepred));
+    Xtemp = tril(Xs(:,:,1,Tempind),-1)+triu(nan(size(Xs(:,:,1,Tempind))));
+    Xtemp(Xtemp==0)=nan;
+    rSign = 1;
+    rScale = fnind;
+    
+ 
+    if postprocess ==1
+        [heprednew,errorfit] = postprocesshe(hepred(:,:,whichside),concentrations);
+        hepred(:,:,whichside) = heprednew;
+    end 
+    
+    Truth = zeros(size(hepred));
+    Xtemp = tril(Xs(:,:,1,Tempind),-1)+triu(nan(size(Xs(:,:,1,Tempind))));
+    Xtemp(Xtemp==0)=nan;
+   [row,col,elements]=find(~isnan(Xtemp));
+   
+    for counter = 1:size(row,1)
+        
+        if length(whichside)>1
+            Truth(:,counter,1) = X(row(counter),col(counter),:,Tempind);
+            Truth(:,counter,2) = X(col(counter),row(counter),:,Tempind);
+            %Truth(:,i,2) = flip(Truth(:,i,2));
+        elseif whichside ==1
+            Truth(:,counter,1) = X(row(counter),col(counter),:,Tempind);
+        elseif whichside ==2
+            Truth(:,counter,2) = X(col(counter),row(counter),:,Tempind);
+            %Truth(:,i,2) = flip(Truth(:,i,2));
+        end 
+        
+    end 
+    Truth(isnan(Truth)) =0;
+    indicespred = find(~isnan(hepred(1,:,1)));
+    
+    errorHE(:,:,whichside) = abs(Truth(:,indicespred,whichside)) - abs(hepred(:,indicespred,whichside));
+    errorHE(errorHE==0)=nan; 
+    errorUNI(:,:) = Truth(:,:,1) - heunifacpred; 
+    errorUNIsystem = mean(errorUNI,1);
+    errorHE(isnan(errorHE)) = 0;
+    errorHEsystem = mean(errorHE,1);
+    hepred = hepred(:,indicespred,:);
+    aardHE(:,:,whichside) = abs(errorHE(:,:,whichside))./abs(reshape(Truth(:,indicespred,whichside),size(errorHE(:,:,whichside))));
+    %aardHE(:,:,2) = abs(errorHE(:,:,2))./abs(reshape(Truth(:,indicespred,2),size(errorHE(:,:,2))));
+
+    for c = 1:size(X,3)
+        smsec(fnind,c) = sqrt(sum(sum(errorHE(c,:,whichside).^2))/length(indicespred));
+        wsmsec(fnind,c) = sqrt(find_wmse_error(errorHE(c,:,whichside),length(indicespred)*2));
+        aardc(fnind,c) = sum(sum(abs(aardHE(c,:,whichside))))/length(aardHE(c,:,1));
+        percless(fnind,c,1) = sum(sum((abs(aardHE(c,:,whichside))<0.05)))/length(indicespred)/2*100;
+        percless(fnind,c,2) = sum(sum((abs(aardHE(c,:,whichside))<0.15)))/length(indicespred)/2*100;
+        percless(fnind,c,3) = sum(sum((abs(aardHE(c,:,whichside))<0.25)))/length(indicespred)/2*100;
+        percless(fnind,c,4) = sum(sum((abs(aardHE(c,:,whichside))<0.50)))/length(indicespred)/2*100;
+        percless(fnind,c,5) = sum(sum((abs(aardHE(c,:,whichside))<0.75)))/length(indicespred)/2*100;
+    end 
+    wsmse(fnind) = sqrt(find_wmse_error(errorHE,length(indicespred)));
+    smse(fnind) = sqrt(sum(sum(sum(errorHE.^2)))/prod(size(errorHE)));
+end
+wsmse
+
 %%
 f1=figure(1);
 f1.Position = [10,10,400, 300];
 load('colorblind_colormap.mat')
 clf
-index1plot=5;
+index1plot=1;
 semilogy(fns(index1plot:end),smse(index1plot:end),'.','Color', colorblind(1,:), 'MarkerSize',14)
 hold on 
 semilogy(fns(index1plot:end),wsmse(index1plot:end),'o','Color', colorblind(2,:), 'MarkerSize',6)
@@ -282,10 +323,10 @@ xlabel('Number of factors')
 legend('SMSE','wSMSE')
 %%
 clf
-index1plot=8;
+index1plot=1;
 %choose mse or wmse
-plot(fns(index1plot:end),smse(index1plot:end),'.','Color', colorblind(1,:),'MarkerSize',14)
-ylabel('SMSE (J/mol)')
+plot(fns(index1plot:end),wsmse(index1plot:end),'.','Color', colorblind(1,:),'MarkerSize',14)
+ylabel('wSMSE (J/mol)')
 
 xlabel('Number of factors')
 %%
@@ -298,9 +339,9 @@ xlabel('Number of factors')
 figure(2)
 clf
 
-p = 1;
+p = 0;
 
-
+load('colorblind_colormap.mat')
 %info we might want later 
 func_group = {1,2,3:5, [6,7,11], 8:9, 10, 12:17,18:20, 21, 22};
 label_func = {'Alkane', 'Primary alcohol', 'Other alcohol','Cycloalkanes', 'Ketone', 'Alkene', 'Ester', 'Amine','Acid','Aldehyde'};
@@ -341,7 +382,7 @@ for counter =1:16
             hold on
         end 
     else
-        heplot1 = (hepred(:,counter+p*16));
+        heplot1 = (hepred(:,counter+p*16,whichside));
         plot(concentrations*100, heplot1,'.', 'Color',colorblind(8,:), 'MarkerSize',12)
         hold on 
     end 
@@ -490,7 +531,7 @@ end
 f4 = figure(4);
 f4.Position=[10 10 400 300];
 clf 
-
+load('colorblind_colormap.mat')
 
 %choose between plot and loglog 
 plotx =Truth(:,indicespred,whichside);
@@ -498,13 +539,26 @@ ploty = hepred(:,indicespred,whichside);
 plot(plotx(:),ploty(:),'.','Color', colorblind(1,:), 'MarkerSize',8)
 hold on 
 plot(plotx(:,logical(indexuni),1), heuniplot,'.','Color', 'k', 'MarkerSize',8)
+%prediction interval
+PIx = min(plotx(:)):100:max(plotx(:));
+syx = std(plotx(:));
+hi = 1/numel(plotx(:)) + (PIx-mean(PIx)).^2/sum((PIx-mean(PIx)).^2);
+PIy1 = PIx - 1.96.*syx.*sqrt(1+hi);
+PIy2 = PIx + 1.96.*syx.*sqrt(1+hi);
+plot(PIx,PIy1, '--', 'Color', colorblind(7,:), 'LineWidth', 1) %make this pink 
+plot(PIx,PIy2, '--', 'Color', colorblind(7,:), 'LineWidth', 1) %make this pink 
+%y=x line 
 plot([min(plotx(:)),max(plotx(:))], [min(plotx(:)),max(plotx(:))],'-', 'Color',colorblind(4,:), 'LineWidth', 1.2)
-
+ 
 
 hold off 
 xlabel('Experimental (J/mol)','FontSize',13, 'Color', 'k')
-ylabel('MCM / UNIFAC (J/mol)','FontSize',13, 'Color', 'k')
-legend('MCM', 'UNIFAC','FontSize',8,'Location', 'northwest');
+ylabel('Prediction (J/mol)','FontSize',13, 'Color', 'k')
+if plotuni
+    legend('MCM', 'UNIFAC','PI (95%)', 'FontSize',8,'Location', 'northwest');
+else 
+    legend('MCM','PI (95%)', 'FontSize',8,'Location', 'northwest');
+end 
 
 %error distribution 
 f5 = figure(5);
@@ -516,7 +570,37 @@ histogram(errorHE(:), 20, 'FaceColor', colorblind(6,:), 'BinLimits', [-1000 1000
 ylabel('Instances','FontSize',13, 'Color', 'k')
 xlabel('MCM error (J/mol)', 'FontSize',13, 'Color', 'k')
 
+%% 3way histogram 
+f6 = figure(6);
+f6.Position = [10 20 600 400];
+clf
+edges = {-1000:100:1000; 0:5:100}; % bin edges
+data = [errorHE(:) abs(aardHE(:)).*100]; 
+hist3(data, 'Edges', edges,'CdataMode','auto','FaceColor','interp')
+zlabel('Instances','FontSize',13, 'Color', 'k')
+xlabel('MCM error (J/mol)', 'FontSize',13, 'Color', 'k')
+ylabel('MCM AARD (%)' ,'FontSize', 13, 'Color', 'k')
+colorbar
+colormap('parula')
 
+%% Error plot within the 3-way arrays 
+f7 = figure(7);
+f7.Position = [10 20 800 500];
+clf
+TempIndex = 1;
+errorplot = nan(size(X(:,:,:,TempIndex)));
+for i =1:length(col)
+    errorplot(row(i),col(i),:) = errorHE(:,i,1);
+    errorplot(col(i),row(i),:) = errorHE(:,i,2);
+end 
+[X,Y,Z] = meshgrid(1:size(errorplot,1), 1:size(errorplot,1), 5:5:95);
+xslice = 1:1:size(errorplot,1);    % location of y-z planes
+yslice = 1:1:size(errorplot,1);     % location of x-z plane
+zslice = 5:5:95;         % location of x-y planes
+slice(X,Y,Z,errorplot,xslice,yslice,zslice)
+c = colorbar;
+c.Label.String = 'Error (J/mol)';
+c.Label.FontSize = 12;
 %% Classification of correct predictions per system 
 % colours of data points will show which one is better 
 %started 04/11/2022 - check if it works 
@@ -524,7 +608,7 @@ xlabel('MCM error (J/mol)', 'FontSize',13, 'Color', 'k')
 
 leftcorrect = errorHEsystem(1,:,1)<errorHEsystem(1,:,2);% logical output 
 errorHEbest = errorHEsystem(1,:,1).*leftcorrect + errorHEsystem(1,:,2).*(1-leftcorrect);
-unifaccorrect = errorHEbest>(errorUNIsystem(1,:,1).*leftcorrect+ errorUNIsystem(1,:,2).*(1-leftcorrect)); %logical output 
+unifaccorrect = errorHEbest>(errorUNIsystem(1,:,1).*leftcorrect+ errorUNIsystem(1,:,1).*(1-leftcorrect)); %logical output 
 numleftcorrect = sum(find(leftcorrect));
 numunicorrect = sum(find(unifaccorrect));
 %figure out x and y later 
@@ -533,7 +617,7 @@ scatter(1:length(filled_ind),1:length(filled_ind),[],unifaccorrect, 'filled')
 
 %Classification by machine learning method 
 %% Classification of correct predictions per functional group 
-%fix all of this before using - 04/11/2022
+%fix all of this before using - 04/11/2022 - does not do anything 
 
 for func = 1:length(func_group)
     for func2 = 1:length(func_group)
@@ -546,7 +630,7 @@ for func = 1:length(func_group)
         indices = intersect(index,index2);
         %export errors and AARDs
         left_funcgroup{func,func2} = sum(leftcorrect(indices)); 
-        unifac_funcgroup{func,func_2} = sum(unifaccorrect(indices));
+        unifac_funcgroup{func,func2} = sum(unifaccorrect(indices));
         ardtemp = aardHE(:,indices,:); 
         no_mix(func,func2) = length(ardtemp(:)/19);
     end 

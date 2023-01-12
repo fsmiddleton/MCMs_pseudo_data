@@ -89,8 +89,8 @@ interp_index = zeros(length(data.FunctionalGroup1),1);%variable to save the inde
 
 % Specify the mixtures wanted in the matrix. The algorithm will find all
 % combinations of functional group 1 and 2.  
-func_groups.one = {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
-func_groups.two = {'Alkane', 'Primaryalcohol' , 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
+%func_groups.one = {'Alkane', 'Primaryalcohol'};%, 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene'};%, 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
+%func_groups.two = {'Alkane', 'Primaryalcohol' };%, 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene'};%, 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
 max_chain_length = 12; 
 P = 15000; % pressure in kPa 
 % pressure is ignored due to very small variation with pressure of HE and
@@ -99,8 +99,8 @@ for interval = 0.05
     conc_interval = interval:interval:(1-interval);
     disp('Interval')
     disp(interval)
-    Temps = 298.15;%[283.15, 288.15,293.15,298.15,303.15, 308.15,313.15,318, 323.15,363.15]; % ;243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15];
-    for T = Temps
+    Temps = [296.15; 363.15];%[288.15; 303.15;307.5;309.5; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15]; % ;243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15];
+    for T = Temps'
         disp('Temperature')
         disp(T)
         data = readtable('HEData23August.xlsx','ReadVariableNames',true); % change sheet to include certain functional groups as the main site of data collection 
@@ -171,6 +171,7 @@ for interval = 0.05
                                 mixture(2,ind)= i;
                                 mixture(3,ind)= f2;
                                 mixture(4,ind)= j;
+                                disp(mixture(:,ind))
                                 % interpolate data and populate matrix of all data
                                 if poly == 1
                                     [HE_data(:,ind), uncertainty(:,ind), orderPolyfit(ind),HEpred(:,ind), errorpred(:,ind), R2(ind)]=interp_data(temp4, conc_interval);
@@ -192,7 +193,7 @@ for interval = 0.05
         end
         % Exporting the data 
         disp('Exporting')
-        prefixfilename = strcat('HEData3wayPolyAll-', num2str(interval), '-',num2str(T));
+        prefixfilename = strcat('HE3wayPolyAll', num2str(T));
         %remove nan columns or rows 
         mixture = mixture(:, 1:ind);
         HE_data = HE_data(:, 1:ind);
@@ -207,7 +208,7 @@ for interval = 0.05
         [l,Locb] = ismember(comps2,comps1,'rows');
         include2 = find(Locb==0);
         % all possible components in this matrix 
-        comps = [comps1; comps2(include2,:)];
+        comps = union(comps1, comps2, 'rows');
 
         % Populate matrices of interpolated data 
         % populate the square array 
@@ -220,11 +221,16 @@ for interval = 0.05
         %order the data in HE_data 
         HE_data_sparse = nan(dim1,dim2,dim3);
         error = nan(dim1,dim2,dim3);
+        count =0;
         for i = 1:dim1
             for j=1:dim2
                 %consider all possibilities of mixtures 
                 [lia,index]=ismember([comps(i,:) comps(j,:)], mixture', 'rows');
+                %save mixture 
+                
                 if lia ==1
+                    count = count+1;
+                    mixtureadded(count,:) = [comps(i,:) comps(j,:)];
                     HE_data_sparse(i,j,:)= reshape(HE_data(:,index),[1,dim3]);
                     HE_data_sparse(j,i,:)=reshape(flip(HE_data(:,index)),[1,dim3]);
                     error(i,j, :) = reshape(uncertainty(:,index),[1,dim3]);
@@ -246,32 +252,7 @@ for interval = 0.05
         % check for nan rows and column 
         [missing.i, missing.j] = find(isnan(HE_data_sparse));
 
-        % Export 3-way array to excel spreadsheet 
-    %     filename = strcat(prefixfilename,num2str(T),'.xlsx');
-    %     %create table with all this information
-    %     for i = 1:length(conc_interval)
-    %         Table = array2table(HE_data_sparse(:,:,i));
-    %         writetable(Table,filename,'Sheet',num2str(conc_interval(i)))
-    %     end 
-    %     TableHE = array2table(HE_data);
-    %     Table2= array2table(mixture);
-    %     Table4 = array2table(uncertainty);
-    %     Table5 = array2table(orderPolyfit);
-    %     TableRAD = array2table(RAD);
-    %     TableConcO = array2table(conc_original);
-    %     TableHEO = array2table(HE_original);
-    %     writetable(Table2,filename,'Sheet','mixtures1')
-    %     writetable(Table4, filename, 'Sheet', 'error')
-    %     writetable(Table5, filename, 'Sheet', 'orderPolynomial')
-    %     TableB1 = array2table(comps1); %unique component 1
-    %     TableB2 = array2table(comps2);%unique component 2
-    %     writetable(TableB1,filename, 'Sheet', 'B1')
-    %     writetable(TableB2,filename, 'Sheet', 'B2')
-    %     writetable(TableRAD, filename, 'Sheet', 'RAD')
-    %     writetable(TableConcO, filename, 'Sheet', 'ConcOriginal')
-    %     writetable(TableHEO, filename, 'Sheet', 'HEOriginal')
-    %     writetable(TableHE, filename, 'Sheet', 'HEInterpolated')
-    %     disp(filename)
+        % disp(filename)
         disp('Exported')
         save(strcat(prefixfilename,'.mat'))
     end 
@@ -292,7 +273,7 @@ title(['Order of the fit ', num2str(orderPolyfit(mix))])
 % these must have the same sizes as x
 
 load('HEData4wayArrayPolySmall-T=4-0.05.mat')
-v = reshape(HE_data_sparse(1:20,1:20,1,:),20,20,4);
+v = reshape(HE_data_sparse(1:20,1:20,:,1),20,20,[]);
 xslice = 1:1:20;    % location of y-z planes
 yslice = 1:1:20;     % location of x-z plane
 zslice = 1:1:4;         % location of x-y planes
@@ -376,8 +357,9 @@ yticklabels((conc_interval(indices)*100))
 %% Import data already interpolated and assign to groups  
 clc
 for interval = 0.05 %[0.01, 0.02, 0.04,0.05]
-    for T = 298.15%[243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15; 328.15; 333.15; 343.15; 348.15; 353.15; 363.15]'
-        filename = strcat('HEData3wayPolySmall-',num2str(interval),'-',num2str(T),'.mat');
+    for T = [243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15;  333.15;  348.15;  363.15]'
+        %filename = strcat('HEData3wayPolyAll-',num2str(interval),'-',num2str(T),'.mat');
+        filename = strcat('HE3wayPolyAll', num2str(T),'.mat');
         load(filename)
         % define types of mixtures d
         dim = size(HE_data);
@@ -413,9 +395,38 @@ for interval = 0.05 %[0.01, 0.02, 0.04,0.05]
     disp(sum(type(:)==i))
     end
 end 
+%%
+clc
+clear
+
+Tempsloop = [243.15; 253.15; 263.15; 273.15; 283.15; 288.15; 290.15; 293.15; 296.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15;  333.15;  348.15;  363.15]';
+nomix = zeros(length(Tempsloop),1);
+nocomp = zeros(length(Tempsloop),1);
+percobs = zeros(length(Tempsloop),1);
+AARD = zeros(length(Tempsloop),1);
+SMSE = zeros(length(Tempsloop),1);
+countloop = 1;
+for T = Tempsloop
+    %filename = strcat('HEData3wayPolyAll-',num2str(interval),'-',num2str(T),'.mat');
+    filename = strcat('HE3wayPolyAll', num2str(T),'.mat');
+    load(filename)
+    nomix(countloop) = ind;
+    nocomp(countloop) = size(comps,1);
+    percobs(countloop) = length(find(~isnan(HE_data_sparse)))/numel(HE_data_sparse);
+    RAD = RAD(:);
+    error = error(:);
+    RAD = RAD(find(~isnan(RAD)));
+    RAD = RAD(find(~isinf(RAD)));
+    error = error(find(~isnan(error)));
+    error = error(find(~isinf(error)));
+    AARD(countloop)= mean(RAD)*100;
+    SMSE(countloop) = mean(error);
+    
+    countloop = countloop+1;
+end 
 %% rearrange type into an array 
 clf
-load('HEData3wayPolySmall-0.05-298.15.mat')
+load('HE3wayPolyAll298.15.mat')
 X = HE_data_sparse;
 Xtemp = X(:,:,1);
 upperTri = triu(Xtemp,1);

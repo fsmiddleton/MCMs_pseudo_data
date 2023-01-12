@@ -11,7 +11,7 @@ ways = 2;
 %if only one side of the 2-way array is considered or both (1:2)
 whichside =1:2;
 postprocess = 0;
-load("2waySVD-20comps-addingfrom20-threshold60par-LOOCV-Xnone-T=298.15-fillmethod=avr-24-Nov-2022.mat")
+load('2waySVD-33comps-threshold60par-LOOCV-Xnone-T=293.15-fillmethod=avr-19-Dec-2022.mat')
 %load("2waySVD-71comps-threshold60par-LOOCV-Xscale-T=298.15-fillmethod=reg-19-Nov-2022.mat")
 %load("2waySVD-27comps-addingfrom20-threshold60par-LOOCV-Xscale-T=298.15-fillmethod=reg-22-Nov-2022.mat")
 %load('2waySVD-27comps-noadding-threshold60par-LOOCV-Xscale-T=298.15-fillmethod=reg-16-Nov-2022.mat')
@@ -26,14 +26,10 @@ tempX(1:indend,1:indend) = nan;
 tempX = tril(tempX,-1)+triu(nan(size(tempX)));
 [row,col] = find(~isnan(tempX));
 filled_ind = find(~isnan(tempX));
-
 signPrediction = sign(Xm_boot);
 signPrediction(signPrediction ==0)=nan;
 indicesSign = find(~isnan(signPrediction(1,1,:)));
 signPrediction = signPrediction(:,:,indicesSign);
-
-
-
 errors = zeros(length(fns),size(X,3),length(filled_ind),2);
 signPreds = zeros(length(fns),size(X,3),length(filled_ind),2);
 correct = zeros(length(fns),size(X,3));
@@ -233,7 +229,7 @@ mixtureuni = mixture(:,mixunind)';
 %mixunind = mixunind(Locb,:);
 heunifacpred = he(5:5:96, mixunind);
  rSign = 1;
-for fnind =1:length(fns)
+for fnind =19%1:length(fns)
 
    
     rScale = fnind;
@@ -307,9 +303,10 @@ f1.Position = [10,10,400, 300];
 load('colorblind_colormap.mat')
 clf
 index1plot=1;
-semilogy(fns(index1plot:end),smse(index1plot:end),'.','Color', colorblind(1,:), 'MarkerSize',14)
+indexplot2 = length(fns);
+semilogy(fns(index1plot:indexplot2),smse(index1plot:indexplot2),'.','Color', colorblind(1,:), 'MarkerSize',14)
 hold on 
-semilogy(fns(index1plot:end),wsmse(index1plot:end),'o','Color', colorblind(2,:), 'MarkerSize',6)
+semilogy(fns(index1plot:indexplot2),wsmse(index1plot:indexplot2),'o','Color', colorblind(2,:), 'MarkerSize',6)
 hold off
 ylabel('Error (J/mol)')
 xlabel('Number of factors')
@@ -332,11 +329,12 @@ xlabel('Number of factors')
 %% Pure he predictions 
 clc 
 clear
-Temperature = 298.15; 
+Temperature = 313.15; 
 whichside = 1:2;
 concen = 1;
 postprocess = 0;
-load('2waySVD-27comps-addingfrom27-threshold60par-LOOCV-Xnone-T=298.15-fillmethod=uni-24-Nov-2022.mat')
+load('2waySVD-38comps-threshold60par-LOOCV-Xnone-T=313.15-fillmethod=avr-19-Dec-2022.mat')
+concentrations = conc_interval;
 %load("2waySVD-20comps-addingfrom20-threshold60par-LOOCV-Xnone-T=298.15-fillmethod=avr-24-Nov-2022.mat")
 load(filename, 'comps')
     mixtures = zeros(size(comps,1)^2,4);
@@ -355,15 +353,23 @@ filled_ind = find(~isnan(Xtemp));
 load(strcat('heUNIFACforT=',num2str(Temperature),'.mat'), 'mixture', 'conc_interval', 'he') %change the temperature here
 mixunind = find(ismember(mixture',mixtures(filled_ind,:), 'rows')); % hopefully this extracts what we want 
 mixturepred = mixtures(filled_ind,:);
-mixtureuni = mixture(:,mixunind)';
+mixunind2 = find(ismember(mixture', mixtures(filled_ind,[3,4,1,2]),'rows'));
+mixuniInd = union(mixunind,mixunind2);
+mixtureuni = mixture(:,mixuniInd)';
 [La,Locb]=ismember(mixtureuni,mixturepred, 'rows');
 %mixture
 %mixunind = mixunind(Locb,:);
-heunifacpred = he(5:5:96, mixunind);
+heunifacpred = he(5:5:96, mixuniInd);
+heunifacpred(:, length(mixunind):length(mixuniInd)) = flip(heunifacpred(:, length(mixunind):length(mixuniInd)));
+Xm_boot(Xm_boot==0)=nan;
+Xm_boot = Xm_boot(~isnan(Xm_boot));
+Xm_boot = reshape(Xm_boot, length(concentrations),length(fns),[]);
+Xm_boot2(Xm_boot2==0)=nan;
+Xm_boot2 = Xm_boot2(~isnan(Xm_boot2));
+Xm_boot2 = reshape(Xm_boot2, length(concentrations),length(fns),[]);
+[compoundnames, codesNames] = findnames([mixturepred(:,[1,2]); mixturepred(:,[3,4])]);
 
-
-
-for fnind =length(fns)% 1:length(fns)
+for fnind =1%1:length(fns)% 
     hepred = [Xm_boot(:,fnind,:) Xm_boot2(:,fnind,:)]; 
     hepred = permute(hepred, [1 3 2]);
     Truth = zeros(size(hepred));
@@ -388,11 +394,9 @@ for fnind =length(fns)% 1:length(fns)
     end 
     Truth(isnan(Truth)) =0;
     indicespred = find(~isnan(hepred(concen,:,1)));
-    if whichside ==2
-        errorHE(:,:,whichside) = abs(Truth(:,indicespred,whichside)) - abs(hepred(:,indicespred));
-    else 
-        errorHE(:,:,whichside) = abs(Truth(:,indicespred,whichside)) - abs(hepred(:,indicespred,whichside));
-    end 
+     
+    errorHE(:,:,whichside) = abs(Truth(:,indicespred,whichside)) - abs(hepred(:,indicespred,whichside));
+     
     errorHE(isnan(errorHE)) = 0;
     errorHEsystem{fnind} = mean(errorHE,1);
     errorHEcomp{fnind} = mean(errorHE,2);
@@ -417,7 +421,9 @@ for fnind =length(fns)% 1:length(fns)
 end 
 
 %% Define mixture you wish to predict
-figure(2)
+f2=figure(2);
+f2.Position = [100,100,1000, 600];
+load('colorblind_colormap.mat')
 clf
 p = 0;
 
@@ -442,6 +448,7 @@ for counter =1:16
     mixpred = mixtures(mixpredind,:); % might need to change this depending on the results 
     %match mixpred to mixture_exp 
     [~,indexpred] = ismember(mixpred,mixture_exp,'rows');
+    
     if indexpred==0
         [~,indexpred] = ismember([mixpred(3:4) mixpred(1:2)], mixture_exp,'rows');
         if indexpred == 0
@@ -464,10 +471,10 @@ for counter =1:16
     if length(whichside)>1
         heplot1 = (hepred(:,counter+p*16,1));
         heplot2 = (hepred(:,counter+p*16,2));
-        plot(concentrations*100, (heplot1),'.', 'Color',colorblind(8,:), 'MarkerSize',12)      
+        plot(concentrations*100, flip(heplot1),'.', 'Color',colorblind(8,:), 'MarkerSize',12)      
         hold on
         if postprocess == 0
-            plot(concentrations*100, (heplot2) ,'.', 'Color',colorblind(1,:), 'MarkerSize',12)
+            plot((concentrations)*100, (heplot2) ,'.', 'Color',colorblind(1,:), 'MarkerSize',12)
             hold on
         end 
     else
@@ -495,8 +502,12 @@ for counter =1:16
             disp('Not found')
         end 
     end 
-    
-    title(num2str(mixpred))% work on making this words - dictionary of compounds and mixture numeric? 
+    %create the title 
+    [~,index1]= ismember(mixpred(:,[1,2]),codesNames,'rows');
+    [~,index2]= ismember(mixpred(:,[3,4]),codesNames,'rows');
+    compoundname1 = compoundnames{index1};
+    compoundname2 = compoundnames{index2};
+    title(strcat(compoundname1, " & ", compoundname2))% work on making this words - dictionary of compounds and mixture numeric? 
     %title(strcat(label_func(find(strcmp(func_group, {(mixpred(1,1))}))), ' ', num2str(mixpred(1,2)), '+', label_func(find(strcmp(func_group, {num2str(mixpred(1,3))}))), ' ',num2str(mixpred(1,4))))) 
     
     hold off
@@ -557,14 +568,6 @@ tabletypes = [1:5; nomix;smsetype; wsmsetype; aardtype];
 %
 load(filename, 'comps', 'mixtureT')
 
-% mixtures = zeros(size(comps,1)^2,4);
-% index = 0;
-% for i = 1:length(comps)
-%     for j = 1:length(comps)
-%         index = index+1;
-%         mixtures(index,:) = [comps(i,:) comps(j,:)];
-%     end
-% end 
 func_group = {1,2,3:5, [6,7,11], 8:9, 10, 12:17,18:20, 21, 22};
 label_func = {'Alkane', 'Primary alcohol', 'Other alcohol','Cycloalkanes', 'Ketone', 'Alkene', 'Ester', 'Amine','Acid','Aldehyde'};
 
@@ -579,8 +582,6 @@ no_mix = zeros(length(func_group),length(func_group));
 %extracting the correct mixtures, if necessary 
 
 mixtureT = mixtures(filled_ind,:);
-f1 = figure(1);
-clf
 
 for func = 1:length(func_group)
     for func2 = 1:length(func_group)
@@ -656,16 +657,25 @@ end
 % heatmap 
 tbl = table(funcgroup1tbl', funcgroup2tbl',smse_tbl',aard_tbl',wsmsetbl', 'VariableNames', ["Functional group 1", "Functional group 2", "SMSE (J/mol)","AARD (%)","wSMSE (J/mol)" ]);
 % heatmap 
+f1 = figure(1);
 h = heatmap(tbl, 'Functional group 1', 'Functional group 2','ColorVariable', 'SMSE (J/mol)', 'ColorMethod', 'none');
 % h.YDisplayData = flip(label_func);
 % h.XDisplayData = label_func;
 h.Colormap=winter;
 h.FontSize = 14;
 
+% heatmap 
+f2 = figure(2);
+clf
+h = heatmap(tbl, 'Functional group 1', 'Functional group 2','ColorVariable', 'AARD (%)', 'ColorMethod', 'none');
+% h.YDisplayData = flip(label_func);
+% h.XDisplayData = label_func;
+h.Colormap=winter;
+h.FontSize = 14;
 %% Parity plot and error distribution plots 
 %Import all the UNIFAC predictions 
 plotuni = 1;
-
+load('colorblind_colormap.mat')
 load(strcat('heUNIFACforT=',num2str(Temperature),'.mat'), 'mixture', 'conc_interval', 'he') %change the temperature here
 for i = 1:length(filled_ind)
     mixpred = mixtureT(i,:);
@@ -697,20 +707,35 @@ ploty = hepred(:,indicespred,whichside);
 plot(plotx(:),ploty(:),'.','Color', 'b', 'MarkerSize',6)
 hold on 
 if plotuni
-    plot(plotx(:), [heuni(:); heuni(:)],'.','Color', 'k', 'MarkerSize',6)
+    if length(whichside) >1
+        plot(plotx(:), [heuni(:); heuni(:)],'.','Color', 'k', 'MarkerSize',6)
+    else 
+        plot(plotx(:), [heuni(:)],'.','Color', 'k', 'MarkerSize',6)
+    end 
+        
 end 
+%prediction interval
+PIx = min(plotx(:)):100:max(plotx(:));
+syx = std(plotx(:));
+hi = 1/numel(plotx(:)) + (PIx-mean(PIx)).^2/sum((PIx-mean(PIx)).^2);
+PIy1 = PIx - 1.96.*syx.*sqrt(1+hi);
+PIy2 = PIx + 1.96.*syx.*sqrt(1+hi);
+plot(PIx,PIy1, '--', 'Color', colorblind(7,:), 'LineWidth', 1) %make this pink 
+plot(PIx,PIy2, '--', 'Color', colorblind(7,:), 'LineWidth', 1) %make this pink 
+%y=x line 
 plot([min(plotx(:)),max(plotx(:))], [min(plotx(:)),max(plotx(:))],'-', 'Color',colorblind(4,:), 'LineWidth', 1.2)
+ 
 
 hold off 
 xlabel('Experimental (J/mol)','FontSize',13, 'Color', 'k')
 ylabel('Prediction (J/mol)','FontSize',13, 'Color', 'k')
 if plotuni
-    legend('MCM', 'UNIFAC','FontSize',8,'Location', 'northwest');
+    legend('MCM', 'UNIFAC','PI (95%)', 'FontSize',8,'Location', 'northwest');
 else 
-    legend('MCM', 'FontSize',8,'Location', 'northwest');
+    legend('MCM','PI (95%)', 'FontSize',8,'Location', 'northwest');
 end 
 
-%error distribution 
+% error distribution 2-way
 f5 = figure(5);
 f5.Position = [10 20 400 300];
 clf
@@ -719,28 +744,105 @@ clf
 histogram(errorHE(:), 20, 'FaceColor', colorblind(6,:), 'BinLimits', [-1000 1000])
 ylabel('Instances','FontSize',13, 'Color', 'k')
 xlabel('MCM error (J/mol)', 'FontSize',13, 'Color', 'k')
+% 3way histogram 
+f6 = figure(6);
+f6.Position = [10 20 450 300];
+clf
+edges = {-1000:100:1000; 0:5:100}; % bin edges
+data = [errorHE(:) abs(aardHE(:)).*100]; 
+hist3(data, 'Edges', edges,'CdataMode','auto','FaceColor','interp')
+zlabel('Instances','FontSize',13, 'Color', 'k')
+xlabel('Error (J/mol)', 'FontSize',13, 'Color', 'k')
+ylabel('ARD (%)' ,'FontSize', 13, 'Color', 'k')
+colormap(colorblind(flip([9,1,8,6,3]),:))
+
+%% Error plot within the 3-way arrays 
+f7 = figure(7);
+f7.Position = [10 20 800 500];
+clf
+TempIndex = 1;
+errorplot = nan(size(X(:,:,:,TempIndex)));
+for i =1:length(col)
+    errorplot(row(i),col(i),:) = errorHE(:,i,1);
+    errorplot(col(i),row(i),:) = errorHE(:,i,2);
+end 
+[X,Y,Z] = meshgrid(1:size(errorplot,1), 1:size(errorplot,1), 5:5:95);
+xslice = 1:1:size(errorplot,1);    % location of y-z planes
+yslice = 1:1:size(errorplot,1);     % location of x-z plane
+zslice = 5:5:95;         % location of x-y planes
+slice(X,Y,Z,errorplot,xslice,yslice,zslice)
+c = colorbar;
+c.Label.String = 'Error (J/mol)';
+c.Label.FontSize = 12;
+xlabel('Compound 1')
+ylabel('Compound 2')
+zlabel('Composition of compound 1 (%)', 'FontSize',12)
+indices = 1:4:length(compoundnames);
+xticks(indices)
+yticks(indices)
+xticklabels(compoundnames(indices))
+yticklabels(compoundnames(indices))
 %% Classification of correct predictions per system 
 % colours of data points will show which one is better 
 %started 04/11/2022 - check if it works 
 %scatter(x,y,pointsize,color)
-fnind = fn; %can change this here 
-errorHEsystem = reshape(errorHEsystem{fnind}, length(filled_ind),2);
+fnind = 1; %can change this here 
+load('colorblind_colormap.mat')
+errorHEsystem1 = reshape(errorHEsystem{fnind}, length(filled_ind),2);
 %errorUNIsystem = reshape(errorUNIsystem, length(filled_ind),2);
-leftcorrect = (errorHEsystem(:,1)<errorHEsystem(:,2));% logical output 
-errorHEbest = errorHEsystem(:,1).*(leftcorrect) + errorHEsystem(:,2).*(1-leftcorrect);
+leftcorrect = (errorHEsystem1(:,1)<errorHEsystem1(:,2));% logical output 
+errorHEbest = errorHEsystem1(:,1).*(leftcorrect) + errorHEsystem1(:,2).*(1-leftcorrect);
 
 unifaccorrect = (errorHEbest>errorUNIsystem'); %logical output 
 numleftcorrect = sum(find(leftcorrect));
 numunicorrect = sum(find(unifaccorrect));
 %figure out x and y later 
+leftC = nan(size(X,[1,2]));
+uniC = nan(size(X,[1,2]));
+for i = 1:length(filled_ind)
+    leftC(row(i),col(i)) = leftcorrect(i);
+    uniC(row(i),col(i)) = unifaccorrect(i);
+end 
 figure(6)
 clf
-scatter(1:length(filled_ind),1:length(filled_ind),[],leftcorrect, 'filled')
+[x,y] = meshgrid(1:size(X,1), 1:size(X,2));
+pcolor(x,y,leftC)
+xlabel('Compound 1', 'FontSize',12)
+ylabel('Compound 2', 'FontSize',12)
+c = colorbar('Ticks', [0,1], 'TickLabels', ['Upper'; 'Lower']); %upper triangular = left, 0 is false
+colormap([colorblind(6,:); colorblind(8,:)])
+indices = 1:2:length(compoundnames);
+xticks(indices)
+yticks(indices)
+xticklabels(compoundnames(indices))
+yticklabels(compoundnames(indices))
 figure(7)
-scatter(1:length(filled_ind),1:length(filled_ind),[],unifaccorrect, 'filled')
-
+clf
+[x,y] = meshgrid(1:size(X,1), 1:size(X,2));
+pcolor(x,y,uniC)
+xlabel('Compound 1', 'FontSize',12)
+ylabel('Compound 2', 'FontSize',12)
+c = colorbar('Ticks', [0,1], 'TickLabels', ["UNIFAC"; "MCM"]); % 0 is false
+colormap([colorblind(6,:); colorblind(8,:)])
+indices = 1:2:length(compoundnames);
+xticks(indices)
+yticks(indices)
+xticklabels(compoundnames(indices))
+yticklabels(compoundnames(indices))
+%% Compounds and numeric matches
+[compoundnames, codesNames] = findnames([mixturepred(:,[1,2]); mixturepred(:,[3,4])]);
 
 %% functions 
+function [compoundnames,codesout] = findnames(codesin)
+    compounds = {'Methane','Ethane', 'Propane', 'Butane', 'Pentane', 'Hexane', 'Heptane', 'Octane', 'Nonane', 'Decane', 'Dodecane', 'Methanol', 'Ethanol', '1-Propanol', '1-Butanol', '1-Pentanol', '1-Hexanol', '1-Heptanol', '1-Octanol', '1-Nonanol', '1-Decanol', '2-propanol', '2-butanol', '2-pentanol', '2-hexanol','2-octanol', 'Isobutanol', 'Tertbutylalcohol', 'Cyclopentane', 'Cyclohexane','Cycloheptane', 'Cyclooctane','Benzene', 'Toluene', 'Ethanal', 'Propanal', 'Butanal', 'Pentanal', 'Hexanal', 'Ethene', '1-Pentene', '1-Hexene', '1-Heptene', '1-Octene', '1-Nonene', '1-Decene', 'Acetone', 'Butanone', '2-Propanone', '2-Hexanone', '2-Heptanone', '2-Octanone','Formic acid', 'Acetic acid', 'Propionic acid', 'Butyric acid', 'Pentanoic acid', 'Hexanoic acid', 'Heptanoic acid', 'Octanoic acid', 'Nonanoic acid', 'Decanoic acid', '3-Pentanone', '3-Hexanone', '3-Heptanone', '3-Octanone', 'Methyl formate', 'Methyl acetate', 'Methyl propionate', 'Methyl butyrate', 'Methyl pentanoate', 'Methyl hexanoate', 'Methyl benzoate', 'Ethyl benzoate', 'Ethyl formate', 'Ethyl acetate', 'Ethyl propionate', 'Ethyl butyrate', 'Ethyl pentanoate', 'Ethyl hexanoate', 'Ethyl heptanoate', 'Ethyl octanoate' , 'Propyl formate','Propyl acetate', 'Propyl propionate', 'Propyl butyrate', 'Butyl formate', 'Butyl acetate', 'Butyl butyrate', 'Pentyl acetate', 'Propylamine', 'Butylamine', 'Pentyalamine', 'Hexylamine', 'Heptylamine', 'Octylamine', 'Nonylamine', 'Decylamine', 'Aniline', 'Benzylamine'};
+    codes = [ones(11,1), ([1:10,12])'; 2*ones(10,1), (1:10)'; 3*ones(5,1), ([3:6,8])'; 4, 4; 5, 4;11*ones(4,1), (5:8)'; 6, 0; 7, 0; 22*ones(5,1), (2:6)'; 10*ones(7,1), ([2,5:10])'; 8*ones(6,1), (3:8)'; 21*ones(10,1), (1:10)'; 9*ones(4,1), (5:8)';12*ones(6,1), (1:6)'; 17*ones(2,1), (1:2)'; 13*ones(8,1), (1:8)'; 14*ones(4,1), (1:4)'; 15*ones(3,1), ([1,2,4])'; 16, 1; 18*ones(8,1), (3:10)'; 19, 0; 20, 0];
+    indices = find(ismember(codes, codesin,'rows'));
+    for i = 1:length(indices)
+        compoundnames{i} = compounds{indices(i)};
+        codesout(i,:) =codes(indices(i),:);
+    end 
+end 
+
 function [wmse]=find_wmse_error(errors, count)
     errors = reshape(errors,prod(size(errors)),1);
     perc5=prctile(errors,5,'all');
