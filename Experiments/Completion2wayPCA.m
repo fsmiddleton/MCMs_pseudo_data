@@ -5,16 +5,33 @@
 clc
 clear
 % Import excess enthalpy data for one matrix 
-filename = 'TestHEMatrixSMALLreduced16June298.15.xlsx';
+filename = 'TestHEMatrixSMALL15June298.15.xlsx';
 %filename = 'TestHEMatrixSMALLreduced15June2022298.15.xlsx';
 T1 = readtable(filename, 'Sheet', '0.1'); 
 X = table2array(T1);%only use T1, small enough to manage
 dim = size(X);
 dim1=dim(1);
 dim2=dim(2);
+
+% Analysis of the 2-way array 
 percmiss = length(find(isnan(X)))/(dim1*dim2)*100;
 percobs = length(find(~isnan(X)))/(dim1*dim2)*100;
+%parpool
+b1 = table2array(readtable(filename, 'Sheet', 'B1'));
+b2 = table2array(readtable(filename, 'Sheet', 'B2'));
+[~,Locb] = ismember(b2,b1,'rows');
+include2 = find(Locb==0);
+% all possible components in this matrix 
+comps = [b1; b2(include2,:)];
 
+mixtures = zeros(size(comps,1)^2,4);
+index = 0;
+for i = 1:length(comps)
+    for j = 1:length(comps)
+        index = index+1;
+        mixtures(index,:) = [comps(i,:) comps(j,:)];
+    end
+end 
 
 %% Plot the matrix generated
 clf
@@ -44,9 +61,10 @@ for c = concentrations
     %Import data 
     T = readtable(filename, 'Sheet', num2str(c));
     Xs=table2array(T);
+    Xf = filldata2(Xs,'uni',mixtures,c);
     %SVD
     % [S,V,D,St,X_pred, AllSVs, iterations]=missing_svd(X,fn,center,scale,conv,max_iter, use_missing)
-    [~,D,~,St,~, ~]=missing_svd(Xs,fn,1,0,1e-8,1,2);
+    [~,D,~,St,~, ~]=missing_svd(Xf,fn,1,0,1e-8,1,2);
     %Plot
     y1(:,i) = diag(D);
     y2(:,i) = cumsum(y1(:,i))/sum(y1(:,i));
@@ -86,7 +104,7 @@ end
 %time the code 
 tic
 % declare missing % used and the file from which to extract information 
-fns =1:10;
+fns =6:9;
 concentrations=0.1:0.1:0.9;
 Xs=X;
 missing_ind = find(isnan(Xs));
@@ -101,12 +119,13 @@ wmse_LOOCV = zeros(length(concentrations),length(fns));
 RAD_LOOCV = zeros(length(concentrations),length(fns)); % relative absolute deviation 
 min_mse_LOOCV = zeros(length(concentrations),1);
 min_wmse_LOOCV = zeros(length(concentrations),1);
+RAD_LOOCV_best = zeros(length(concentrations),1);
 X_pred_LOOCV = zeros(dim1,dim2,length(filled_ind));
 LOOCV_removed_col = zeros(length(filled_ind),1);
 LOOCV_removed_row = zeros(length(filled_ind),1);
 SVs = zeros(dim1,length(concentrations));
 
-maxiter = 10000;
+maxiter = 100000;
 conv = 1e-10;
 Xm_boot=zeros(length(concentrations), length(fns), length(filled_ind));
 %concentrations=0.1;
@@ -169,13 +188,14 @@ for c = 1:length(concentrations)
     SVs(:,c)=y;
     min_mse_LOOCV(c) = mse_LOOCV(c,fn_LOOCV(c));
     min_wmse_LOOCV(c) = wmse_LOOCV(c,fn_LOOCV(c));
+    RAD_LOOCV_best(c) = RAD_LOOCV(c, fn_LOOCV(c));
     % use the best rank to find error bars 
 end 
 Results = table(["Concentration of component 1"; (concentrations')],[ "SVs";fn_LOOCV'],[ "MSE";min_mse_LOOCV],[ "wMSE";min_wmse_LOOCV]);
 disp(Results)
 toc 
 % Save variables from the run 
-filenametemp = strcat('2wayrunPCARKscaled',date, '.mat');
+filenametemp = strcat('2wayrunPCAPolySmallLOOCV-',date, '.mat');
 save(filenametemp)
 %retrieve data using load(filename.mat)
 %% Plot errors 
@@ -186,10 +206,47 @@ plot(fns, (RAD_LOOCV(c,:)))
 %% Find optimal rank of the model for the filled data 
 
 
-% Import other data for most missing to allow variables to be declared
-c=0.1;
-T = readtable(filename, 'Sheet', num2str(c));
-Xs=table2array(T);
+%% Import .m file with 3-way array
+clc
+clear
+% decide on which interval and temperature to evaluate 
+interval = 0.05;
+T =308.15;
+% choose which array you want to work with 
+%filename = 'HEData3wayPolyMid-0.05-298.15.mat';
+%filename = 'HEArrayPolySmall298.15.mat';
+filename = strcat('HE3wayPolyAll',num2str(T),'.mat');
+ load(filename, 'HE_data_sparse',  'comps', 'mixtureT','mixture', 'Temps')
+%filename = strcat('HEData3wayPolySmall-',num2str(interval), '-', num2str(T), '.mat');
+%filename = strcat('HEData3wayPolyAll-',num2str(interval), '-', num2str(T), '.mat');
+%load(filename)
+conc_interval = interval:interval:(1-interval);
+indend = size(HE_data_sparse,1);
+X = HE_data_sparse(1:indend,1:indend,1:length(conc_interval));
+Xs = X;
+Xsign = sign(X);
+Xscale = Xsign.*log(Xsign.*X);
+dim = size(X);
+dim1 = dim(1);
+dim2 = dim(2);
+dim3 = dim(3);
+percmiss = length(find(isnan(X)))/(dim1*dim2*dim3)*100;
+percobs = length(find(~isnan(X)))/(dim1*dim2*dim3)*100;
+tempX = tril(X(:,:,1),-1)+triu(nan(size(X(:,:,1))));
+[row,col] = find(~isnan(tempX));
+filled_ind = find(~isnan(tempX));
+% define all the mixtures in the linear indices of the array, based on the
+% components in the 3-way array file 
+comps = comps(1:indend,:);
+mixtures = zeros(size(comps,1)^2,4);
+index = 0;
+for i = 1:length(comps)
+    for j = 1:length(comps)
+        index = index+1;
+        mixtures(index,:) = [comps(i,:) comps(j,:)];
+    end
+end 
+Xfilledall = filldata3(X,'uni', mixtures,conc_interval, 'none', T);
 
 %necessary vars 
 dim = size(Xs);
@@ -206,9 +263,9 @@ remove_ind = 1:(dim1*dim2);
  
 %Time to choose how to find the best rank
 Gavish =1;
-winsorized_mse = 1; %1=use wmse. Used for iterative PCA 
+winsorized_mse = 0; %1=use wmse. Used for iterative PCA 
  % Choose sparsities used for finding the rank 
-concentrations = 0.1:0.1:0.9;
+concentrations = 0.05:0.05:0.95;
 %ranks to try 
 fns = 1:1:10;
 %choose whether to reorder matrix or not, 1 = true 
@@ -219,7 +276,7 @@ reorder = 0;
 minmse_miss = zeros(size(concentrations,2),1); 
 minwmse_miss = zeros(size(concentrations,2),1);
 minmse_fill = zeros(size(concentrations,2),1);
-minaapd = zeros(length(concentrations),1);
+minRAD = zeros(length(concentrations),1);
 minwmse_fill = zeros(size(concentrations,2),1);
 min_fn = zeros(size(concentrations,2),1);
 min_fn_fill = zeros(size(concentrations,2),1);
@@ -230,10 +287,10 @@ R2 = zeros(size(concentrations,2),1);
 mse_miss = zeros(size(fns,2),size(concentrations,2));
 smse_miss = zeros(size(fns,2),size(concentrations,2));
 msefill= zeros(size(concentrations,2),1);
-aapdfill = zeros(size(fns,2),size(concentrations,2));
+RADfill = zeros(size(fns,2),size(concentrations,2));
 wmse_miss = zeros(size(fns,2),size(concentrations,2));
 wmsefill = zeros(size(fns,2),size(concentrations,2));
-R = zeros(size(fns,2),size(concentrations,2));
+RAD = zeros(size(fns,2),size(concentrations,2));
 cumulative_contribution = zeros(length(concentrations),length(fns));
 SVs = zeros(length(fns),length(concentrations));
 
@@ -245,13 +302,11 @@ j=0; % counter for intervals
 plotcount = 0;
 for c = concentrations
      
-    j=j+1; % for sparsity
+    j=j+1; % for concentrations
     disp('Concentration of component1')
     disp(c)
     %Import sparse matrix for toy problem 
-    T = readtable(filename, 'Sheet', num2str(c));
-    Xs = table2array(T);
-    Xs = remove_nan2(Xs);
+    Xs = X(:,:,j);
     Xfilled = Xs;
     dim = size(Xs);
     dim1 = dim(1);
@@ -263,8 +318,9 @@ for c = concentrations
     % Find the optimal rank for this matrix
     
     if Gavish==1
-        [min_fn(j),minmse_fill(j),minwmse_fill(j),R2(j), X_pred_best,~,~,iter(j)] = solveGavish(Xs, dim1, dim2,1e-8,100000);
-        ranks_attempted(:,j) = ranks;
+        [min_fn(j),minmse_fill(j),minwmse_fill(j),minRAD(j), X_pred_best,~,~,iter(j)] = solveGavish(Xs, dim1, dim2,1e-10,2, mixtures, c);
+        %[fn,msefill,wmsefill,R2, X_pred,cutoff,SVs,iterations] = solveGavish(Xs, dim1, dim2, conv, iter)
+        ranks_attempted(:,j) = min_fn(j);
     else
         % Iterative PCA with wMSE or MSE used to find rank
 
@@ -275,7 +331,7 @@ for c = concentrations
             disp('rank')
             disp(fn)
             %[U,D,V,X_pred]=missing_svd(X,fn,center,scale,conv,max_iter)
-            [U,D,V,St,X_pred, iters]=missing_svd(Xs,fn,1,1,1e-8,1000);
+            [U,D,V,St,X_pred, iters]=missing_svd(Xs,fn,1,1,1e-10,100000,1);
             %X_pred is the model predictions, not only missing values are
             %filled 
             Xm = St*V';% the actual model, not just filled values - can only use errors of filled values to find model error
@@ -283,9 +339,13 @@ for c = concentrations
             msefill(i,j) = (sum((Xm(filled_ind)-Xs(filled_ind)).^2))/length(filled_ind);
             wmsefill(i,j) = find_wmse(Xs(filled_ind), Xm(filled_ind), length(filled_ind));
             abserrorfill = abs(X_pred(filled_ind)-Xs(filled_ind));
-            aapdfill(i,j) = sum(abserrorfill/X(filled_ind))/length(filled_linear_ind);
-            Cyt = corrcoef(X_pred(missing_ind),Xtrue(missing_ind));
-            R(i,j)=sqrt(Cyt(2,1));
+            RAD = abs(abserrorfill./Xs(filled_ind));
+            RAD = RAD(find(~isnan(RAD)));
+            RAD = RAD(find(~isinf(RAD)));
+            RADfill(i,j) =sum(RAD)/length(RAD);
+            %Cyt = corrcoef(X_pred(missing_ind),Xtrue(missing_ind));
+            
+            %R(i,j)=sqrt(Cyt(2,1));
         end
         
         minmse_fill(j)= min(msefill(:,j));
@@ -300,31 +360,33 @@ for c = concentrations
             min_index = find(msefill(:,j)==minmse_fill(j));
         end 
         min_fn(j) = fns(min_index);
-        R2(j) = R(min_index,j)^2;
-        minaapd(count) = aapdfill(min_index,j)
-        [U,D,V,St,X_pred_best(:,:,j), ~]=missing_svd(Xs,min_fn(j),1,1,1e-3,1000);
+        %R2(j) = R(min_index,j)^2;
+        minRAD(j) = RADfill(min_index,j);
+        [U,D,V,St,X_pred_best(:,:,j), ~]=missing_svd(Xs,min_fn(j),1,1,1e-10,100000,1);
         % plot the scree plot for each composition
-        plotcount =plotcount+1;
-        subplot(6,2,plotcount)
-        [U,D,V,St,X_pred_plot, ~]=missing_svd(Xs,20,1,1,1e-3,1000);
-        y = diag(D);
-        SVs(:,j)=y;
-        semilogy(1:20, y(1:20))
-        hold on 
-        semilogy(min_fn(j), y(min_fn(j)),'ro')
-        xlabel('Rank')
-        ylabel('Singular values')
-        plotcount =plotcount+1;
-        subplot(6,2,plotcount)
-        plot(1:20,cumsum(diag(D))/sum(diag(D)))
-        cumulative_contribution(j,1:20) = cumsum(diag(D))/sum(diag(D));
-        xlabel('Rank')
-        ylabel('Cumulative contribution to error')
+%         plotcount =plotcount+1;
+%         subplot(6,2,plotcount)
+%         [U,D,V,St,X_pred_plot, ~]=missing_svd(Xs,20,1,1,1e-3,1000);
+%         y = diag(D);
+%         SVs(:,j)=y;
+%         semilogy(1:20, y(1:20))
+%         hold on 
+%         semilogy(min_fn(j), y(min_fn(j)),'ro')
+%         xlabel('Rank')
+%         ylabel('Singular values')
+%         plotcount =plotcount+1;
+%         subplot(6,2,plotcount)
+%         plot(1:20,cumsum(diag(D))/sum(diag(D)))
+%         cumulative_contribution(j,1:20) = cumsum(diag(D))/sum(diag(D));
+%         xlabel('Rank')
+%         ylabel('Cumulative contribution to error')
     end 
 end 
 % Create table with results 
-Results = table(["Sparsity"; (concentrations')],[ "SVs";min_fn],[ "MSE";minmse_fill],[ "wMSE";minwmse_fill], ["MSE missing";minmse_miss]);
+Results = table(["Concentration of compound 1 (%)"; (concentrations'*100)],[ "Rank";min_fn],[ "SMSE (J/mol)";sqrt(minmse_fill)],[ "wSMSE (J/mol)";sqrt(minwmse_fill)], ["AARD (%)";minRAD*100]);
 disp(Results)
+filename = strcat('2wayRunPCASmall', date, '.mat');
+save(filename)
 toc
 
 
@@ -426,7 +488,7 @@ end
 
 %% Functions
 
-function  [fn,msefill,wmsefill,R2, X_pred,cutoff,SVs,iterations] = solveGavish(Xs, dim1, dim2, conv, iter)
+function  [fn,msefill,wmsefill,RAD, X_pred,cutoff,SVs,iterations] = solveGavish(Xs, dim1, dim2, conv, iter, mixtures, conc)
 %[min_fn(j),minmse_fill(j),minwmse_fill(j),R2(j), X_pred_best,ranks] = solveGavish(Xs, dim1, dim2,1e-3,1000)
     % Gavish Hard thresholding used to find the rank of the matrix using PCA
     % with SVD 
@@ -458,8 +520,8 @@ function  [fn,msefill,wmsefill,R2, X_pred,cutoff,SVs,iterations] = solveGavish(X
     end 
     % PCA done once for the maximum number of factors, the matrix needs to be filled to do this, which is
     % done in the missing_svd function 
-    Xfilled = fill_data(Xs);
-    
+    %Xfilled = fill_data(Xs);
+    [Xfilled, missing] = filldata3(Xs, 'uni',mixtures,conc, 'none', 298.15);
     if dim1<dim2
         fn = dim1;
     else 
@@ -467,7 +529,8 @@ function  [fn,msefill,wmsefill,R2, X_pred,cutoff,SVs,iterations] = solveGavish(X
     end 
 
     % find SVs for matrix 
-    [U,SVs,D,~,~,~, ~]=missing_svd(Xfilled,fn,1,1,1e-4,2);
+    [U,SVs,D,~,~,~, ~]=missing_svd(Xfilled,fn,1,1,1e-4,2,1);
+    %[U,D,V,St,X_pred, AllSVs, iterations]=missing_svd(X,fn,center,scale,conv,max_iter, use_missing)
     % find the threshold 
     y_med = median(diag(SVs)); %ymed = median singular value of the noisy matrix  
     cutoff = omega*y_med; %cutoff= tau= omega(beta)*ymed; matrix
@@ -478,12 +541,125 @@ function  [fn,msefill,wmsefill,R2, X_pred,cutoff,SVs,iterations] = solveGavish(X
         
     % [S,V,D,St,X_pred, AllSVs, iterations]=missing_svd(X,fn,center,scale,conv,max_iter)
      % solve for the correct number of factors 
-    [~,~,D,St,X_pred,~,iterations] = missing_svd(Xs,fn,1,1,conv,iter);
+    [~,~,D,St,X_pred,~,iterations] = missing_svd(Xs,fn,1,1,conv,iter,1);
     msefill = (sum((X_pred(filled_ind)-Xs(filled_ind)).^2))/length(filled_ind);
     wmsefill = find_wmse(Xs(filled_ind), X_pred(filled_ind), length(filled_ind));
+    RAD = (abs((X_pred(filled_ind)-Xs(filled_ind))./Xs(filled_ind)));
+    RAD = RAD(find(~isnan(RAD)));
+    RAD = RAD(find(~isinf(RAD)));
+    RAD = sum(RAD)/length(RAD);
     Cyt = corrcoef(X_pred(filled_ind),Xs(filled_ind));
     R2=(Cyt(2,1));
 end 
+
+function [X_filled, missing] = filldata2(X, method,mixtures,concintervalarray)
+    % filldata3 fills a 3-way array with the arithmetic mean of the other
+    % values in the array
+    % Input 
+    % X = data array 
+    % method = 'avg' - column and row averages 
+    %       or 'uni' - unifac predictions 
+    % components = components ordered according to their place on the axis 
+    % concinterval = concentration interval over which to fill data 
+    % Output 
+    % X_filled = filled data array
+    % missing = linear indices of missing data 
+
+    % fill as done for PCA with SVD (averages of each dimension)
+    [i, j]=findnan3(X);% returns rows and columns with nan elements
+    dim = size(X);
+    missing = isnan(X); %linear indices 
+
+    X_filled = X;
+    % fill missing values with zeros 
+   
+    
+    if strcmp(method,'avg')
+    % find all means 
+        mean1 = sum(X_filled,1)./(ones(1,dim(2))*dim(1)-sum(missing,1)); % (1,j,k) dim1 
+        mean2= sum(X_filled,2)./(ones(dim(1),1)*dim(2)-sum(missing,2)); % (i,1,k)  dim2 
+        %replace nan means with 0 
+        mean1(find(isnan(mean1)))=0;
+        mean2(find(isnan(mean2)))=0;
+        for ind =1:length(i)
+           % for all NaN elements that exist, loop through them to replace
+            X_filled(i(ind),j(ind))=(mean1(1,j(ind))+mean2(i(ind),1))/2;
+        end      
+    else %method ='uni'
+        % linearise X to a column vector - entries match mixtures
+        X1 = reshape(X(:,:,1),[dim(1)*dim(2),1]); % column vector used for checks and indices
+        Xtemp = reshape(X,[dim(1)*dim(2),1]); % reshaped to column vectors with each column containing a concentration interval
+        
+        mixturesarray = mixtures; % each row contains the mixture of that X (if X were a 2-way array)
+        mix1 = mixtures(:,[1,2]);
+        mix2 = mixtures(:,[3,4]);
+        % load prediction data and mixtures  
+        load('heUNIQUACforT=298.15.mat','he') % he in J/mol for composition of 0.01 to 0.99 for 5151 components
+        load('heUNIQUACforT=298.15.mat','mixture') % mixtures for he data - 5151 components
+        load('heUNIQUACforT=298.15.mat','conc_interval')
+        %convert arrays of concentrations to strings to allow them to be
+        %compared 
+        conc_unifac = string(conc_interval);
+        conc_array = string(concintervalarray);
+        conc_array2 = string(1-conc_interval);
+        for c = 1:length(conc_array)
+            concindices(c) = find(strcmp(conc_array(c),conc_unifac));
+            concindices2(c) = find(strcmp(conc_array2(c),conc_unifac));
+        end 
+        %components = possible components in this array, ordered 
+        for ind = 1:length(X1)
+            if isnan(X1(ind,1))
+                % fill with UNIFAC prediction 
+                [~,indexpred] = ismember(mixturesarray(ind,:),mixture,'rows');
+                
+                if indexpred ==0
+                    %mixture could be swapped around ie the concentration
+                    %is 1-conc as well and is not in the UNIFAC data set 
+                    [~,indexpred] = ismember([mix2(ind,:) mix1(ind,:)],mixtures,'rows');
+                    if indexpred == 0
+                        Xtemp(ind,:) = 0;
+                        disp(ind)
+                    else 
+                        Xtemp(ind,:)=he(indexpred,concindices2);
+                    end    
+                else
+                %indexpred = find(ismember(mixturestemp(ind),mixture, 'rows'));%find mixture that is missing in the unifac prediction mixtures                
+                    Xtemp(ind,:)=he(indexpred,concindices);
+                end 
+            end 
+        end 
+       
+        %reshape X to the 3-way array
+        X_filled = reshape(Xtemp,[dim(1), dim(2)]);
+        disp(X_filled)
+        %fills remaining few Nan values with averages 
+        X_filled = filldata2(X_filled,'avg',mixtures,conc_interval);
+    end 
+end 
+
+function [i,j]=findnan3(X)
+% Input 
+% X = data array 
+% Output 
+% i, j, k = indexes of nan values in X
+
+% isnan(X) returns logical array 
+% all(isnan(X),1) is also a logical array (1x30x40) - each row
+% find(all(isnan(X),1)) returns linear indices -> reshape array to correct
+% dimension to find missing slabs 
+% findnan3 finds the nan indices of a 3-way array 
+    
+
+    i=[];
+    j=[];
+    
+    
+        % done per z slice 
+        [itemp, jtemp]= find(isnan(X));
+        i = [i; itemp];
+        j = [j;jtemp];
+    
+end
 
 function [indices]=reorder_He(X, rand)
 % X = matrix to be ordered 
@@ -660,7 +836,7 @@ function [X_filled]=fill_data(X)
     end  
 end 
 
-function [U,D,V,St,X_pred, AllSVs, iterations]=missing_svd(X,fn,center,scale,conv,max_iter, use_missing)
+function [U,D,V,St,X_pred, AllSVs, iterations]=missing_svd(X,fn,center,scale,conv,max_iter, use_missing,methodguess)
     % Fill a matrix of missing data using PCA with SVD and a given number of
     % PCs. Can also handle non-missing data. Missing data is handled as NaN
     % values 
