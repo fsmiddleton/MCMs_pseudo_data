@@ -1,0 +1,6 @@
+cff-version: 1.0
+message: "If you use this software, please cite it as below."
+author: FS Middleton, JT Cripwell
+title: "Matrix completion methods for pseudo-data generation"
+version: 1.0
+date-released: 2024-09-05
