@@ -32,9 +32,11 @@ pip install -r requirements.txt
 │   ├── SVD_example.m       # Example of SVD used to complete a sparse matrix
 │   └── utils/              # Utility functions
 ├── unifac/                  # Unit and integration tests
-│   └── UNIFACDortmund.m        # Tests for the main script
+│   ├── UNIFACClapeyron2MATLAB.m    # Script for importing UNIFAC predictions into Matlab 
+│   ├── UNIFACParams.xlsx           # A file containing the mixtures to predict excess enthalpy for using the Julia script
+│   └── UNIFACPredsJulia.jl         # Script creating UNIFAC (Do) predictions
 ├── citation.cff            # How to cite this repo
-├── requirements.txt        # Python dependencies
+├── requirements.txt        # Matlab and Julia dependencies
 └── README.md               # Project readme
 
 data/: Contains raw and processed data used in the project.
