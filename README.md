@@ -29,11 +29,10 @@ pip install -r requirements.txt
 │   └── processed/          # Data that has been cleaned and prepared
 ├── src/                    # Source code files
 │   ├── __init__.py         # Initialize the src module
-│   ├── main.py             # Main script to run the project
+│   ├── SVD_example.m       # Example of SVD used to complete a sparse matrix
 │   └── utils/              # Utility functions
-│       └── helpers.py      # Helper functions used across the project
 ├── unifac/                  # Unit and integration tests
-│   └── test_main.py        # Tests for the main script
+│   └── UNIFACDortmund.m        # Tests for the main script
 ├── citation.cff            # How to cite this repo
 ├── requirements.txt        # Python dependencies
 └── README.md               # Project readme
