@@ -1,4 +1,4 @@
-function [filenamesave,Xm_boot,Xm_boot2,fns, X, Xs,conc_interval,filename, filled_ind] = Completion2wayParallelScript(fns,fillmethod,maxiter,filename,thresholdperc)
+function [filenamesave,Xm_boot,Xm_boot2,fns, X, Xs,conc_interval,filename, filled_ind] = completion_2way_par(fns,fillmethod,maxiter,filename,thresholdperc)
 
     interval = 0.05;
 
@@ -34,19 +34,14 @@ function [filenamesave,Xm_boot,Xm_boot2,fns, X, Xs,conc_interval,filename, fille
     scale = 1;
     center = 1;
     conv = 1e-10;
-    whichX = 'none';
 
     Xm_boot=zeros(length(concentrations), length(fns), length(filled_ind));
     Xm_boot2=zeros(length(concentrations), length(fns), length(filled_ind));
 
     conc = concentrations;
-     if strcmp(whichX, 'scale') 
-        Xs = Xscale;
-     elseif strcmp(whichX,'sign') 
-        Xs = Xsign;
-     else
-        Xs = X;
-    end 
+    
+    Xs = X;
+    
     %loop through ranks
     fnind=0;
     for fn = fns 
@@ -61,11 +56,11 @@ function [filenamesave,Xm_boot,Xm_boot2,fns, X, Xs,conc_interval,filename, fille
             X_b(col(k),row(k),:) = nan;
             if find(~isnan(X_b(:,col(k),1))) & find(~isnan(X_b(row(k),:,1))) & all(Xs(row(k),col(k),1)~=0) %ensure at least one value in each column and row
                 %perform iterative PCA on the slightly more empty matrix 
-                [S,V,D,St,X_pred, AllSVs]=missing_svd_par(X_b,fn,center,scale,conv,maxiter, 1,fillmethod,mixtures,whichX,conc,T, thresholdperc);
+                [S,V,D,St,X_pred, AllSVs]=missing_svd_par(X_b,fn,center,scale,conv,maxiter, 1,fillmethod,mixtures,conc,T, thresholdperc);
                 Xm_boot(:, fnind, k) = X_pred(row(k),col(k),:);
                 Xm_boot2(:, fnind, k) = X_pred(col(k),row(k),:);
             end
         end
     end % end fn
-    filenamesave = strcat('2waySVD-',num2str(dim(1)),'comps-threshold',num2str(thresholdperc), 'par-LOOCV-X',whichX,'-T=',num2str(T), '-fillmethod=',fillmethod,'-',  date, '.mat');
+    filenamesave = strcat('2waySVD-',num2str(dim(1)),'comps-threshold',num2str(thresholdperc), 'par-LOOCV-T=',num2str(T), '-fillmethod=',fillmethod,'-',  date, '.mat');
 end 

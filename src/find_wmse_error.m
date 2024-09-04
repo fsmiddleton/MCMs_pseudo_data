@@ -1,8 +1,7 @@
-function [wmse]=find_wmse_error(errors, count)
+function [wmse]=find_wmse_error(errors)
     % Find the wMSE of the errors inputted to this function
     % Inputs 
     % errors = array of errors
-    % count = count of the number of entries used in errors
     %
     % Output 
     % wmse = wMSE of the errors

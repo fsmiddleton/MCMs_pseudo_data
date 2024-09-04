@@ -133,7 +133,7 @@ for interval = 0.05
             end 
         end
         % Exporting the data 
-        prefixfilename = strcat('HE3wayPoly', num2str(T));
+        prefixfilename = strcat('HEData3wayPolyAll', num2str(T));
         %remove nan columns or rows 
         mixture = mixture(:, 1:ind);
         HE_data = HE_data(:, 1:ind);

@@ -1,4 +1,4 @@
-function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, whichX, T)
+function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, T)
     % filldata3 fills a 3-way array with the arithmetic mean of the other
     % values in the array. Used for a 2-way array here
     % Input 
@@ -14,7 +14,6 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
     %          'uni' - unifac predictions 
     % mixtures = components ordered according to their place in the linear array (2D) 
     % concinterval = concentration interval over which to fill data 
-    % whichX = indicates which form of data it is receiving, necessary for initial guesses: 'scale' or 'sign' or 'none'
     % T = temperature of the system - used for UNIFAC initial guesses 
     %
     % Output 
@@ -97,7 +96,7 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                 X_filled(:,:,i,j) = (X_filled1 + X_filled2)./2; %average of row and column guesses
             end
         end 
-        X_filled = filldata3(X_filled,'avg',mixtures,concintervalarray,whichX,T);
+        X_filled = filldata3(X_filled,'avg',mixtures,concintervalarray,T);
         
     elseif strcmp(method, 'row')
         X_filledtemp = zeros(dim);
@@ -217,7 +216,7 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                 end 
             end 
         end
-        X_filled = filldata3(X_filled,'avg',mixtures,concintervalarray,whichX,T);
+        X_filled = filldata3(X_filled,'avg',mixtures,concintervalarray,T);
         
     
     elseif strcmp(method, 'tri') % lower and upper diagonals are used in their averages
@@ -300,19 +299,10 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                                 end 
                                 temp = he(concindices2, indexpred);
 
-                                if strcmp(whichX, 'scale')
-                                    Xtemp(rows(ind), cols(ind),:)=sign(temp).*log(sign(temp).*temp);
-                                    temp = flip(temp);
-                                    Xtemp(cols(ind), rows(ind),:)=sign(temp).*log(sign(temp).*temp);
-                                elseif strcmp(whichX, 'sign') 
-                                    Xtemp(rows(ind), cols(ind),:)= sign(temp);
-                                    temp = flip(temp);
-                                    Xtemp(cols(ind), rows(ind),:)= sign(temp);
-                                else 
-                                    Xtemp(rows(ind), cols(ind),:)=temp;
-                                    temp = flip(temp);
-                                    Xtemp(cols(ind), rows(ind),:)=temp;
-                                end 
+                                Xtemp(rows(ind), cols(ind),:)=temp;
+                                temp = flip(temp);
+                                Xtemp(cols(ind), rows(ind),:)=temp;
+                            
                             end    
                         else
                         %indexpred = find(ismember(mixturestemp(ind),mixture, 'rows'));%find mixture that is missing in the unifac prediction mixtures                
@@ -321,19 +311,9 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                             end     
 
                             temp = he(concindices2, indexpred);
-
-                            if strcmp(whichX, 'scale')
-                                Xtemp(rows(ind), cols(ind),:)=sign(temp).*log(sign(temp).*temp);
-                                temp = flip(temp);
-                                Xtemp(cols(ind), rows(ind),:)=sign(temp).*log(sign(temp).*temp);
-                            elseif strcmp(whichX, 'sign') 
-                                Xtemp(rows(ind), cols(ind),:)= sign(temp);
-                                temp = flip(temp);
-                                Xtemp(cols(ind), rows(ind),:)= sign(temp);
-                            else 
-                                Xtemp(rows(ind), cols(ind),:)=temp;
-                                temp = flip(temp);
-                                Xtemp(cols(ind), rows(ind),:)=temp;
+                            Xtemp(rows(ind), cols(ind),:)=temp;
+                            temp = flip(temp);
+                            Xtemp(cols(ind), rows(ind),:)=temp;
                             end  
                         end 
                     end 
@@ -341,7 +321,7 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                 %reshape X to the 3-way array
                 X_filledtemp = reshape(Xtemp,[dim(1), dim(2), dim(3)]);
                 %fills remaining few Nan values with averages 
-                X_filled(:,:,:,count) = filldata3(X_filledtemp,'avg',mixtures,conc_interval,whichX,T);
+                X_filled(:,:,:,count) = filldata3(X_filledtemp,'avg',mixtures,conc_interval,T);
             end 
         elseif dim(3)==1 %2 dimensions 
                 count =1;
@@ -388,18 +368,9 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                                 end 
                                 temp = he(concindices2, indexpred);
 
-                                if strcmp(whichX, 'scale')
-                                    Xtemp(rows(ind), cols(ind),:)=sign(temp).*log(sign(temp).*temp);
-                                    temp = flip(temp);
-                                    Xtemp(cols(ind), rows(ind),:)=sign(temp).*log(sign(temp).*temp);
-                                elseif strcmp(whichX, 'sign') 
-                                    Xtemp(rows(ind), cols(ind),:)= sign(temp);
-                                    temp = flip(temp);
-                                    Xtemp(cols(ind), rows(ind),:)= sign(temp);
-                                else 
-                                    Xtemp(rows(ind), cols(ind),:)=temp;
-                                    temp = flip(temp);
-                                    Xtemp(cols(ind), rows(ind),:)=temp;
+                                Xtemp(rows(ind), cols(ind),:)=temp;
+                                temp = flip(temp);
+                                Xtemp(cols(ind), rows(ind),:)=temp;
                                 end 
                             end    
                         else
@@ -409,19 +380,9 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                             end     
 
                             temp = he(concindices2, indexpred);
-
-                            if strcmp(whichX, 'scale')
-                                Xtemp(rows(ind), cols(ind),:)=sign(temp).*log(sign(temp).*temp);
-                                temp = flip(temp);
-                                Xtemp(cols(ind), rows(ind),:)=sign(temp).*log(sign(temp).*temp);
-                            elseif strcmp(whichX, 'sign') 
-                                Xtemp(rows(ind), cols(ind),:)= sign(temp);
-                                temp = flip(temp);
-                                Xtemp(cols(ind), rows(ind),:)= sign(temp);
-                            else 
-                                Xtemp(rows(ind), cols(ind),:)=temp;
-                                temp = flip(temp);
-                                Xtemp(cols(ind), rows(ind),:)=temp;
+                            Xtemp(rows(ind), cols(ind),:)=temp;
+                            temp = flip(temp);
+                            Xtemp(cols(ind), rows(ind),:)=temp;
                             end  
                         end 
                     end 
@@ -429,7 +390,7 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                 %reshape X to the 3-way array
                 X_filledtemp = reshape(Xtemp,[dim(1), dim(2)]);
                 %fills remaining few Nan values with averages 
-                X_filled = filldata3(X_filledtemp,'avg',mixtures,conc_interval,whichX,T);
+                X_filled = filldata3(X_filledtemp,'avg',mixtures,conc_interval,T);
         else %3 dimensions
             % linearise X to a column vector - entries match mixtures
                 count =1;
@@ -475,19 +436,9 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                                     [~,indexpred] = ismember([mix2(index,:) mix1(index,:)],mixture,'rows');
                                 end 
                                 temp = he(concindices2, indexpred);
-
-                                if strcmp(whichX, 'scale')
-                                    Xtemp(rows(ind), cols(ind),:)=sign(temp).*log(sign(temp).*temp);
-                                    temp = flip(temp);
-                                    Xtemp(cols(ind), rows(ind),:)=sign(temp).*log(sign(temp).*temp);
-                                elseif strcmp(whichX, 'sign') 
-                                    Xtemp(rows(ind), cols(ind),:)= sign(temp);
-                                    temp = flip(temp);
-                                    Xtemp(cols(ind), rows(ind),:)= sign(temp);
-                                else 
-                                    Xtemp(rows(ind), cols(ind),:)=temp;
-                                    temp = flip(temp);
-                                    Xtemp(cols(ind), rows(ind),:)=temp;
+                                Xtemp(rows(ind), cols(ind),:)=temp;
+                                temp = flip(temp);
+                                Xtemp(cols(ind), rows(ind),:)=temp;
                                 end 
                             end    
                         else
@@ -497,19 +448,9 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                             end     
 
                             temp = he(concindices2, indexpred);
-
-                            if strcmp(whichX, 'scale')
-                                Xtemp(rows(ind), cols(ind),:)=sign(temp).*log(sign(temp).*temp);
-                                temp = flip(temp);
-                                Xtemp(cols(ind), rows(ind),:)=sign(temp).*log(sign(temp).*temp);
-                            elseif strcmp(whichX, 'sign') 
-                                Xtemp(rows(ind), cols(ind),:)= sign(temp);
-                                temp = flip(temp);
-                                Xtemp(cols(ind), rows(ind),:)= sign(temp);
-                            else 
-                                Xtemp(rows(ind), cols(ind),:)=temp;
-                                temp = flip(temp);
-                                Xtemp(cols(ind), rows(ind),:)=temp;
+                            Xtemp(rows(ind), cols(ind),:)=temp;
+                            temp = flip(temp);
+                            Xtemp(cols(ind), rows(ind),:)=temp;
                             end  
                         end 
                     end 
@@ -517,7 +458,7 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concintervalarray, w
                 %reshape X to the 3-way array
                 X_filledtemp = reshape(Xtemp,[dim(1), dim(2), dim(3)]);
                 %fills remaining few Nan values with averages 
-                X_filled = filldata3(X_filledtemp,'avg',mixtures,conc_interval,whichX,T);
+                X_filled = filldata3(X_filledtemp,'avg',mixtures,conc_interval,T);
         end 
         
     end
