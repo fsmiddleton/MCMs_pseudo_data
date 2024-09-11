@@ -7,8 +7,6 @@ function [filenamesave,Xm_boot,Xm_boot2,fns, X, Xs,conc_interval,filename, fille
     conc_interval = interval:interval:(1-interval);
     
     X = HE_data_sparse;
-    Xsign = sign(X);
-    Xscale = Xsign.*log(Xsign.*X);
     dim = size(X);
     dim1 = dim(1);
     indend = dim1;

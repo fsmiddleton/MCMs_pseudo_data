@@ -1,60 +1,184 @@
-%% 2-way arrays completed in parallel using the functions in this library
-% Francesca Middleton, 2024-09-4
+%% PCA done using SVD 
+% Francesca Middleton 2022-04-25 
+
+%% Make data 
+
+% Parameters for the 3-way array 
+dim1 = 4;  % Size of the first dimension
+dim2 = 5;  % Size of the second dimension
+dim3 = 6;  % Size of the third dimension
+dim = [dim1,dim2,dim3];
+missing_percentage = 0.2;  % Percentage of missing entries
+
+% Generate a random 3-way array
+X = rand(dim1, dim2, dim3);
+
+% Determine the number of missing entries
+num_elements = numel(X(:,:,1));
+num_missing = round(missing_percentage * num_elements);
+
+% Randomly select indices to set as missing (NaN)
+for i =1:dim3
+    missing_indices(:,i) = randperm(num_elements, num_missing);
+    Xtemp = X(:,:,i);
+    Xtemp(missing_indices(:,i))=NaN;
+    X_missing(:,:,i) = Xtemp;
+end
+% Set the selected indices to NaN
 
 
-% Parameters
-r = [3:10]; % ranks
-T = 298.15; % Temperature (K)
-fillmethod = 'uni'; % Filling metod used
-maxiter = 50000; % Maximum iterations used
-thresholdperc = 0.5; % Vlaue of the coherence constraint 
-filename = strcat('HEData3wayPolyAll',num2str(T), '.mat'); % Filenmae constructuted for input 
-load(filename)
+% Display the result
+disp('Random 3-way array with missing entries:');
+disp(X_missing);
 
-%% Perform parallel matrix completion on the array
-[filenamesave,Xm_boot,Xm_boot2,r, X, X,conc_interval,filename, filled_ind] = completion_2way_par(r,fillmethod,maxiter,filename,thresholdperc);
-save(filenamesave)
+ 
+%% Matrix completion step 
+% Set some variables 
+fns = [3:5]; % ranks to test: must be < dim2
+n = 10; % number of iterations 
+scale = 1; % choose whether to scale
+center = 1; % choose whether to center 
 
-%% Perform some analysis on the results  
-% Load the original data 
-load(filename)
-% Find filled indices in the original array 
-Xtemp(X==0)=nan;
-tempX = Xtemp(:,:,1);
-indend = 00; %this is valid for when compounds were added
-tempX(1:indend,1:indend) = nan;
-tempX = tril(tempX,-1)+triu(nan(size(tempX)));
-[row,col] = find(~isnan(tempX));
-filled_ind = find(~isnan(tempX));
+% Intialise the metrics to analyse each sparsity and its final rank found 
+% vectors, one for each matrix that is sliced 
+minmse = zeros(size(dim3,2),1); 
+minwmse = zeros(size(dim3,2),1);
+min_fn = zeros(size(dim3,2),1);
+X_pred_best = zeros(dim1,dim2,size(dim3,2)); % and the X predictions
+R2 = zeros(size(dim3,2),1);
+% initialise error vars 
+% column for each matrix (fn vs sparsity)
+mse = zeros(size(fns,2),size(dim3,2));
+smse = zeros(size(fns,2),size(dim3,2));
+wmse = zeros(size(fns,2),size(dim3,2));
+R = zeros(size(fns,2),size(dim3,2));
+tiledlayout(dim3,1)
+i=0; % counter 
 
-% Load the results 
-load(filenamesave)
-% initiate the array holding predictions 
-Preds = [X(1,1:length(filled_ind))];%; Xm_boot2(1,1,:)];
-errors = zeros(length(r),size(X,3),length(filled_ind),2);
-wsmse = zeros(length(r),size(X,3));
-fnind = 0;
-% Consider all ranks 
-for fn = 1:length(r)
-    fnind = fnind+1;
-    for c = 1:size(X,3)
-        % Predictions 
-        Preds(1,:) = Xm_boot(c,fn,1:length(filled_ind));
-        Preds(2,:) = Xm_boot2(c,fn,1:length(filled_ind));
-    
-        % Truth: lower half 
-        Truthtemp = X(:,:,c);
-        Truth(fnind,c,:,1) = Truthtemp(filled_ind);
-        % top half 
-        tempX = (triu(X(:,:,c),1)+tril(nan(size(X(:,:,c)))))';
-        filled_ind = find(~isnan(tempX));
-        Truth(fnind,c,:,2) = (tempX(filled_ind));
+for dimension3 = 1:dim3 
+    i = i+1;
+    X_truth = X(:,:,i);
+    X_temp = X_missing(:,:,i);
+    missing_ind = missing_indices(:,i);
+    Xs=X_truth(missing_ind);
+    % complete matrix
+    % Iterative PCA with wMSE or MSE used to find rank 
+
+    %choose which error measure to use for choosing the best PC
+    winsorized_mse =1; %1=use wmse 
+
+    %Find rank by minimising the mse or wmse 
+    j=0;
+    for fn=fns
+        j=j+1;
+        [U,D,V,X_pred]=missing_svd(X_temp,fn,1e-3,n,scale,center);
+        X_pred_all(:,:,i,j)= X_pred;
         
-        errors(fnind,c,:,:) =reshape(reshape(Truth(fnind,c,:,:),size(Preds))-Preds, size(errors(1,1,:,:)));
-        wsmse(fnind,c) = find_wmse_error(errors(fnind,c,:,:));
+        SRSS =sum(sum((X_pred(missing_ind)-Xs).^2))/length(missing_ind);
+        % disp('next dim and rank')
+        % disp(i)
+        % disp(j)
+        % disp(SRSS)
+        mse(i,j) = sum(sum((X_pred(missing_ind)-Xs).^2))/length(missing_ind);
+        wmse(i,j)= find_wmse(Xs, X_pred(missing_ind), length(missing_ind));
+        smse(i,j) = sqrt(mse(i));
+    end
+    minmse(i) = min(mse(i,:));
+    minwmse(i)=min(wmse(i,:));
+
+    min_index = find(wmse(i,:)==minwmse(i));
+    if length(min_index)>1
+       min_index=1;
+    end 
+    min_fn(i) = fns(min_index);
+    [U,D,V,X_pred_best(:,:,i)]=missing_svd(X_temp,min_fn(i),1e-3,n,scale,center);
+    y = diag(D);
+    nexttile
+    semilogy(fns, diag(D))
+    xlabel('Rank')
+    ylabel('Singular values')
+    xticks(fns)
+end 
+
+%% Functions 
+
+function [X_filled]=fill_data(X)
+    [m,n]=size(X);
+    missing_ind = (isnan(X));
+    [i, j]=find(isnan(X));% returns rows and columns with nonzero elements
+    X_filled=X;
+    X_filled(missing_ind)=0; %fill NaN values with 0
+    mean_col = sum(X_filled,1)./(sum(missing_ind,1)); %columns are dimension 1
+    mean_row= sum(X_filled,2)./(sum(missing_ind,2)); % rows are dimension 2 
+    for k =1:length(i) % for all NaN elements that exist, loop through them to replace with means 
+        X_filled(i(k),j(k))=(mean_row(i(k))+mean_col(j(k)))/2;
     end 
 end 
 
-%% Plot these 
+function [S,V,D,X_pred]=missing_svd(X,fn,conv,max_iter, scale, center)
+    [m,n]=size(X);
+    miss_ind = find(isnan(X));
+    if length(miss_ind)>0 % there is missing data 
+        Xf = fill_data(X); 
+        mx = mean(Xf);
+        SS = sum(sum(Xf(miss_ind).^2));
+        
+        f=2*conv;
+        iter = 1;
+        while iter<max_iter && f>conv
+            SSold = SS;
+            if center ==1
+                mx = mean(Xf);
+                Xc = Xf-ones(m,1)*mx; %centering of the data done -> for PCA 
+            else 
+                Xc=Xf;
+            end 
+            [S,V,D]=svd(Xc);
+            S=S*V;
+            V=V(:,1:fn);
+            S=S(:,1:fn);
+            D=D(:,1:fn);
+            if center ==1
+                X_pred = S*D'+ones(m,1)*mx;
+            else 
+                X_pred = S*D';
+            end 
+            Xf(miss_ind)=X_pred(miss_ind);
+            SS = sum(sum(Xf(miss_ind).^2));
+            f = abs(SS-SSold)/(SSold);
+            iter = iter+1;
+        end 
+    else 
+        Xf=X;
+        if center ==1
+            mx = mean(Xf);
+            %Xc = normalize(Xf); %normalizing 
+            Xc = Xf-ones(m,1)*mx; %centering
+        else 
+            Xc=X;
+        end 
+        [S,V,D]=svd(Xc);
+        S=S*V;
+        S=S(:,1:fn);
+        D=D(:,1:fn);
+        if center ==1
+            X_pred = S*D'+ones(m,1)*mx;
+        else 
+            X_pred = S*D';
+        end 
+    end %end if  else 
+end % end function 
 
-% End
+function [wmse]=find_wmse(X,X_pred,no_missing)
+% find the winsorized mse for the matrices 
+    % turn 
+    % find outliers
+    perc5 = prctile(X_pred,5, 'all');
+    perc95 = prctile(X_pred, 95, 'all');
+    %reassign
+    X_pred(X_pred<perc5)=perc5;
+    X_pred(X_pred> perc95)=perc95;
+    wmse = (sum((X_pred-X).^2))/no_missing;
+end 
+
+
