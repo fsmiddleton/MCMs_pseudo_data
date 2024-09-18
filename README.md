@@ -25,24 +25,10 @@ This repo contains:
 * data: All excess enthalpy data used in the investigation. 
 * The src folder:
     * An example of singular value decomposition (SVD) of an array and how a scree plot is formed. 
-    * The functions required to perform the formation of a 3-way array from the excess enthalpy data provided. 
-    * The functions required to complete a matrix using the parallel completion method proposed in the paper and a simple SVD algorithm. This also includes the scripts for the initial filling guesses and calculation of the wSMSE, allowing the user to find the best rank for an array.
+    * The functions required to perform the formation of a 3-way array from the excess enthalpy data provided, used in ArrayFormation3way. 
+    * The functions required to complete a matrix using the parallel completion method proposed in the paper and a simple SVD algorithm, used in Example_experiment. This also includes the scripts for the initial filling guesses and calculation of the wSMSE, allowing the user to find the best rank for an array.
 
-> Folder structure options and naming conventions for software projects
 
-### A typical top-level directory layout
-
-    .
-    ├── build                   # Compiled files (alternatively `dist`)
-    ├── docs                    # Documentation files (alternatively `doc`)
-    ├── src                     # Source files (alternatively `lib` or `app`)
-    ├── test                    # Automated tests (alternatively `spec` or `tests`)
-    ├── tools                   # Tools and utilities
-    ├── LICENSE
-    └── README.md
-
-> Use short lowercase names at least for the top-level files and folders except
-> `LICENSE`, `README.md`
 ### Folder structure 
 
     . 
