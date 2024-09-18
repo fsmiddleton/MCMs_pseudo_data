@@ -28,25 +28,41 @@ This repo contains:
     * The functions required to perform the formation of a 3-way array from the excess enthalpy data provided. 
     * The functions required to complete a matrix using the parallel completion method proposed in the paper and a simple SVD algorithm. This also includes the scripts for the initial filling guesses and calculation of the wSMSE, allowing the user to find the best rank for an array.
 
-## Folder structure 
-. \\
-├── .github/                        # Github related files \\
-├── data/                           # Original data as an excel sheet. Can be used with ArrayFormation3way to create data \\
-├── src/                            # Source code files \\
-│   ├── ArrayFormation3way.m        # Script for transforming the data into a usable sparse matrix \\
-│   ├── completion_2way_par.m       # Function for running the completion algorithm as one set of conditions for an experiment \\
-│   ├── Example_experiment.m        # An example of an experiment, using completion_2way_par, which can be tailored to any of the data \\
-│   ├── fill_data3.m                # Function filling an array with predictions of the entries \\
-│   ├── find_wmse_error.m           # Function to calculate the winsorized MSE error of predictions \\
-│   ├── interp_data.m               # Function for interpolating data; aids in processing raw data \\
-│   ├── missing_svd_par.m           # The matrix completion algorithm with thresholding \\
-│   └── SVD_example.m/              # Example of SVD used to complete a sparse matrix and draw scree plots \\
-├── unifac/                         # Files relating to UNIFAC (Do) predictions using  the [Clapeyron library](https://github.com/ClapeyronThermo/Clapeyron.jl) \\
-│   ├── UNIFACClapeyron2MATLAB.m    # Script for importing UNIFAC predictions into Matlab \\
-│   ├── UNIFACParams.xlsx           # A file containing the mixtures found in the experimental data and used to predict excess enthalpy for using the Julia script \\
-│   └── UNIFACPredsJulia.jl         # Script creating UNIFAC (Do) predictions \\
-├── citation.cff                    # How to cite this repo \\
-└── README.md                       # This document :) \\
+> Folder structure options and naming conventions for software projects
+
+### A typical top-level directory layout
+
+    .
+    ├── build                   # Compiled files (alternatively `dist`)
+    ├── docs                    # Documentation files (alternatively `doc`)
+    ├── src                     # Source files (alternatively `lib` or `app`)
+    ├── test                    # Automated tests (alternatively `spec` or `tests`)
+    ├── tools                   # Tools and utilities
+    ├── LICENSE
+    └── README.md
+
+> Use short lowercase names at least for the top-level files and folders except
+> `LICENSE`, `README.md`
+### Folder structure 
+
+    . 
+    ├── .github/                        # Github related files
+    ├── data/                           # Original data as an excel sheet. Used with ArrayFormation3way 
+    ├── src/                            # Source code files
+    │   ├── ArrayFormation3way.m        # Script for transforming the data into a usable sparse matrix
+    │   ├── completion_2way_par.m       # Function for running one set of conditions for an experiment
+    │   ├── Example_experiment.m        # An example of an experiment, using completion_2way_par
+    │   ├── fill_data3.m                # Function filling an array with predictions of the entries
+    │   ├── find_wmse_error.m           # Function to calculate the winsorized MSE error of predictions 
+    │   ├── interp_data.m               # Function for interpolating data; aids in processing raw data 
+    │   ├── missing_svd_par.m           # The matrix completion algorithm with thresholding
+    │   └── SVD_example.m/              # Example of SVD used to complete a sparse matrix and draw scree plots
+    ├── unifac/                         # Files relating to UNIFAC (Do) predictions using  the [Clapeyron library](https://github.com/ClapeyronThermo/Clapeyron.jl)
+    │   ├── UNIFACClapeyron2MATLAB.m    # Script for importing UNIFAC predictions into Matlab 
+    │   ├── UNIFACParams.xlsx           # A file of the mixtures found in the experimental data and used in the Julia script
+    │   └── UNIFACPredsJulia.jl         # Script creating UNIFAC (Do) predictions
+    ├── citation.cff                    # How to cite this repo
+    └── README.md                       # This document :) 
 
 * data/: Contains raw and processed data used in the project. 
 * raw/: Original data, not modified. 
@@ -59,4 +75,4 @@ This repo contains:
 * requirements.txt: Lists the Python dependencies required for the project.
 
 
-Please contact Francesca Middleton (@fsmiddleton) for any queries.
+Please contact Francesca Middleton (@franmiddleton) for any queries.
