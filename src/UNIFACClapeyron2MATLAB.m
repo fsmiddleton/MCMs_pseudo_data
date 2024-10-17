@@ -6,10 +6,11 @@
 clc
 clear
 %%
-Temps =[313.15]%; 298.15; 303.15;308.15; 313.15; 318.15; 323.15];
+% choose which temperature you wish to transfer to matlab
+Temps =[293.15; 298.15; 303.15;308.15; 313.15; 318.15; 323.15];
 func_group_no= {'Alkane', 'Primaryalcohol', 'Secondaryalcohol','Isoalkanol', 'Tertiaryalcohol','Benzene', 'Toluene', 'Ketone', 'Ketone3','Alkene','Cycloalkane', 'Ester1', 'Ester2','Ester3','Ester4','Ester5','Estercyc', 'Amine', 'Aniline', 'Benzylamine', 'Acid', 'Aldehyde'};
 %import compound data 
-compounds = readtable("UNIFACParams.xlsx", 'Sheet', "compounds");
+compounds = readtable("data/UNIFACParams.xlsx", 'Sheet', "compounds");
 functionalgroup = table2cell(compounds(:,1));
 chainlength = table2array(compounds(:,2));
 compounds = table2array(compounds(:,3));

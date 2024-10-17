@@ -5,7 +5,7 @@
 % Import the data of composition, component, temperature, and excess enthalpy
 clc
 clear
-data = readtable('HEData2024.csv'); % change sheet to include certain functional groups as the main site of data collection
+data = readtable('HEData.csv'); % change sheet to include certain functional groups as the main site of data collection
 
 comp = table2array(data(:,6));
 temp = table2array(data(:,5));

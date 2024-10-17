@@ -1,18 +1,19 @@
 # use the below commands to install the necessary packages 
 import Pkg; Pkg.add("TensorCast")
 using Pkg; Pkg.add("XLSX")
+import Pkg; Pkg.add("Clapeyron")
 # Import packages 
 using Clapeyron
 using TensorCast
 import XLSX
 
 #Import compound names to be used 
-xf = XLSX.readxlsx("UNIFACParams.xlsx")
+xf = XLSX.readxlsx("unifac/UNIFACParams.xlsx")
 compoundnames = xf["compounds"]["C1:C108"] 
 
 
 #Create predictions and export them for all temperature and compound combinations 
-lengthX = 101
+lengthX = 19
 x = range(0,1,length=lengthX)
 X = Clapeyron.FractionVector.(x)
 Temps = [293.15; 298.15; 303.15; 308.15; 313.15; 318.15; 323.15]
@@ -20,15 +21,27 @@ for T in Temps
     println(T)
     mixture = ["compound1" "compound2"]
     HE = []
-    for comp in compoundnames 
+    for comp1 in compoundnames 
         for comp2 in compoundnames
-            println(comp ,comp2)
-            #find whether it is a true mixture and has not been predicted yet 
-            if (cmp(comp,comp2)!=0) #&& !isa(findfirst(==(vec([comp2 comp])),eachrow(mixture)),Number)
-                model = UNIFAC([comp, comp2]) #create model
-                mixture = [mixture; comp comp2] #save mixture
-                append!(HE, [mixing.(model,1.013e6,T,X,enthalpy)]) #save prediction of excess enthalpy
-            end
+            #find whether it is a true mixture 
+            if (cmp(comp1,comp2)!=0) 
+                try
+                    model = UNIFAC([comp1, comp2]) #create model
+                    mixture = [mixture; comp1 comp2] #save mixture
+                    append!(HE, [mixing.(model,1.013e6,T,X,enthalpy)]) #save prediction of excess enthalpy
+                    println("Mixture predicted using UNIFAC: ",comp1, "+", comp2)
+                catch 
+                    println("Mixture did not exist in parameters for UNIFAC: ",comp1, "+", comp2)
+                    try 
+                        model = PR([comp1, comp2]) #create model
+                        mixture = [mixture; comp1 comp2] #save mixture
+                        append!(HE, [mixing.(model,1.013e6,T,X,enthalpy)])
+                        println("Mixture predicted using PR: ",comp1, "+", comp2)
+                    catch 
+                        println("Mixture not in UNIFAC or PR parameters: ",comp1, "+", comp2)
+                    end 
+                end
+            end 
         end 
     end 
     #export data 
@@ -57,7 +70,7 @@ for T in Temps
     #labels for excel sheet 
     labels = Any[1 2 x']
     #write data to file 
-    XLSX.openxlsx(string("UNIFACPreds",string(T),".xlsx"), mode="w") do xf
+    XLSX.openxlsx(string("data/UNIFACPreds",string(T),".xlsx"), mode="w") do xf
         sheet = xf[1]
         XLSX.rename!(sheet, string(T))
         XLSX.writetable!(sheet,columns,labels)
