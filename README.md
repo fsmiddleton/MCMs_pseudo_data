@@ -18,7 +18,7 @@ This repo contains:
 * unifac:
     * The Julia code which utilises the compounds expressed in the Excel spreadsheet to create UNIFAC (Do) predictions using the [Clapeyron library](https://github.com/ClapeyronThermo/Clapeyron.jl). 
     * This output is then loaded into Matlab. 
-* data: All excess enthalpy data used in the research. The data is not present here due to permissions. Please contact Jamie Cripwell at cripwell@sun.ac.za for access to the data. 
+* data: All excess enthalpy data used in the research. The data is not present here due to permissions but an example is given in HEData.csv. Please contact Jamie Cripwell at cripwell@sun.ac.za for access to the data. 
 * The src folder:
     * SVD_example: An example of singular value decomposition (SVD) of an array and how a scree plot is formed. 
     * ArrayFormation3way: The functions required to perform the formation of a 3-way array from the excess enthalpy data provided, used in ArrayFormation3way. 
