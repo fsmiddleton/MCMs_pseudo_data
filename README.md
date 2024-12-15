@@ -5,15 +5,14 @@ This work is in the process of being published for an article of the same name.
 
 ## Table of Contents
 1. [Installation and usage](#installation-and-usage)
-3. [Folder Structure](#folder-structure)
-4. [Contributing](#contributing)
-5. [Contact](#contact)
+2. [Folder Structure](#folder-structure)
+3. [Contact](#contact)
 
 ## Installation and Usage
 
 This repo can be cloned and used locally in a Julia editor for the UNIFAC predictions, and a 
 Matlab editor for the Matlab code for array formations and experiments. [Julia](https://julialang.org/downloads/) can be installed locally, and [Maltab](https://matlab.mathworks.com/) can be accessed via a free online trial for 20 hours a month.
-\\
+\
 This repo contains: 
 * unifac:
     * The Julia code utilises the compounds expressed in the Excel spreadsheet to create UNIFAC (Do) predictions using the [Clapeyron library](https://github.com/ClapeyronThermo/Clapeyron.jl). 
@@ -53,5 +52,5 @@ This repo should be used by:
     └── README.md                       # This document :) 
 
 
-
+### Contact 
 Please contact Francesca Middleton, @franmiddleton, or Jamie Cripwell, @jamiecripwell, for any queries.
