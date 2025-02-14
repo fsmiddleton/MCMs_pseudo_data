@@ -14,7 +14,6 @@ compounds = readtable("data/UNIFACParams.xlsx", 'Sheet', "compounds");
 functionalgroup = table2cell(compounds(:,1));
 chainlength = table2array(compounds(:,2));
 compounds = table2array(compounds(:,3));
-%compounds{84} = 'tertbutylalcohol';
 conc_interval = 0:0.01:1;
 
 for T = Temps' % for each excel file 

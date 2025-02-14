@@ -5,11 +5,11 @@
 
 % Parameters
 r = [3:10]; % ranks
-T = 323.15; % Temperature (K)
-fillmethod = 'avg'; % Filling metod used
+T = 298.15; % Temperature (K)
+fillmethod = 'avg'; % Filling metod used. Options are avg, uni, tri and mix
 maxiter = 50000; % Maximum iterations used
 thresholdperc = 0.5; % Vlaue of the coherence constraint
-filename = strcat('HEData3wayPolyAll',num2str(T), '.mat'); % Filenmae constructuted for input
+filename = strcat('HEData3wayPolyAll',num2str(T), '.mat'); % Filename constructed for input
 load(filename)
 
 %% Perform parallel matrix completion on the array
