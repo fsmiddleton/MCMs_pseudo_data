@@ -28,8 +28,6 @@ disp(X);
 
  
 %% Matrix completion step 
- 
-
 %intialise the metrics to analyse each sparsity and its final rank found 
 % vectors, one for each matrix that is sliced 
 minmse = zeros(size(intervals,2),1); 
@@ -53,9 +51,8 @@ if size(dim,2)>2
             Xs = X(:,:,j);
             % complete matrix
             % Iterative PCA with wMSE or MSE used to find rank 
-        
             %choose which error measure to use for choosing the best PC
-            winsorized_mse =1; %1=use wmse 
+            winsorized_mse =1; % 1=use wmse 
 
             %Find rank by minimising the mse or wmse 
             i=0;
@@ -117,8 +114,6 @@ if size(dim,2)>2
         end 
          
     %Unfold to 2-way arrays
-    % redo everything after this 
-    % functionise everything 
     %else % must be 4way data 
         % decide how to slice 
         % T slices or x slices 

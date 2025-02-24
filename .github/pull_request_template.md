@@ -34,6 +34,4 @@ ___
 #### This section is for reviewers to fill out.
 
 - [ ] PR is fully functional
-- [ ] External dependency files were updated if necessary (`yarn` and `pip`)
 - [ ] Documentation is updated
-- [ ] Contributor is in AUTHORS.md

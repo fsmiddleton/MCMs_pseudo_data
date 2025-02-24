@@ -13,22 +13,21 @@ This work is in the process of being published for an article of the same name.
 This repo can be cloned and used locally in a Julia editor for the UNIFAC predictions, and a 
 Matlab editor for the Matlab code for array formations and experiments. [Julia](https://julialang.org/downloads/) can be installed locally, and [Maltab](https://matlab.mathworks.com/) can be accessed via a free online trial for 20 hours a month.
 \
+This repo should be used by:
+* Creating UNIFAC predictions using `UNIFACPredsJulia.jl`. Run the script in your IDE as it uses `UNIFACParams.xlsx` to run. Add the compounds you wish to evaluate to the sheet in the Excel sheet if you want to add any. This will output to `data/`.
+* Transfer these predictions to a Matlab array using `UNIFACClapeyron2Matlab.m` in your Matlab editor. Ensure the temperatures you use and the functional groups are the same e are consistent with the contents of `UNIFACParams.xlsx`.
+* Create an array from experimental data stored in HEData.csv using `ArrayFormation3way.m`. 
+* Complete an example experiment using `Example_experiment.m` and the data you created. Ensure the filename you outputted in `ArrayFormation3way.m` is the same filename as the filename you import in this script. Adjust the parameters as desired: r, T, fillmethod, maxiter, and thresholdperc.   
+\
 This repo contains: 
 * unifac:
-    * The Julia code utilises the compounds expressed in the Excel spreadsheet to create UNIFAC (Do) predictions using the [Clapeyron library](https://github.com/ClapeyronThermo/Clapeyron.jl). 
-    * This output is then loaded into Matlab. 
-* data: All excess enthalpy data used in the research. The data is not present here due to permissions but an example is given in HEData.csv. Please contact Jamie Cripwell at cripwell@sun.ac.za for access to the data. 
+    * `UNIFACPredsJulia.jl` utilises the compounds expressed in the Excel spreadsheet to create UNIFAC (Do) predictions using the [Clapeyron library](https://github.com/ClapeyronThermo/Clapeyron.jl). 
+    * This output is then loaded into Matlab using `UNIFACClapeyron2MATLAB.m`. 
+* data: Some mock excess enthalpy data. The data used in the research is not present here due to permissions but an example is given in `HEData.csv`. Please contact Jamie Cripwell at cripwell@sun.ac.za for access to the data. 
 * The src folder:
-    * SVD_example: An example of singular value decomposition (SVD) of an array and how a scree plot is formed. 
-    * ArrayFormation3way: The functions required to form a 3-way array from the excess enthalpy data provided, are used in ArrayFormation3way. 
-    * Example_experiment: An example of an experiment conducted in the research.
-    * The functions required to complete a matrix using the parallel completion method proposed in the paper and a simple SVD algorithm. This also includes the scripts for the initial filling guesses and calculation of the wSMSE, allowing the user to find the best rank for an array.
-
-This repo should be used by:
-* Creating UNIFAC predictions using UNIFACPredsJulia. Run the script in your IDE as it uses UNIFACParams.xlsx to run. Add the compounds you wish to evaluate to the sheet in the Excel sheet if you want to add any. This will output to `data/`.
-* Transfer these predictions to a Matlab array using UNIFACClapeyron2Matlab in your Matlab editor.
-* Create an array from experimental data stored in HEData.csv using ArrayFormation3way.
-* Complete an example experiment using Example_experiment and the data you created. 
+    * `SVD_example.m`: An example of singular value decomposition (SVD) of an array and how a scree plot is formed. 
+    * `ArrayFormation3way.m`: A 3-way array is formed from data using this script. This calls `interp_data.m`.
+    * `Example_experiment.m`: An example of an experiment conducted in the research. `completion_2way_par.m` is called here to perform array completion, which in turn calls `missing_svd_par.m`. `find_wmse_error.m` is used to find error metrics. 
 
 ### Folder structure 
 
