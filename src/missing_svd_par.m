@@ -1,4 +1,4 @@
-function [S,V,D,St,X_predall, AllSVs]=missing_svd_par(X,fn,center,scale,conv,max_iter, use_missing,fillmethod,mixtures,whichX,conc,T,thresholdperc)
+function [S,V,D,St,X_predall, AllSVs]=missing_svd_par(X,fn,center,scale,conv,max_iter, use_missing,fillmethod,mixtures,conc,T,thresholdperc)
     % Fill a matrix of missing data using PCA with SVD and a given number of
     % PCs. Can also handle non-missing data. Missing data is handled as NaN
     % values 
@@ -31,7 +31,7 @@ function [S,V,D,St,X_predall, AllSVs]=missing_svd_par(X,fn,center,scale,conv,max
     SS = zeros(length(conc),1); 
     
     if any(isnan(X(:,:,1))) % there is missing data 
-        Xfilledall = filldata3(X,fillmethod,mixtures,conc, whichX, T);
+        Xfilledall = filldata3(X,fillmethod,mixtures,conc,  T);
         for c = 1:length(conc)
             
             Xtemp = Xfilledall(:,:,c);

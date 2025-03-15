@@ -251,14 +251,12 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concinterval, T)
     
     else %method ='uni'
     
-        for count = 1:length(T)
-    
-    
+        for count = 1:length(T)   
             missing_indices = missing_ind{count};
             rows = row{count};
             cols = col{count};
             % linearise X to a column vector - entries match mixtures
-            X1 = reshape(X(:,:,1,count),[dim(1),[]]); % column vector used for checks and indices
+            X1 = reshape(X(:,:,1,count),[],1); % column vector used for checks and indices
             Xtemp = (X(:,:,:,count)); % reshaped to column vectors with each column containing a concentration interval
     
             mixturesarray = mixtures; % each row contains the mixture of that X (if X were a 2-way array)
@@ -277,7 +275,7 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concinterval, T)
             [~,concindices2] = ismember(concindices2,conc_unifac);
     
             %components = possible components in this array, ordered
-    
+            
             for ind = 1:length(missing_indices)
                 if isnan(X1(ind,1))
                     % fill with UNIFAC prediction
@@ -289,20 +287,24 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concinterval, T)
                         %mixture could be swapped around ie the concentration
                         %is 1-conc as well and is not in the UNIFAC data set
                         [~,indexpred] = ismember([mix2(index,:) mix1(index,:)],mixture,'rows');
-                        if indexpred == 0
-                            Xtemp(rows(ind), cols(ind),:) = 0;
-                            Xtemp(cols(ind), rows(ind),:) = 0;
-                        else
-                            if indexpred> size(he,2)
-                                [~,indexpred] = ismember([mix2(index,:) mix1(index,:)],mixture,'rows');
-                            end
+                        if indexpred ~= 0
+                            
                             temp = he(concindices2, indexpred);
-    
                             Xtemp(rows(ind), cols(ind),:)=temp;
                             temp = flip(temp);
                             Xtemp(cols(ind), rows(ind),:)=temp;
-    
-                        end
+                            
+                        else
+                            [~,indexpred] = ismember([mix1(index,:) mix2(index,:)],mixture,'rows');
+                            if indexpred == 0
+                                Xtemp(rows(ind), cols(ind),:) = 0;
+                                Xtemp(cols(ind), rows(ind),:) = 0;
+                            else 
+                                temp = he(concindices2, indexpred);
+                                Xtemp(rows(ind), cols(ind),:)=temp;
+                                Xtemp(cols(ind), rows(ind),:)=flip(temp);
+                            end 
+                      end
                     else
                         %indexpred = find(ismember(mixturestemp(ind),mixture, 'rows'));%find mixture that is missing in the unifac prediction mixtures
                         if indexpred> size(he,2)
@@ -317,45 +319,46 @@ function [X_filled, missing] = filldata3(X, method,mixtures,concinterval, T)
                 end
             end
         end
-    
+        [Xtemp, missing] = filldata3(Xtemp, 'avg',mixtures,concinterval, T);
+        X_filled = Xtemp;
     end % end all fill methods 
-    end
+end
     
 
-    function [X_filled]=fill_data(X)
-        % Fill a matrix which has missing entries. Missing entries are each filled with the average of the observed entries in its row and column.
-        % Input
-        % X = matrix with missing data
-        % Output
-        % X = filled matrix
-        [m,n]=size(X);
-        missing_ind = (isnan(X));
-        [i, j]=find(isnan(X));% returns rows and columns with nonzero elements
-        X_filled=X;
-        X_filled(missing_ind)=0; %fill NaN values with 0
-        mean_col = sum(X_filled,1)./(ones(1,n)*m-sum(missing_ind,1));
-        mean_row = sum(X_filled,2)./(ones(1,m)*n-sum(missing_ind,2));
-        %remove nan vals
-        mean_row(isnan(mean_row)) =0;
-        mean_col(isnan(mean_col)) =0;
-        % for all NaN elements that exist, loop through them to replace with means
-        for k =1:length(i)
-            X_filled(i(k),j(k))=(mean_row(i(k))+mean_col(j(k)))/2;
-        end
-        end
-        
-        function [wmse]=find_wmse_error(errors)
-        % Find the wMSE of the errors inputted to this function
-        % Inputs
-        % errors = array of errors
-        %
-        % Output
-        % wmse = wMSE of the errors
-        
-        errors = reshape(errors,numel(errors),1);
-        perc5=prctile(errors,5,'all');
-        perc95=prctile(errors,95,'all');
-        errors(errors<perc5)=perc5;
-        errors(errors>perc95)=perc95;
-        wmse = (sum((errors).^2))/count;
-        end
+function [X_filled]=fill_data(X)
+    % Fill a matrix which has missing entries. Missing entries are each filled with the average of the observed entries in its row and column.
+    % Input
+    % X = matrix with missing data
+    % Output
+    % X = filled matrix
+    [m,n]=size(X);
+    missing_ind = (isnan(X));
+    [i, j]=find(isnan(X));% returns rows and columns with nonzero elements
+    X_filled=X;
+    X_filled(missing_ind)=0; %fill NaN values with 0
+    mean_col = sum(X_filled,1)./(ones(1,n)*m-sum(missing_ind,1));
+    mean_row = sum(X_filled,2)./(ones(1,m)*n-sum(missing_ind,2));
+    %remove nan vals
+    mean_row(isnan(mean_row)) =0;
+    mean_col(isnan(mean_col)) =0;
+    % for all NaN elements that exist, loop through them to replace with means
+    for k =1:length(i)
+        X_filled(i(k),j(k))=(mean_row(i(k))+mean_col(j(k)))/2;
+    end
+end
+    
+function [wmse]=find_wmse_error(errors)
+    % Find the wMSE of the errors inputted to this function
+    % Inputs
+    % errors = array of errors
+    %
+    % Output
+    % wmse = wMSE of the errors
+    
+    errors = reshape(errors,numel(errors),1);
+    perc5=prctile(errors,5,'all');
+    perc95=prctile(errors,95,'all');
+    errors(errors<perc5)=perc5;
+    errors(errors>perc95)=perc95;
+    wmse = (sum((errors).^2))/count;
+end

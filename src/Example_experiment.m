@@ -13,7 +13,7 @@ filename = strcat('HEData3wayPolyAll',num2str(T), '.mat'); % Filename constructe
 load(filename)
 
 %% Perform parallel matrix completion on the array
-[filenamesave,Xm_boot,Xm_boot2,r, X, X,conc_interval,filename, filled_ind,mixtures] = completion_2way_par(r,fillmethod,maxiter,filename,thresholdperc);
+[filenamesave,Xm_boot,Xm_boot2,r, X, X,conc_interval,filename, filled_ind,Xpred] = completion_2way_par(r,fillmethod,maxiter,filename,thresholdperc);
 save(filenamesave)
 
 %% Perform some analysis on the results
