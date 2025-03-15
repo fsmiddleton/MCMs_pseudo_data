@@ -8,7 +8,7 @@ r = [3:10]; % ranks
 T = 298.15; % Temperature (K)
 fillmethod = 'avg'; % Filling metod used. Options are avg, uni, tri and mix
 maxiter = 50000; % Maximum iterations used
-thresholdperc = 0.5; % Vlaue of the coherence constraint
+thresholdperc = 50; % Value of the coherence constraint as a percent  
 filename = strcat('HEData3wayPolyAll',num2str(T), '.mat'); % Filename constructed for input
 load(filename)
 
